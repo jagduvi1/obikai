@@ -2,13 +2,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
+import { formatMoney, listMemberInvoices } from '../api/billing';
 import { getMember } from '../api/members';
 import { enrollInDiscipline, listDisciplines, listRankStates } from '../api/rank';
 import { DisciplineRankSection } from '../components/DisciplineRankSection';
 
 /** Member detail: profile + per-discipline rank panel (eligibility/award/history) + enrollment. */
 export function MemberDetailPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id = '' } = useParams();
   const qc = useQueryClient();
   const [toEnroll, setToEnroll] = useState('');
@@ -26,6 +27,11 @@ export function MemberDetailPage() {
   const disciplines = useQuery({
     queryKey: ['disciplines', 'active'],
     queryFn: () => listDisciplines({ active: true }),
+  });
+  const invoices = useQuery({
+    queryKey: ['memberInvoices', id],
+    queryFn: () => listMemberInvoices(id),
+    enabled: !!id,
   });
 
   const enroll = useMutation({
@@ -89,6 +95,39 @@ export function MemberDetailPage() {
             disciplineName={nameOf(s.disciplineId)}
           />
         ))}
+      </section>
+
+      <section aria-labelledby="inv-heading">
+        <h2 id="inv-heading">{t('memberInvoices.title')}</h2>
+        {invoices.isLoading && <p>{t('memberInvoices.loading')}</p>}
+        {invoices.isError && <p className="form-error">{t('memberInvoices.error')}</p>}
+        {invoices.data && invoices.data.length === 0 && (
+          <p className="muted">{t('memberInvoices.empty')}</p>
+        )}
+        {invoices.data && invoices.data.length > 0 && (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">{t('memberInvoices.number')}</th>
+                <th scope="col">{t('memberInvoices.status')}</th>
+                <th scope="col">{t('memberInvoices.total')}</th>
+                <th scope="col">{t('memberInvoices.issued')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoices.data.map((inv) => (
+                <tr key={inv.id}>
+                  <td>{inv.number ?? '—'}</td>
+                  <td>{inv.status}</td>
+                  <td>{formatMoney(inv.total, i18n.language)}</td>
+                  <td>
+                    {inv.issuedAt ? new Date(inv.issuedAt).toLocaleDateString(i18n.language) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
     </div>
   );

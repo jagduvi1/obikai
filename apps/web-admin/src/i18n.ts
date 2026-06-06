@@ -11,8 +11,35 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
 const en = {
   app: { title: 'Obikai Admin', skipToContent: 'Skip to content', signOut: 'Sign out' },
-  nav: { members: 'Members', disciplines: 'Disciplines', dashboard: 'Dashboard' },
+  nav: {
+    members: 'Members',
+    disciplines: 'Disciplines',
+    plans: 'Plans',
+    dashboard: 'Dashboard',
+  },
   common: { yes: 'Yes', no: 'No' },
+  plans: {
+    title: 'Membership plans',
+    name: 'Name',
+    type: 'Type',
+    price: 'Price',
+    currency: 'Currency',
+    interval: 'Interval',
+    create: 'Add plan',
+    createError: 'Could not create the plan.',
+    loading: 'Loading…',
+    empty: 'No plans yet.',
+  },
+  memberInvoices: {
+    title: 'Invoices',
+    number: 'Number',
+    status: 'Status',
+    total: 'Total',
+    issued: 'Issued',
+    empty: 'No invoices.',
+    loading: 'Loading…',
+    error: 'Could not load invoices.',
+  },
   login: {
     title: 'Sign in',
     email: 'Email',

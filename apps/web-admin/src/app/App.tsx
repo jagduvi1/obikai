@@ -5,6 +5,7 @@ import { DisciplinesPage } from '../pages/DisciplinesPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MemberDetailPage } from '../pages/MemberDetailPage';
 import { MembersPage } from '../pages/MembersPage';
+import { PlansPage } from '../pages/PlansPage';
 import { Layout } from './Layout';
 
 /** Gate that waits for the silent-refresh check, then admits or bounces to /login. */
@@ -44,6 +45,14 @@ export function App() {
         element={
           <RequireAuth>
             <DisciplinesPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/plans"
+        element={
+          <RequireAuth>
+            <PlansPage />
           </RequireAuth>
         }
       />
