@@ -239,3 +239,14 @@ button:disabled {
 progress {
   vertical-align: middle;
 }
+
+/* Inline-form field (label stacked above its control) */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.field label {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
