@@ -250,3 +250,39 @@ progress {
   font-size: 0.8rem;
   color: var(--muted);
 }
+
+/* Scheduling: select/time controls, weekday toggles, and a status output line */
+.inline-form select,
+.inline-form input[type="time"] {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+.weekday-set {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+.weekday-set legend {
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: 0 0.3rem;
+}
+.weekday-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+.status {
+  display: block;
+  min-height: 1.2em;
+  margin: 0.5rem 0;
+  color: var(--accent);
+}
