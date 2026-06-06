@@ -286,3 +286,31 @@ progress {
   margin: 0.5rem 0;
   color: var(--accent);
 }
+
+/* Occurrence detail: metadata grid, destructive action, inline row actions */
+.meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem 1.5rem;
+  margin: 1rem 0;
+}
+.meta dt {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.meta dd {
+  margin: 0.15rem 0 0;
+}
+.link-button.danger {
+  border-color: var(--error);
+  color: var(--error);
+}
+.row-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+/* The base .link-button uses margin-left:auto for the header; neutralize it inside row actions. */
+.row-actions .link-button {
+  margin-left: 0;
+}

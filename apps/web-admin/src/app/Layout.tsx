@@ -21,6 +21,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/members">{t('nav.members')}</NavLink>
           <NavLink to="/disciplines">{t('nav.disciplines')}</NavLink>
           <NavLink to="/classes">{t('nav.classes')}</NavLink>
+          <NavLink to="/occurrences">{t('nav.schedule')}</NavLink>
           <NavLink to="/locations">{t('nav.locations')}</NavLink>
           <NavLink to="/plans">{t('nav.plans')}</NavLink>
         </nav>

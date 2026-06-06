@@ -1,5 +1,6 @@
 import { api } from '@obikai/api-client';
 import type {
+  Booking,
   ClassOccurrence,
   ClassSchedule,
   ClassScheduleCreateInput,
@@ -46,4 +47,41 @@ export function materializeSchedule(
     `/schedules/${encodeURIComponent(scheduleId)}/materialize`,
     range,
   );
+}
+
+// ── Occurrences ───────────────────────────────────────────────────────────────
+export function listOccurrences(
+  opts: { from?: string; to?: string; locationId?: string; scheduleId?: string } = {},
+): Promise<ClassOccurrence[]> {
+  const params = new URLSearchParams();
+  if (opts.from) params.set('from', opts.from);
+  if (opts.to) params.set('to', opts.to);
+  if (opts.locationId) params.set('locationId', opts.locationId);
+  if (opts.scheduleId) params.set('scheduleId', opts.scheduleId);
+  const qs = params.toString();
+  return api.get<ClassOccurrence[]>(`/occurrences${qs ? `?${qs}` : ''}`);
+}
+
+export function getOccurrence(id: string): Promise<ClassOccurrence> {
+  return api.get<ClassOccurrence>(`/occurrences/${encodeURIComponent(id)}`);
+}
+
+/** The roster (bookings) for one occurrence. */
+export function listOccurrenceBookings(id: string): Promise<Booking[]> {
+  return api.get<Booking[]>(`/occurrences/${encodeURIComponent(id)}/bookings`);
+}
+
+/** Cancel a single occurrence (a per-occurrence override; the recurring schedule is untouched). */
+export function cancelOccurrence(id: string): Promise<ClassOccurrence> {
+  return api.post<ClassOccurrence>(`/occurrences/${encodeURIComponent(id)}/cancel`);
+}
+
+// ── Bookings ──────────────────────────────────────────────────────────────────
+export function createBooking(input: { occurrenceId: string; memberId: string }): Promise<Booking> {
+  return api.post<Booking>('/bookings', input);
+}
+
+/** Cancel a booking; the api promotes the oldest waitlisted booking if one frees up. */
+export function cancelBooking(id: string): Promise<void> {
+  return api.del<void>(`/bookings/${encodeURIComponent(id)}`);
 }
