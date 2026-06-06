@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Obikai">
+  <rect width="512" height="512" rx="96" fill="#0f1216" />
+  <!-- A stylised belt knot (obi) — the journey mark. -->
+  <rect x="56" y="232" width="400" height="48" rx="10" fill="#4f9dff" />
+  <rect x="208" y="176" width="96" height="160" rx="14" fill="#e8ecf1" />
+  <rect x="224" y="176" width="64" height="160" rx="10" fill="#4f9dff" />
+</svg>

@@ -91,9 +91,20 @@ describe('DisciplinesService', () => {
     );
   });
 
-  it('a bare member is denied (no discipline grant)', async () => {
-    const svc = new DisciplinesService(new FakeStore());
-    await expect(svc.list(member)).rejects.toBeInstanceOf(ForbiddenError);
+  it('a member may read/list disciplines (shared reference) but not create or update', async () => {
+    const store = new FakeStore();
+    const svc = new DisciplinesService(store);
+    const d = await svc.create(owner, { name: 'BJJ', presentation: 'belt', active: true });
+    // Members can see the dojo's disciplines (reference data), like classes/announcements.
+    expect(await svc.list(member)).toHaveLength(1);
+    expect(await svc.get(member, d.id)).toBeTruthy();
+    // But never author them.
+    await expect(
+      svc.create(member, { name: 'X', presentation: 'belt', active: true }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(svc.update(member, d.id, { active: false })).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
   });
 
   it('get/update throw NotFound for a missing discipline', async () => {
