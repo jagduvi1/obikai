@@ -17,7 +17,7 @@
 
 # ── deps ──────────────────────────────────────────────────────────────────────
 # Resolve the full workspace dependency graph from the committed lockfile only.
-FROM node:22-bookworm-slim AS deps
+FROM node:26-bookworm-slim AS deps
 ENV PNPM_HOME=/pnpm
 ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
@@ -51,7 +51,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 # ── runtime ─────────────────────────────────────────────────────────────────--
 # Minimal slim image, non-root, only the pruned prod closure + a compiled
 # TS healthcheck. The same image serves api or worker; CMD differs only by APP.
-FROM node:22-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production
 # Re-declare ARG after FROM so it is visible in this stage too.
 ARG APP
