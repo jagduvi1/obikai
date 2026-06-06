@@ -28,3 +28,19 @@ export function createPlan(input: CreatePlanInput): Promise<Plan> {
 export function listMemberInvoices(memberId: string): Promise<Invoice[]> {
   return api.get<Invoice[]>(`/invoices?memberId=${encodeURIComponent(memberId)}`);
 }
+
+/**
+ * Download an invoice PDF. The access token lives in memory (not a cookie), so we fetch the bytes via
+ * the authenticated api-client and save the resulting Blob client-side rather than using a raw link.
+ */
+export async function downloadInvoicePdf(invoiceId: string, filename: string): Promise<void> {
+  const blob = await api.getBlob(`/invoices/${encodeURIComponent(invoiceId)}/pdf`);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filename}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

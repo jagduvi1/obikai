@@ -9,6 +9,7 @@ import {
   Param,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
 import type { AuthzActor } from '@obikai/authz';
 import {
@@ -17,9 +18,11 @@ import {
   NotFoundError as BillingNotFoundError,
   BillingService,
 } from '@obikai/billing';
-import { getTenantContextOrThrow } from '@obikai/db';
+import { BillingProfileRepository, MemberRepository, getTenantContextOrThrow } from '@obikai/db';
 import { type InvoiceStatus } from '@obikai/domain';
+import type { Response } from 'express';
 import { z } from 'zod';
+import { renderInvoicePdf } from './invoice-pdf.js';
 import { ForbiddenError, InvoicesService, NotFoundError } from './invoices.service.js';
 
 /**
@@ -54,6 +57,8 @@ export class InvoicesController {
   constructor(
     private readonly service: InvoicesService,
     private readonly billing: BillingService,
+    private readonly billingProfiles: BillingProfileRepository,
+    private readonly members: MemberRepository,
   ) {}
 
   @Get()
@@ -75,6 +80,31 @@ export class InvoicesController {
   async get(@Param('id') id: string) {
     try {
       return await this.service.get(currentActor(), id);
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  /**
+   * Stream a compliant invoice PDF (ADR-0013/0018). Authorization + fetch reuse `service.get`
+   * (members may download their OWN invoices via self-access); the seller block comes from the
+   * tenant billing profile and the buyer name from the linked member. Uses @Res to stream raw bytes.
+   */
+  @Get(':id/pdf')
+  async pdf(@Param('id') id: string, @Res() res: Response) {
+    try {
+      const actor = currentActor();
+      const invoice = await this.service.get(actor, id);
+      const [seller, member] = await Promise.all([
+        this.billingProfiles.get(),
+        this.members.findById(invoice.memberId),
+      ]);
+      const buyerName = member ? `${member.firstName} ${member.lastName}` : null;
+      const bytes = await renderInvoicePdf({ invoice, seller, buyerName });
+      const filename = `${invoice.number ?? invoice.id}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.end(Buffer.from(bytes));
     } catch (error) {
       translate(error);
     }

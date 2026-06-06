@@ -158,6 +158,8 @@ const en = {
     status: 'Status',
     total: 'Total',
     issued: 'Issued',
+    actions: 'Actions',
+    pdf: 'PDF',
     empty: 'No invoices.',
     loading: 'Loading…',
     error: 'Could not load invoices.',

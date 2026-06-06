@@ -77,9 +77,9 @@ export async function refresh(): Promise<boolean> {
   return true;
 }
 
-async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+/** Run a request with the one-shot 401 refresh-and-retry, returning the raw `Response` (ok-checked). */
+async function fetchWithRetry(path: string, opts: RequestOptions): Promise<Response> {
   let res = await rawRequest(path, opts);
-
   // One transparent refresh-and-retry on 401 (skip the auth endpoints themselves).
   if (res.status === 401 && !opts._retried && !path.startsWith('/auth/')) {
     if (await refresh()) {
@@ -88,7 +88,11 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
       onAuthLost?.();
     }
   }
+  return res;
+}
 
+async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const res = await fetchWithRetry(path, opts);
   const body = await parseBody(res);
   if (!res.ok) {
     if (res.status === 401) onAuthLost?.();
@@ -101,8 +105,28 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return body as T;
 }
 
+/**
+ * Authenticated binary GET (e.g. invoice PDFs): same in-memory token + 401 refresh-retry as JSON
+ * requests, but returns the response body as a Blob. A plain `<a href>` can't be used because the
+ * access token lives in memory, not a cookie.
+ */
+async function requestBlob(path: string): Promise<Blob> {
+  const res = await fetchWithRetry(path, {});
+  if (!res.ok) {
+    if (res.status === 401) onAuthLost?.();
+    const body = await parseBody(res);
+    const message =
+      body && typeof body === 'object' && 'message' in body
+        ? String((body as { message: unknown }).message)
+        : `request failed (${res.status})`;
+    throw new ApiError(res.status, message, body);
+  }
+  return res.blob();
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
+  getBlob: (path: string) => requestBlob(path),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
