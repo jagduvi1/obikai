@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import { BillingService } from '@obikai/billing';
 import {
+  BillingProfileRepository,
   EnrollmentRepository,
   InvoiceCounterRepository,
   InvoiceRepository,
+  MemberRepository,
   PaymentAttemptRepository,
   PlanRepository,
   VatRateRepository,
@@ -24,6 +26,8 @@ import { InvoicesService } from './invoices.service.js';
       provide: InvoicesService,
       useFactory: () => new InvoicesService(new InvoiceRepository()),
     },
+    { provide: BillingProfileRepository, useFactory: () => new BillingProfileRepository() },
+    { provide: MemberRepository, useFactory: () => new MemberRepository() },
     {
       provide: BillingService,
       useFactory: () =>

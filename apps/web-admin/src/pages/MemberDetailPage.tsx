@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { formatMoney, listMemberInvoices } from '../api/billing';
+import { downloadInvoicePdf, formatMoney, listMemberInvoices } from '../api/billing';
 import { getMember } from '../api/members';
 import { enrollInDiscipline, listDisciplines, listRankStates } from '../api/rank';
 import { DisciplineRankSection } from '../components/DisciplineRankSection';
@@ -112,6 +112,7 @@ export function MemberDetailPage() {
                 <th scope="col">{t('memberInvoices.status')}</th>
                 <th scope="col">{t('memberInvoices.total')}</th>
                 <th scope="col">{t('memberInvoices.issued')}</th>
+                <th scope="col">{t('memberInvoices.actions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -122,6 +123,15 @@ export function MemberDetailPage() {
                   <td>{formatMoney(inv.total, i18n.language)}</td>
                   <td>
                     {inv.issuedAt ? new Date(inv.issuedAt).toLocaleDateString(i18n.language) : '—'}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="link-button"
+                      onClick={() => void downloadInvoicePdf(inv.id, inv.number ?? inv.id)}
+                    >
+                      {t('memberInvoices.pdf')}
+                    </button>
                   </td>
                 </tr>
               ))}

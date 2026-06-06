@@ -36,6 +36,9 @@ const ALLOWLIST = new Set([
   'BSD-3-Clause',
   'Apache-2.0',
   '0BSD',
+  // Zlib: permissive, FSF-certified GPL/AGPL-compatible. Arrives via `pako` (SPDX
+  // "MIT AND Zlib") under `pdf-lib` (invoice PDF rendering, ADR-0013/0018).
+  'Zlib',
   'CC0-1.0',
   'Unlicense',
   'BlueOak-1.0.0',
