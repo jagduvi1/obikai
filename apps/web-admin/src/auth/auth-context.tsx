@@ -1,3 +1,4 @@
+import { login as apiLogin, logout as apiLogout, refresh, setOnAuthLost } from '@obikai/api-client';
 import {
   type ReactNode,
   createContext,
@@ -7,7 +8,6 @@ import {
   useMemo,
   useState,
 } from 'react';
-import { login as apiLogin, logout as apiLogout, refresh, setOnAuthLost } from '../api/client';
 
 /**
  * Auth state for the admin (ADR-0016). The access token lives in the api client's memory; this

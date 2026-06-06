@@ -1,3 +1,4 @@
+import { api } from '@obikai/api-client';
 import type {
   Discipline,
   DisciplineCreateInput,
@@ -5,7 +6,6 @@ import type {
   MemberRankState,
   Promotion,
 } from '@obikai/domain';
-import { api } from './client';
 
 /** Disciplines (arts the dojo teaches). */
 export function listDisciplines(opts: { active?: boolean } = {}): Promise<Discipline[]> {

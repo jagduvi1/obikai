@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@obikai/api-client": "workspace:*",
     "@obikai/domain": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
     "i18next": "^24.2.0",
