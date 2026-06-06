@@ -489,6 +489,14 @@ export interface InvoiceCreateFields {
   dueAt?: string | null;
 }
 
+/** Raised when an issued invoice's immutable fields would be changed (ADR-0007/0013 legal retention). */
+export class InvoiceImmutableError extends Error {
+  constructor(detail: string) {
+    super(`invoice is immutable once issued: ${detail}`);
+    this.name = 'InvoiceImmutableError';
+  }
+}
+
 export class InvoiceRepository {
   constructor(private readonly model: Model<InvoiceDoc> = InvoiceModel) {}
 
@@ -524,10 +532,42 @@ export class InvoiceRepository {
     return docs.map(toInvoice);
   }
 
+  /**
+   * Atomically claim a DRAFT invoice for issue (draft → open) and stamp issuedAt/dueAt. Returns the
+   * claimed invoice, or null if it was not a draft (already issued / not found). This is the
+   * concurrency guard: only ONE caller can win the claim, so a number is allocated at most once per
+   * invoice (no TOCTOU double-allocation, ADR-0013).
+   */
+  async claimForIssue(id: string, issuedAt: string, dueAt: string): Promise<Invoice | null> {
+    const doc = await this.model
+      .findOneAndUpdate(
+        { _id: id, status: 'draft' },
+        { $set: { status: 'open', issuedAt, dueAt } },
+        { new: true },
+      )
+      .lean<InvoiceDoc>()
+      .exec();
+    return doc ? toInvoice(doc) : null;
+  }
+
+  /** Assign the gapless number exactly once (only when still null), so a retry can't overwrite it. */
+  async assignNumber(id: string, number: string): Promise<Invoice | null> {
+    const doc = await this.model
+      .findOneAndUpdate({ _id: id, number: null }, { $set: { number } }, { new: true })
+      .lean<InvoiceDoc>()
+      .exec();
+    return doc ? toInvoice(doc) : null;
+  }
+
+  /**
+   * Post-issue lifecycle transitions only (paid / uncollectible / dunning fields). The invoice
+   * NUMBER is never set here (use `assignNumber`), and reverting to `draft` is rejected — issued
+   * invoices are immutable for legal retention (ADR-0007/0013). Lines/totals are not in the patch
+   * surface at all, so they can never be mutated post-creation.
+   */
   async update(
     id: string,
     patch: {
-      number?: string | null;
       status?: InvoiceStatus;
       issuedAt?: string | null;
       dueAt?: string | null;
@@ -536,6 +576,9 @@ export class InvoiceRepository {
       nextRetryAt?: string | null;
     },
   ): Promise<Invoice | null> {
+    if (patch.status === 'draft') {
+      throw new InvoiceImmutableError('cannot revert an issued invoice to draft');
+    }
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(patch)) {
       if (value !== undefined) out[key] = value;
@@ -564,10 +607,13 @@ export interface InvoiceCounterDoc {
 }
 
 const invoiceCounterSchema = new Schema<InvoiceCounterDoc>({
-  tenantId: { type: String, required: true, unique: true },
+  tenantId: { type: String, required: true },
   year: { type: Number, required: true },
   seq: { type: Number, required: true, default: 0 },
 });
+// One counter PER (tenant, year): the sequence resets each year and the printed year always
+// matches the issue year (ADR-0013). Compound-unique so two years/tenants never share a counter.
+invoiceCounterSchema.index({ tenantId: 1, year: 1 }, { unique: true });
 
 export const InvoiceCounterModel: Model<InvoiceCounterDoc> =
   (mongoose.models.InvoiceCounter as Model<InvoiceCounterDoc> | undefined) ??
@@ -592,14 +638,15 @@ export class InvoiceCounterRepository {
   async allocateInvoiceNumber(tenantId: string, year: number): Promise<string> {
     const doc = await this.model
       .findOneAndUpdate(
-        { tenantId },
+        { tenantId, year },
         { $inc: { seq: 1 }, $setOnInsert: { tenantId, year } },
         { upsert: true, new: true },
       )
       .lean<InvoiceCounterDoc>()
       .exec();
     if (doc === null) throw new Error('failed to allocate invoice number');
-    return formatInvoiceNumber(doc.year, doc.seq);
+    // Format from the requested year (== doc.year, since the counter is keyed per year).
+    return formatInvoiceNumber(year, doc.seq);
   }
 }
 

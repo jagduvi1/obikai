@@ -56,6 +56,16 @@ describe('InvoiceCounterRepository.allocateInvoiceNumber', () => {
     expect([a, b, c]).toEqual(['OBK-2026-000001', 'OBK-2026-000002', 'OBK-2026-000003']);
   });
 
+  it('resets the sequence per year and labels the issue year (review fix)', async () => {
+    expect(await counters.allocateInvoiceNumber('t1', 2026)).toBe('OBK-2026-000001');
+    expect(await counters.allocateInvoiceNumber('t1', 2026)).toBe('OBK-2026-000002');
+    // New year → sequence restarts at 1 and the printed year tracks the issue year.
+    expect(await counters.allocateInvoiceNumber('t1', 2027)).toBe('OBK-2027-000001');
+    expect(await counters.allocateInvoiceNumber('t1', 2027)).toBe('OBK-2027-000002');
+    // Back to 2026 continues that year's series (independent counters).
+    expect(await counters.allocateInvoiceNumber('t1', 2026)).toBe('OBK-2026-000003');
+  });
+
   it('keeps sequences independent PER TENANT (concurrent allocations never collide)', async () => {
     // Fire many allocations for two tenants concurrently and interleaved.
     const ops: Promise<{ tenant: string; number: string }>[] = [];
@@ -99,29 +109,40 @@ describe('Invoice {tenantId, number} uniqueness', () => {
     await runInTenantContext(ctx('t1'), () => invoices.create(draftFields('m1')));
     const second = await runInTenantContext(ctx('t1'), () => invoices.create(draftFields('m2')));
 
-    // Issue the second with an allocated number.
-    await runInTenantContext(ctx('t1'), () =>
-      invoices.update(second.id, { number: 'OBK-2026-000001', status: 'open' }),
-    );
+    // Assign a number to the second (the ONLY way a number is set — assignNumber, once).
+    await runInTenantContext(ctx('t1'), () => invoices.assignNumber(second.id, 'OBK-2026-000001'));
 
     // A different invoice taking the SAME number in the SAME tenant is rejected by the unique index.
     const third = await runInTenantContext(ctx('t1'), () => invoices.create(draftFields('m3')));
     await expect(
-      runInTenantContext(ctx('t1'), () =>
-        invoices.update(third.id, { number: 'OBK-2026-000001', status: 'open' }),
-      ),
+      runInTenantContext(ctx('t1'), () => invoices.assignNumber(third.id, 'OBK-2026-000001')),
     ).rejects.toThrow();
   });
 
   it('allows the same number across DIFFERENT tenants', async () => {
     const a = await runInTenantContext(ctx('t1'), () => invoices.create(draftFields('m1')));
     const b = await runInTenantContext(ctx('t2'), () => invoices.create(draftFields('m1')));
-    await runInTenantContext(ctx('t1'), () =>
-      invoices.update(a.id, { number: 'OBK-2026-000001', status: 'open' }),
-    );
+    await runInTenantContext(ctx('t1'), () => invoices.assignNumber(a.id, 'OBK-2026-000001'));
     const issuedB = await runInTenantContext(ctx('t2'), () =>
-      invoices.update(b.id, { number: 'OBK-2026-000001', status: 'open' }),
+      invoices.assignNumber(b.id, 'OBK-2026-000001'),
     );
     expect(issuedB?.number).toBe('OBK-2026-000001');
+  });
+
+  it('claimForIssue is atomic and an issued invoice is immutable (review fix)', async () => {
+    const inv = await runInTenantContext(ctx('t1'), () => invoices.create(draftFields('m1')));
+    const claimed = await runInTenantContext(ctx('t1'), () =>
+      invoices.claimForIssue(inv.id, '2026-01-01T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
+    );
+    expect(claimed?.status).toBe('open');
+    // A second claim returns null — it is no longer a draft (concurrency/idempotency guard).
+    const again = await runInTenantContext(ctx('t1'), () =>
+      invoices.claimForIssue(inv.id, '2026-02-01T00:00:00.000Z', '2026-02-15T00:00:00.000Z'),
+    );
+    expect(again).toBeNull();
+    // Reverting an issued invoice to draft is rejected (legal immutability).
+    await expect(
+      runInTenantContext(ctx('t1'), () => invoices.update(inv.id, { status: 'draft' })),
+    ).rejects.toThrow();
   });
 });

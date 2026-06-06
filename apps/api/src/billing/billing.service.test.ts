@@ -104,6 +104,22 @@ class FakeInvoiceStore implements BillingInvoiceStore {
   async findById(id: string): Promise<Invoice | null> {
     return this.byId.get(id) ?? null;
   }
+  async claimForIssue(id: string, issuedAt: string, dueAt: string): Promise<Invoice | null> {
+    const cur = this.byId.get(id);
+    // Atomic draft→open: only a draft can be claimed (mirrors the findOneAndUpdate guard).
+    if (!cur || cur.status !== 'draft') return null;
+    const next = { ...cur, status: 'open', issuedAt, dueAt } as Invoice;
+    this.byId.set(id, next);
+    return next;
+  }
+  async assignNumber(id: string, number: string): Promise<Invoice | null> {
+    const cur = this.byId.get(id);
+    // Number is assigned exactly once — only while still null (mirrors the {number:null} guard).
+    if (!cur || cur.number !== null) return null;
+    const next = { ...cur, number } as Invoice;
+    this.byId.set(id, next);
+    return next;
+  }
   async update(id: string, patch: Partial<Invoice>): Promise<Invoice | null> {
     const cur = this.byId.get(id);
     if (!cur) return null;

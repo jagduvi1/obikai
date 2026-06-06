@@ -36,8 +36,15 @@ export class InvoicesService {
     actor: AuthzActor,
     opts: { memberId?: string; status?: InvoiceStatus } = {},
   ): Promise<Invoice[]> {
-    if (!can(actor, { resource: 'invoice', action: 'list' }))
+    // A member may list ONLY their own invoices (opts scoped to their memberId, via self-access);
+    // staff/owner with the 'invoice:list' grant may list any. This prevents a member from
+    // enumerating other members' invoices (review fix).
+    const ownScope =
+      opts.memberId !== undefined &&
+      can(actor, { resource: 'invoice', action: 'list', ownerMemberId: opts.memberId });
+    if (!ownScope && !can(actor, { resource: 'invoice', action: 'list' })) {
       throw new ForbiddenError('list', 'invoice');
+    }
     return this.store.list(opts);
   }
 

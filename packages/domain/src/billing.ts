@@ -173,7 +173,9 @@ export function invoiceTotals(
 export function prorateByDays(amount: Money, totalDays: number, remainingDays: number): Money {
   if (totalDays <= 0) return money(0, amount.currency);
   const clamped = Math.max(0, Math.min(remainingDays, totalDays));
-  const portion = Math.round((amount.amountMinor * clamped) / totalDays);
+  const raw = (amount.amountMinor * clamped) / totalDays;
+  // Half away from zero, matching computeVat — symmetric for credits/refunds (negative amounts).
+  const portion = raw >= 0 ? Math.floor(raw + 0.5) : Math.ceil(raw - 0.5);
   return money(portion, amount.currency);
 }
 
