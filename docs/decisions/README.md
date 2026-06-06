@@ -24,3 +24,4 @@ supersession in both). Keep them short; put detail in code and `docs/`.
 | [0013](0013-billing-vat-invoicing.md) | Billing, EU VAT & invoicing | Accepted |
 | [0014](0014-scheduling-attendance-waivers.md) | Classes/scheduling, attendance & waivers | Accepted |
 | [0015](0015-rank-discipline-data-model.md) | Rank/discipline data model & promotion history | Accepted |
+| [0016](0016-frontend-stack.md) | Frontend stack (web-admin / web-member) | Accepted |
