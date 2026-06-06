@@ -99,7 +99,7 @@ export class HouseholdRepository {
   /** The household's member roster, alphabetical — tenant-scoped by the Member guard. */
   async listMembers(householdId: string): Promise<Member[]> {
     const docs = await this.memberModel
-      .find({ householdId })
+      .find({ householdId: String(householdId) })
       .sort({ lastName: 1 })
       .lean<MemberDoc[]>()
       .exec();

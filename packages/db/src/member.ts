@@ -134,7 +134,7 @@ export class MemberRepository {
   }
 
   async list(opts: { status?: MemberStatus } = {}): Promise<Member[]> {
-    const filter = opts.status ? { status: opts.status } : {};
+    const filter = opts.status ? { status: String(opts.status) } : {};
     const docs = await this.model.find(filter).sort({ lastName: 1 }).lean<MemberDoc[]>().exec();
     return docs.map(toMember);
   }
@@ -148,7 +148,7 @@ export class MemberRepository {
   }
 
   async remove(id: string): Promise<boolean> {
-    const res = await this.model.deleteOne({ _id: id }).exec();
+    const res = await this.model.deleteOne({ _id: String(id) }).exec();
     return (res.deletedCount ?? 0) > 0;
   }
 }

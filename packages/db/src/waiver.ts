@@ -224,7 +224,7 @@ export class WaiverSignatureRepository {
 
   async listByMember(memberId: string): Promise<WaiverSignature[]> {
     const docs = await this.model
-      .find({ memberId })
+      .find({ memberId: String(memberId) })
       .sort({ signedAt: -1 })
       .lean<WaiverSignatureDoc[]>()
       .exec();
@@ -233,7 +233,7 @@ export class WaiverSignatureRepository {
 
   async listByTemplate(templateId: string): Promise<WaiverSignature[]> {
     const docs = await this.model
-      .find({ templateId })
+      .find({ templateId: String(templateId) })
       .sort({ signedAt: -1 })
       .lean<WaiverSignatureDoc[]>()
       .exec();

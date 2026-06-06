@@ -104,7 +104,7 @@ export class VatRateRepository {
   }
 
   async remove(id: string): Promise<boolean> {
-    const res = await this.model.deleteOne({ _id: id }).exec();
+    const res = await this.model.deleteOne({ _id: String(id) }).exec();
     return (res.deletedCount ?? 0) > 0;
   }
 }
@@ -220,7 +220,7 @@ export class PlanRepository {
   }
 
   async remove(id: string): Promise<boolean> {
-    const res = await this.model.deleteOne({ _id: id }).exec();
+    const res = await this.model.deleteOne({ _id: String(id) }).exec();
     return (res.deletedCount ?? 0) > 0;
   }
 }
@@ -308,7 +308,7 @@ export class EnrollmentRepository {
   }
 
   async list(opts: { memberId?: string } = {}): Promise<Enrollment[]> {
-    const filter = opts.memberId ? { memberId: opts.memberId } : {};
+    const filter = opts.memberId ? { memberId: String(opts.memberId) } : {};
     const docs = await this.model
       .find(filter)
       .sort({ createdAt: -1 })
@@ -587,7 +587,10 @@ export class InvoiceRepository {
 
   /** Resume/idempotency lookup: the invoice (if any) for an enrollment's billing period. */
   async findByEnrollmentPeriod(enrollmentId: string, periodStart: string): Promise<Invoice | null> {
-    const doc = await this.model.findOne({ enrollmentId, periodStart }).lean<InvoiceDoc>().exec();
+    const doc = await this.model
+      .findOne({ enrollmentId: String(enrollmentId), periodStart: String(periodStart) })
+      .lean<InvoiceDoc>()
+      .exec();
     return doc ? toInvoice(doc) : null;
   }
 
@@ -616,8 +619,8 @@ export class InvoiceRepository {
 
   async list(opts: { memberId?: string; status?: InvoiceStatus } = {}): Promise<Invoice[]> {
     const filter: Record<string, unknown> = {};
-    if (opts.memberId) filter.memberId = opts.memberId;
-    if (opts.status) filter.status = opts.status;
+    if (opts.memberId) filter.memberId = String(opts.memberId);
+    if (opts.status) filter.status = String(opts.status);
     const docs = await this.model.find(filter).sort({ createdAt: -1 }).lean<InvoiceDoc[]>().exec();
     return docs.map(toInvoice);
   }
@@ -631,7 +634,7 @@ export class InvoiceRepository {
   async claimForIssue(id: string, issuedAt: string, dueAt: string): Promise<Invoice | null> {
     const doc = await this.model
       .findOneAndUpdate(
-        { _id: id, status: 'draft' },
+        { _id: String(id), status: 'draft' },
         { $set: { status: 'open', issuedAt, dueAt } },
         { new: true },
       )
@@ -643,7 +646,7 @@ export class InvoiceRepository {
   /** Assign the gapless number exactly once (only when still null), so a retry can't overwrite it. */
   async assignNumber(id: string, number: string): Promise<Invoice | null> {
     const doc = await this.model
-      .findOneAndUpdate({ _id: id, number: null }, { $set: { number } }, { new: true })
+      .findOneAndUpdate({ _id: String(id), number: null }, { $set: { number } }, { new: true })
       .lean<InvoiceDoc>()
       .exec();
     return doc ? toInvoice(doc) : null;
@@ -663,7 +666,7 @@ export class InvoiceRepository {
   ): Promise<Invoice | null> {
     const doc = await this.model
       .findOneAndUpdate(
-        { _id: id, status: 'open', dunningStage: fromStage },
+        { _id: String(id), status: 'open', dunningStage: fromStage },
         { $set: patch },
         { new: true },
       )
@@ -752,7 +755,7 @@ export class InvoiceCounterRepository {
   async allocateInvoiceNumber(tenantId: string, year: number): Promise<string> {
     const doc = await this.model
       .findOneAndUpdate(
-        { tenantId, year },
+        { tenantId: String(tenantId), year },
         { $inc: { seq: 1 }, $setOnInsert: { tenantId, year } },
         { upsert: true, new: true },
       )
@@ -847,7 +850,7 @@ export class PaymentAttemptRepository {
 
   async listByInvoice(invoiceId: string): Promise<PaymentAttempt[]> {
     const docs = await this.model
-      .find({ invoiceId })
+      .find({ invoiceId: String(invoiceId) })
       .sort({ attemptNo: 1 })
       .lean<PaymentAttemptDoc[]>()
       .exec();
