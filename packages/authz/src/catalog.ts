@@ -55,14 +55,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     ['announcement', ['create', 'read', 'list']],
   ]),
 
-  // A member: read-mostly self-service. Self-access to their OWN record is additionally granted by
-  // can()'s ownership check, independent of this catalog.
+  // A member: read-mostly self-service. They get tenant-wide read on shared info (classes,
+  // announcements) only. Member-OWNED data (their invoices, attendance, promotions, curriculum,
+  // profile) is reached via can()'s self-access check (ownerMemberId === actor.memberId), NOT a
+  // blanket tenant-wide grant — otherwise a member could list every other member's invoices.
   member: grant([
     ['class', ['read', 'list']],
-    ['attendance', ['read', 'list']],
-    ['promotion', ['read', 'list']],
-    ['curriculum', ['read', 'list']],
-    ['invoice', ['read', 'list']],
     ['announcement', ['read', 'list']],
   ]),
 

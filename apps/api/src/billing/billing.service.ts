@@ -76,10 +76,13 @@ export interface BillingInvoiceStore {
     dueAt?: string | null;
   }): Promise<Invoice>;
   findById(id: string): Promise<Invoice | null>;
+  /** Atomic draft→open claim (concurrency guard). Returns null if not a draft. */
+  claimForIssue(id: string, issuedAt: string, dueAt: string): Promise<Invoice | null>;
+  /** Assign the gapless number exactly once (only when still null). */
+  assignNumber(id: string, number: string): Promise<Invoice | null>;
   update(
     id: string,
     patch: {
-      number?: string | null;
       status?: Invoice['status'];
       issuedAt?: string | null;
       dueAt?: string | null;
@@ -184,22 +187,23 @@ export class BillingService {
     if (!can(actor, { resource: 'invoice', action: 'create' }))
       throw new ForbiddenError('create', 'invoice');
 
-    const invoice = await this.stores.invoices.findById(invoiceId);
-    if (!invoice) throw new NotFoundError('invoice', invoiceId);
-    if (invoice.status !== 'draft')
-      throw new BillingError(`invoice ${invoiceId} is not a draft (status=${invoice.status})`);
-
     const issuedAt = this.now().toISOString();
-    const year = this.now().getUTCFullYear();
-    const number = await this.stores.counters.allocateInvoiceNumber(invoice.tenantId, year);
+    const dueAt = addDays(issuedAt, DEFAULT_DUE_DAYS);
 
-    const issued = await this.stores.invoices.update(invoiceId, {
-      number,
-      status: 'open',
-      issuedAt,
-      dueAt: addDays(issuedAt, DEFAULT_DUE_DAYS),
-    });
-    if (!issued) throw new NotFoundError('invoice', invoiceId);
+    // Atomically claim the draft (draft → open). Only one concurrent caller can win, so the number
+    // below is allocated AT MOST ONCE per invoice — closing the TOCTOU double-allocation gap.
+    const claimed = await this.stores.invoices.claimForIssue(invoiceId, issuedAt, dueAt);
+    if (!claimed) {
+      const existing = await this.stores.invoices.findById(invoiceId);
+      if (!existing) throw new NotFoundError('invoice', invoiceId);
+      throw new BillingError(`invoice ${invoiceId} is not a draft (status=${existing.status})`);
+    }
+
+    // We won the claim → allocate the gapless number for the issue year and assign it once.
+    const year = this.now().getUTCFullYear();
+    const number = await this.stores.counters.allocateInvoiceNumber(claimed.tenantId, year);
+    const issued = await this.stores.invoices.assignNumber(invoiceId, number);
+    if (!issued) throw new BillingError(`failed to assign number to invoice ${invoiceId}`);
     return issued;
   }
 
@@ -215,7 +219,18 @@ export class BillingService {
     const invoice = await this.stores.invoices.findById(result.invoiceId);
     if (!invoice) throw new NotFoundError('invoice', result.invoiceId);
 
+    // Payment currency must match the invoice currency.
+    if (result.amount.currency !== invoice.currency) {
+      throw new BillingError(
+        `payment currency ${result.amount.currency} does not match invoice currency ${invoice.currency}`,
+      );
+    }
+
     const prior = await this.stores.payments.listByInvoice(result.invoiceId);
+    // Idempotent: a replayed webhook (same idempotencyKey) is a clean no-op (ADR-0006/0013).
+    const duplicate = prior.find((p) => p.idempotencyKey === result.idempotencyKey);
+    if (duplicate) return duplicate;
+
     const attempt = await this.stores.payments.create({
       invoiceId: result.invoiceId,
       provider: result.provider ?? 'manual',
@@ -257,13 +272,29 @@ export class BillingService {
     const invoice = await this.stores.invoices.findById(invoiceId);
     if (!invoice) throw new NotFoundError('invoice', invoiceId);
 
-    const nextStage = invoice.dunningStage + 1;
     const nowIso = this.now().toISOString();
+    // Only OPEN invoices are dunned — paid/void/uncollectible are no-ops. Combined with the
+    // retry-window check below, this makes advanceDunning idempotent against re-delivered worker
+    // jobs (ADR-0013): a duplicate run before nextRetryAt cannot double-increment the stage.
+    if (invoice.status !== 'open') return invoice;
+    if (invoice.nextRetryAt !== null && nowIso < invoice.nextRetryAt) return invoice;
 
+    // If an enrollment is supplied, it MUST belong to this invoice's member — never suspend an
+    // unrelated member's enrollment (within-tenant correctness).
+    let enrollment = null;
+    if (enrollmentId !== undefined) {
+      enrollment = await this.stores.enrollments.findById(enrollmentId);
+      if (!enrollment) throw new NotFoundError('enrollment', enrollmentId);
+      if (enrollment.memberId !== invoice.memberId) {
+        throw new BillingError('enrollment does not belong to the invoice member');
+      }
+    }
+
+    const nextStage = invoice.dunningStage + 1;
     if (nextStage >= DUNNING_SUSPEND_STAGE) {
-      // Final rung: mark the invoice uncollectible and suspend the linked enrollment.
-      if (enrollmentId) {
-        await this.stores.enrollments.update(enrollmentId, { status: 'frozen' });
+      // Final rung: mark the invoice uncollectible and suspend the verified linked enrollment.
+      if (enrollment) {
+        await this.stores.enrollments.update(enrollment.id, { status: 'frozen' });
       }
       const suspended = await this.stores.invoices.update(invoiceId, {
         status: 'uncollectible',

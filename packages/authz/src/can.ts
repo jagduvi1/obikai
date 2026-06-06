@@ -55,6 +55,15 @@ function hasPermission(perms: readonly Permission[], resource: Resource, action:
   return perms.some((p) => p.resource === resource && p.action === action);
 }
 
+/** Member-OWNED resources a member may read/list for THEIR OWN member record via self-access. */
+const SELF_READABLE_RESOURCES: ReadonlySet<Resource> = new Set<Resource>([
+  'member',
+  'invoice',
+  'attendance',
+  'promotion',
+  'curriculum',
+]);
+
 function permissionsForRole(
   role: Role | `custom:${string}`,
   catalog: CanOptions['catalog'],
@@ -74,15 +83,18 @@ export function can(actor: AuthzActor, target: AuthzTarget, opts: CanOptions = {
     if (perms && hasPermission(perms, resource, action)) return true;
   }
 
-  // 2) Self-access: a member may read/update their OWN member record regardless of role catalog.
+  // 2) Self-access: for their OWN member record (ownerMemberId === actor.memberId), a member may
+  // read/update their profile and read/list the member-owned resources tied to it (invoices,
+  // attendance, promotions, curriculum). This — not a tenant-wide catalog grant — is how members
+  // see their own data, so they can never enumerate other members'.
   if (
     ownerMemberId !== undefined &&
     actor.memberId !== undefined &&
-    ownerMemberId === actor.memberId &&
-    resource === 'member' &&
-    (action === 'read' || action === 'update')
+    ownerMemberId === actor.memberId
   ) {
-    return true;
+    if (resource === 'member' && (action === 'read' || action === 'update')) return true;
+    if (SELF_READABLE_RESOURCES.has(resource) && (action === 'read' || action === 'list'))
+      return true;
   }
 
   // 3) Guardianship: a guardian may act on a linked, non-revoked minor per the granted permissions.
