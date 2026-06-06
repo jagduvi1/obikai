@@ -257,7 +257,7 @@ export class RankSystemRepository {
       throw err;
     }
     await this.systems.findOneAndUpdate(
-      { systemId: version.systemId },
+      { systemId: String(version.systemId) },
       {
         $set: { currentVersionId: version.versionId, disciplineId: version.disciplineId },
         $setOnInsert: { systemId: version.systemId },
@@ -269,25 +269,34 @@ export class RankSystemRepository {
   }
 
   async getSystem(systemId: string): Promise<ProgressionSystem | null> {
-    const doc = await this.systems.findOne({ systemId }).lean<ProgressionSystemDoc>().exec();
+    const doc = await this.systems
+      .findOne({ systemId: String(systemId) })
+      .lean<ProgressionSystemDoc>()
+      .exec();
     return doc ? toSystem(doc) : null;
   }
 
   async findSystemByDiscipline(disciplineId: string): Promise<ProgressionSystem | null> {
-    const doc = await this.systems.findOne({ disciplineId }).lean<ProgressionSystemDoc>().exec();
+    const doc = await this.systems
+      .findOne({ disciplineId: String(disciplineId) })
+      .lean<ProgressionSystemDoc>()
+      .exec();
     return doc ? toSystem(doc) : null;
   }
 
   async getVersion(versionId: string): Promise<ProgressionSystemVersion | null> {
     const doc = await this.versions
-      .findOne({ versionId })
+      .findOne({ versionId: String(versionId) })
       .lean<ProgressionSystemVersionDoc>()
       .exec();
     return doc ? toVersion(doc) : null;
   }
 
   async getCurrentVersion(systemId: string): Promise<ProgressionSystemVersion | null> {
-    const sys = await this.systems.findOne({ systemId }).lean<ProgressionSystemDoc>().exec();
+    const sys = await this.systems
+      .findOne({ systemId: String(systemId) })
+      .lean<ProgressionSystemDoc>()
+      .exec();
     if (!sys) return null;
     const doc = await this.versions
       .findOne({ versionId: sys.currentVersionId })
@@ -298,7 +307,7 @@ export class RankSystemRepository {
 
   async listVersions(systemId: string): Promise<ProgressionSystemVersion[]> {
     const docs = await this.versions
-      .find({ systemId })
+      .find({ systemId: String(systemId) })
       .sort({ version: 1 })
       .lean<ProgressionSystemVersionDoc[]>()
       .exec();
@@ -388,7 +397,7 @@ export class MemberRankStateRepository {
     disciplineId: string,
   ): Promise<MemberRankState | null> {
     const doc = await this.model
-      .findOne({ memberId, disciplineId })
+      .findOne({ memberId: String(memberId), disciplineId: String(disciplineId) })
       .lean<MemberRankStateDoc>()
       .exec();
     return doc ? toMemberRankState(doc) : null;
@@ -396,8 +405,8 @@ export class MemberRankStateRepository {
 
   async list(opts: { memberId?: string; disciplineId?: string } = {}): Promise<MemberRankState[]> {
     const filter: Record<string, unknown> = {};
-    if (opts.memberId) filter.memberId = opts.memberId;
-    if (opts.disciplineId) filter.disciplineId = opts.disciplineId;
+    if (opts.memberId) filter.memberId = String(opts.memberId);
+    if (opts.disciplineId) filter.disciplineId = String(opts.disciplineId);
     const docs = await this.model.find(filter).lean<MemberRankStateDoc[]>().exec();
     return docs.map(toMemberRankState);
   }
@@ -523,8 +532,8 @@ export class PromotionRepository {
 
   async list(opts: { memberId?: string; disciplineId?: string } = {}): Promise<Promotion[]> {
     const filter: Record<string, unknown> = {};
-    if (opts.memberId) filter.memberId = opts.memberId;
-    if (opts.disciplineId) filter.disciplineId = opts.disciplineId;
+    if (opts.memberId) filter.memberId = String(opts.memberId);
+    if (opts.disciplineId) filter.disciplineId = String(opts.disciplineId);
     const docs = await this.model
       .find(filter)
       .sort({ awardedAt: -1 })
@@ -601,7 +610,7 @@ export class GradingEventRepository {
   }
 
   async list(opts: { disciplineId?: string } = {}): Promise<GradingEvent[]> {
-    const filter = opts.disciplineId ? { disciplineId: opts.disciplineId } : {};
+    const filter = opts.disciplineId ? { disciplineId: String(opts.disciplineId) } : {};
     const docs = await this.model
       .find(filter)
       .sort({ scheduledAt: -1 })
@@ -695,7 +704,11 @@ export class GradingResultRepository {
   }): Promise<GradingResultRecord> {
     const doc = await this.model
       .findOneAndUpdate(
-        { gradingEventId: input.gradingEventId, memberId: input.memberId, stepId: input.stepId },
+        {
+          gradingEventId: String(input.gradingEventId),
+          memberId: String(input.memberId),
+          stepId: String(input.stepId),
+        },
         {
           $set: {
             passed: input.passed,
@@ -713,12 +726,18 @@ export class GradingResultRepository {
   }
 
   async listByEvent(gradingEventId: string): Promise<GradingResultRecord[]> {
-    const docs = await this.model.find({ gradingEventId }).lean<GradingResultDoc[]>().exec();
+    const docs = await this.model
+      .find({ gradingEventId: String(gradingEventId) })
+      .lean<GradingResultDoc[]>()
+      .exec();
     return docs.map(toGradingResult);
   }
 
   async listByMember(memberId: string): Promise<GradingResultRecord[]> {
-    const docs = await this.model.find({ memberId }).lean<GradingResultDoc[]>().exec();
+    const docs = await this.model
+      .find({ memberId: String(memberId) })
+      .lean<GradingResultDoc[]>()
+      .exec();
     return docs.map(toGradingResult);
   }
 }
@@ -793,7 +812,7 @@ export class CurriculumItemRepository {
   }
 
   async list(opts: { disciplineId?: string } = {}): Promise<CurriculumItem[]> {
-    const filter = opts.disciplineId ? { disciplineId: opts.disciplineId } : {};
+    const filter = opts.disciplineId ? { disciplineId: String(opts.disciplineId) } : {};
     const docs = await this.model
       .find(filter)
       .sort({ itemKey: 1 })
@@ -873,7 +892,11 @@ export class CurriculumCompletionRepository {
   }): Promise<CurriculumCompletion> {
     const doc = await this.model
       .findOneAndUpdate(
-        { memberId: input.memberId, disciplineId: input.disciplineId, itemKey: input.itemKey },
+        {
+          memberId: String(input.memberId),
+          disciplineId: String(input.disciplineId),
+          itemKey: String(input.itemKey),
+        },
         { $set: { completedAt: input.completedAt, markedByUserId: input.markedByUserId } },
         { upsert: true, new: true, setDefaultsOnInsert: true },
       )
@@ -884,7 +907,13 @@ export class CurriculumCompletionRepository {
   }
 
   async unmark(memberId: string, disciplineId: string, itemKey: string): Promise<boolean> {
-    const res = await this.model.deleteOne({ memberId, disciplineId, itemKey }).exec();
+    const res = await this.model
+      .deleteOne({
+        memberId: String(memberId),
+        disciplineId: String(disciplineId),
+        itemKey: String(itemKey),
+      })
+      .exec();
     return (res.deletedCount ?? 0) > 0;
   }
 
@@ -893,7 +922,7 @@ export class CurriculumCompletionRepository {
     disciplineId: string,
   ): Promise<CurriculumCompletion[]> {
     const docs = await this.model
-      .find({ memberId, disciplineId })
+      .find({ memberId: String(memberId), disciplineId: String(disciplineId) })
       .lean<CurriculumCompletionDoc[]>()
       .exec();
     return docs.map(toCurriculumCompletion);

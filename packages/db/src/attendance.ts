@@ -95,8 +95,8 @@ export class AttendanceRepository {
 
   async list(filter: AttendanceFilter = {}): Promise<Attendance[]> {
     const query: Record<string, unknown> = {};
-    if (filter.memberId !== undefined) query.memberId = filter.memberId;
-    if (filter.disciplineId !== undefined) query.disciplineId = filter.disciplineId;
+    if (filter.memberId !== undefined) query.memberId = String(filter.memberId);
+    if (filter.disciplineId !== undefined) query.disciplineId = String(filter.disciplineId);
     const docs = await this.model
       .find(query)
       .sort({ occurredAt: -1 })
@@ -115,6 +115,12 @@ export class AttendanceRepository {
     disciplineId: string,
     since: Date,
   ): Promise<number> {
-    return this.model.countDocuments({ memberId, disciplineId, occurredAt: { $gt: since } }).exec();
+    return this.model
+      .countDocuments({
+        memberId: String(memberId),
+        disciplineId: String(disciplineId),
+        occurredAt: { $gt: since },
+      })
+      .exec();
   }
 }

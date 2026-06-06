@@ -72,7 +72,7 @@ export class UserRepository {
 
   /** Hard-delete a user (compensating rollback for a failed identity create; GDPR erasure). */
   async deleteById(id: string): Promise<void> {
-    await this.model.deleteOne({ _id: id }).exec();
+    await this.model.deleteOne({ _id: String(id) }).exec();
   }
 }
 
@@ -119,7 +119,10 @@ export class IdentityRepository {
   constructor(private readonly model: Model<IdentityDoc> = IdentityModel) {}
 
   async findByEmailLower(provider: string, emailLower: string): Promise<IdentityRecord | null> {
-    const doc = await this.model.findOne({ provider, emailLower }).lean<IdentityDoc>().exec();
+    const doc = await this.model
+      .findOne({ provider: String(provider), emailLower: String(emailLower) })
+      .lean<IdentityDoc>()
+      .exec();
     return doc
       ? {
           userId: doc.userId,
@@ -143,7 +146,7 @@ export class IdentityRepository {
 
   /** Hard-delete all local credentials for a user (GDPR erasure, ADR-0007). */
   async deleteByUserId(userId: string): Promise<void> {
-    await this.model.deleteMany({ userId }).exec();
+    await this.model.deleteMany({ userId: String(userId) }).exec();
   }
 }
 
@@ -226,7 +229,10 @@ export class SessionRepository {
   }
 
   async findByRefreshHash(hash: string): Promise<SessionRecord | null> {
-    const doc = await this.model.findOne({ refreshTokenHash: hash }).lean<SessionDoc>().exec();
+    const doc = await this.model
+      .findOne({ refreshTokenHash: String(hash) })
+      .lean<SessionDoc>()
+      .exec();
     return doc ? toSessionRecord(doc) : null;
   }
 
@@ -237,18 +243,22 @@ export class SessionRepository {
    */
   async revokeIfActive(id: string): Promise<boolean> {
     const res = await this.model
-      .findOneAndUpdate({ _id: id, revokedAt: null }, { revokedAt: new Date() })
+      .findOneAndUpdate({ _id: String(id), revokedAt: null }, { revokedAt: new Date() })
       .lean()
       .exec();
     return res !== null;
   }
 
   async revokeFamily(family: string): Promise<void> {
-    await this.model.updateMany({ family, revokedAt: null }, { revokedAt: new Date() }).exec();
+    await this.model
+      .updateMany({ family: String(family), revokedAt: null }, { revokedAt: new Date() })
+      .exec();
   }
 
   async revokeAllForUser(userId: string): Promise<void> {
-    await this.model.updateMany({ userId, revokedAt: null }, { revokedAt: new Date() }).exec();
+    await this.model
+      .updateMany({ userId: String(userId), revokedAt: null }, { revokedAt: new Date() })
+      .exec();
   }
 }
 
@@ -302,7 +312,10 @@ export class MembershipRepository {
 
   /** Resolve the active membership for a user in the CURRENT tenant (guard injects tenantId). */
   async findByUserId(userId: string): Promise<Membership | null> {
-    const doc = await this.model.findOne({ userId }).lean<MembershipDoc>().exec();
+    const doc = await this.model
+      .findOne({ userId: String(userId) })
+      .lean<MembershipDoc>()
+      .exec();
     return doc ? toMembership(doc) : null;
   }
 
@@ -312,7 +325,10 @@ export class MembershipRepository {
    * filter — never cross-tenant — instead of the guarded model, which would throw with no context.
    */
   async resolveForRequest(tenantId: string, userId: string): Promise<Membership | null> {
-    const raw = await this.model.collection.findOne({ tenantId, userId });
+    const raw = await this.model.collection.findOne({
+      tenantId: String(tenantId),
+      userId: String(userId),
+    });
     return raw ? toMembership(raw as unknown as MembershipDoc) : null;
   }
 

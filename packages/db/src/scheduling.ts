@@ -112,7 +112,7 @@ export class ProgramRepository {
   }
 
   async remove(id: string): Promise<boolean> {
-    const res = await this.model.deleteOne({ _id: id }).exec();
+    const res = await this.model.deleteOne({ _id: String(id) }).exec();
     return (res.deletedCount ?? 0) > 0;
   }
 }
@@ -208,8 +208,8 @@ export class ClassScheduleRepository {
 
   async list(opts: { programId?: string; locationId?: string } = {}): Promise<ClassSchedule[]> {
     const filter: Record<string, unknown> = {};
-    if (opts.programId !== undefined) filter.programId = opts.programId;
-    if (opts.locationId !== undefined) filter.locationId = opts.locationId;
+    if (opts.programId !== undefined) filter.programId = String(opts.programId);
+    if (opts.locationId !== undefined) filter.locationId = String(opts.locationId);
     const docs = await this.model
       .find(filter)
       .sort({ startTime: 1 })
@@ -231,7 +231,7 @@ export class ClassScheduleRepository {
   }
 
   async remove(id: string): Promise<boolean> {
-    const res = await this.model.deleteOne({ _id: id }).exec();
+    const res = await this.model.deleteOne({ _id: String(id) }).exec();
     return (res.deletedCount ?? 0) > 0;
   }
 }
@@ -321,8 +321,8 @@ export class ClassOccurrenceRepository {
       if (opts.to !== undefined) range.$lt = opts.to;
       filter.startsAt = range;
     }
-    if (opts.locationId !== undefined) filter.locationId = opts.locationId;
-    if (opts.scheduleId !== undefined) filter.scheduleId = opts.scheduleId;
+    if (opts.locationId !== undefined) filter.locationId = String(opts.locationId);
+    if (opts.scheduleId !== undefined) filter.scheduleId = String(opts.scheduleId);
     const docs = await this.model
       .find(filter)
       .sort({ startsAt: 1 })
@@ -344,7 +344,7 @@ export class ClassOccurrenceRepository {
       // any per-occurrence overrides such as a cancelled status) untouched.
       const res = await this.model
         .updateOne(
-          { scheduleId: row.scheduleId, startsAt: row.startsAt },
+          { scheduleId: String(row.scheduleId), startsAt: String(row.startsAt) },
           {
             $setOnInsert: {
               scheduleId: row.scheduleId,
@@ -446,15 +446,17 @@ export class BookingRepository {
     occurrenceId: string,
     opts: { status?: BookingStatus } = {},
   ): Promise<Booking[]> {
-    const filter: Record<string, unknown> = { occurrenceId };
-    if (opts.status !== undefined) filter.status = opts.status;
+    const filter: Record<string, unknown> = { occurrenceId: String(occurrenceId) };
+    if (opts.status !== undefined) filter.status = String(opts.status);
     const docs = await this.model.find(filter).sort({ bookedAt: 1 }).lean<BookingDoc[]>().exec();
     return docs.map(toBooking);
   }
 
   /** Count occurrence bookings in a given status (capacity check counts `booked`). */
   async countByOccurrence(occurrenceId: string, status: BookingStatus): Promise<number> {
-    return this.model.countDocuments({ occurrenceId, status }).exec();
+    return this.model
+      .countDocuments({ occurrenceId: String(occurrenceId), status: String(status) })
+      .exec();
   }
 
   async setStatus(id: string, status: BookingStatus): Promise<Booking | null> {
