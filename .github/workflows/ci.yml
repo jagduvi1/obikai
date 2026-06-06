@@ -152,7 +152,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [api, worker]
+        # api/worker share the node multi-stage Dockerfile (ARG APP); web-admin is a static
+        # Caddy-served SPA with its own Dockerfile (which also runs `caddy validate` as a gate).
+        include:
+          - app: api
+            file: ./docker/Dockerfile
+            args: APP=api
+          - app: worker
+            file: ./docker/Dockerfile
+            args: APP=worker
+          - app: web-admin
+            file: ./docker/web-admin.Dockerfile
+            args: ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -164,10 +175,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          # One multi-stage Dockerfile builds both apps; ARG APP selects which app to deploy.
-          file: ./docker/Dockerfile
-          build-args: |
-            APP=${{ matrix.app }}
+          file: ${{ matrix.file }}
+          build-args: ${{ matrix.args }}
           push: false
           load: false
           cache-from: type=gha,scope=${{ matrix.app }}
