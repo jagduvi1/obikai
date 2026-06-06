@@ -40,6 +40,13 @@ export type StepId = Brand<string, 'StepId'>;
 export type TrackId = Brand<string, 'TrackId'>;
 export type CurriculumId = Brand<string, 'CurriculumId'>;
 
+// Rank business-layer ids (ADR-0015): the app entities that wrap/feed the pure engine.
+export type CurriculumItemId = Brand<string, 'CurriculumItemId'>;
+export type GradingEventId = Brand<string, 'GradingEventId'>;
+export type PromotionId = Brand<string, 'PromotionId'>;
+export type RankStateId = Brand<string, 'RankStateId'>;
+export type CurriculumCompletionId = Brand<string, 'CurriculumCompletionId'>;
+
 /** Cast a raw string into a branded id. Use at trust boundaries (DB/HTTP) after validation. */
 export function brand<B extends Brand<string, string>>(value: string): B {
   return value as B;
