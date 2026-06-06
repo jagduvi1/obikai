@@ -4,8 +4,8 @@
 # produce the final Caddyfile. Do NOT hand-author the security headers below —
 # edit gen-headers.ts and regenerate, so the CSP stays tested in TypeScript.
 #
-#   {{SITE_ADDRESS}}      ← env SITE_ADDRESS (default ':8080')
-#   {{SECURITY_HEADERS}}  ← generated header + CSP block
+#   SITE_ADDRESS placeholder      ← env SITE_ADDRESS (default ':8080')
+#   SECURITY_HEADERS placeholder  ← generated header + CSP block
 #
 # This server only serves the built SPA (static assets). TLS and tenant routing
 # are handled upstream by Traefik (docker-compose.prod.yml); Caddy listens on a

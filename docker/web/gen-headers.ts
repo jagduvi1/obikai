@@ -19,6 +19,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 
 /** Inputs that vary per deployment; everything else is a hardened constant below. */
 export interface HeaderOptions {
@@ -140,7 +141,7 @@ function main(): void {
   writeFileSync(outputPath, renderCaddyfile(template, opts, siteAddress), 'utf8');
 }
 
-// Only run as a script, not when imported by a test.
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Only run as a script, not when imported by a test (cross-platform path comparison).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main();
 }
