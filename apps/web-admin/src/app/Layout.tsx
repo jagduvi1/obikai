@@ -20,6 +20,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <nav aria-label={t('nav.dashboard')} className="app-nav">
           <NavLink to="/members">{t('nav.members')}</NavLink>
           <NavLink to="/disciplines">{t('nav.disciplines')}</NavLink>
+          <NavLink to="/classes">{t('nav.classes')}</NavLink>
+          <NavLink to="/locations">{t('nav.locations')}</NavLink>
           <NavLink to="/plans">{t('nav.plans')}</NavLink>
         </nav>
         <button type="button" className="link-button" onClick={() => void logout()}>
