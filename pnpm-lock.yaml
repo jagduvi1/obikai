@@ -324,6 +324,9 @@ importers:
 
   apps/web-admin:
     dependencies:
+      '@obikai/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@obikai/domain':
         specifier: workspace:*
         version: link:../../packages/domain
@@ -419,6 +422,18 @@ importers:
       '@obikai/domain':
         specifier: workspace:*
         version: link:../domain
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: 'catalog:'
+        version: 6.4.3(@types/node@22.19.20)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.8(@types/node@22.19.20)(jsdom@25.0.1)(vite@6.4.3(@types/node@22.19.20))
+
+  packages/api-client:
     devDependencies:
       typescript:
         specifier: 'catalog:'

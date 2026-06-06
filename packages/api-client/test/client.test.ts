@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, api, login, setAccessToken, setOnAuthLost } from './client';
+import { ApiError, api, login, setAccessToken, setOnAuthLost } from '../src/client.js';
 
 /** Build a Response-like object for the mocked fetch. */
 function res(status: number, body?: unknown): Response {
@@ -10,7 +10,7 @@ function res(status: number, body?: unknown): Response {
   } as Response;
 }
 
-describe('api client', () => {
+describe('@obikai/api-client', () => {
   beforeEach(() => {
     setAccessToken(null);
     setOnAuthLost(null);
@@ -35,11 +35,8 @@ describe('api client', () => {
     setAccessToken('stale');
     const fetchMock = vi
       .fn()
-      // 1) original → 401
       .mockResolvedValueOnce(res(401, { message: 'expired' }))
-      // 2) POST /auth/refresh → new token
       .mockResolvedValueOnce(res(200, { accessToken: 'fresh' }))
-      // 3) retry → 200
       .mockResolvedValueOnce(res(200, { ok: true }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -47,7 +44,6 @@ describe('api client', () => {
     expect(out).toEqual({ ok: true });
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(String(fetchMock.mock.calls[1]![0])).toContain('/auth/refresh');
-    // The retry carries the refreshed token.
     expect((fetchMock.mock.calls[2]![1].headers as Record<string, string>).Authorization).toBe(
       'Bearer fresh',
     );
@@ -57,7 +53,7 @@ describe('api client', () => {
     setAccessToken('stale');
     const lost = vi.fn();
     setOnAuthLost(lost);
-    const fetchMock = vi.fn().mockResolvedValueOnce(res(401)).mockResolvedValueOnce(res(401)); // refresh also 401
+    const fetchMock = vi.fn().mockResolvedValueOnce(res(401)).mockResolvedValueOnce(res(401));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(api.get('/secure')).rejects.toBeInstanceOf(ApiError);

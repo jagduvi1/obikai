@@ -1,5 +1,5 @@
+import { api } from '@obikai/api-client';
 import type { Member, MemberStatus } from '@obikai/domain';
-import { api } from './client';
 
 /**
  * Members API binding. Reusing the shared `@obikai/domain` types is the payoff of the TS-end-to-end

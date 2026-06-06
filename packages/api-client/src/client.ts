@@ -1,16 +1,20 @@
 /**
- * Typed API client for the Obikai admin (ADR-0016). The access token lives in memory only (never
- * localStorage — XSS hygiene); the refresh token is an httpOnly cookie the api sets, so refresh
- * works without JS touching it. On a 401 the client transparently calls POST /auth/refresh (cookie
- * sent automatically via `credentials: 'include'`) once, then retries the original request. Tenant
- * is resolved by the api from the Host header, so the browser needs to send nothing extra.
+ * @obikai/api-client — the shared, framework-free browser API client (ADR-0016). Both web apps
+ * (admin + member PWA) use this single implementation so the security-sensitive auth/refresh logic
+ * is written and tested ONCE. The access token lives in memory only (XSS hygiene); the refresh
+ * token is the api's httpOnly cookie. On a 401 the client transparently calls POST /auth/refresh
+ * (cookie sent via `credentials: 'include'`) once, then retries. The base URL is injected by each
+ * app (`configureApiBase`) so this library has no Vite/bundler coupling.
  */
 
-const BASE = import.meta.env.VITE_API_URL ?? '/api';
-
+let base = '/api';
 let accessToken: string | null = null;
-/** Called when auth is irrecoverable (refresh failed) so the app can redirect to login. */
 let onAuthLost: (() => void) | null = null;
+
+/** Set the api base URL (each app passes its own, e.g. `import.meta.env.VITE_API_URL ?? '/api'`). */
+export function configureApiBase(url: string): void {
+  base = url;
+}
 
 export function setAccessToken(token: string | null): void {
   accessToken = token;
@@ -44,22 +48,12 @@ async function rawRequest(path: string, opts: RequestOptions): Promise<Response>
   const headers: Record<string, string> = { Accept: 'application/json' };
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-  return fetch(`${BASE}${path}`, {
+  return fetch(`${base}${path}`, {
     method: opts.method ?? 'GET',
     headers,
     credentials: 'include',
     ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
   });
-}
-
-/** Exchange the httpOnly refresh cookie for a fresh access token. Returns false if it failed. */
-export async function refresh(): Promise<boolean> {
-  const res = await fetch(`${BASE}/auth/refresh`, { method: 'POST', credentials: 'include' });
-  if (!res.ok) return false;
-  const data = (await parseBody(res)) as { accessToken?: string } | undefined;
-  if (!data?.accessToken) return false;
-  accessToken = data.accessToken;
-  return true;
 }
 
 async function parseBody(res: Response): Promise<unknown> {
@@ -71,6 +65,16 @@ async function parseBody(res: Response): Promise<unknown> {
   } catch {
     return text;
   }
+}
+
+/** Exchange the httpOnly refresh cookie for a fresh access token. Returns false if it failed. */
+export async function refresh(): Promise<boolean> {
+  const res = await fetch(`${base}/auth/refresh`, { method: 'POST', credentials: 'include' });
+  if (!res.ok) return false;
+  const data = (await parseBody(res)) as { accessToken?: string } | undefined;
+  if (!data?.accessToken) return false;
+  accessToken = data.accessToken;
+  return true;
 }
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {

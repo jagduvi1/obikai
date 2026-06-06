@@ -12,6 +12,7 @@ const elements = [
   { type: 'domain', pattern: 'packages/domain/**' },
   { type: 'adapter-contracts', pattern: 'packages/adapter-contracts/**' },
   { type: 'rank-engine', pattern: 'packages/rank-engine/**' },
+  { type: 'api-client', pattern: 'packages/api-client/**' },
   { type: 'config', pattern: 'packages/config/**' },
   { type: 'authz', pattern: 'packages/authz/**' },
   { type: 'db', pattern: 'packages/db/**' },
@@ -50,6 +51,8 @@ export default [
             // The crown-jewel rule: the rank engine may depend on NOTHING but domain.
             { from: 'rank-engine', allow: ['domain'] },
             { from: 'domain', allow: [] },
+            // The shared browser API client is a leaf: framework-free, depends on nothing.
+            { from: 'api-client', allow: [] },
             { from: 'adapter-contracts', allow: ['domain'] },
             { from: 'config', allow: ['domain'] },
             { from: 'authz', allow: ['domain'] },
@@ -62,6 +65,7 @@ export default [
               from: 'app',
               allow: [
                 'domain',
+                'api-client',
                 'config',
                 'authz',
                 'adapter-contracts',

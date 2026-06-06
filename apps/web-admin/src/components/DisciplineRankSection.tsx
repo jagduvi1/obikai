@@ -1,7 +1,7 @@
+import { ApiError } from '@obikai/api-client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ApiError } from '../api/client';
 import { awardPromotion, getEligibility, listPromotions } from '../api/rank';
 import { EligibilityDashboard } from './EligibilityDashboard';
 
