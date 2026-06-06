@@ -1,0 +1,120 @@
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  ForbiddenException,
+  Get,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Query,
+} from '@nestjs/common';
+import type { AuthzActor } from '@obikai/authz';
+import { getTenantContextOrThrow } from '@obikai/db';
+import { waiverSignSchema, waiverTemplateCreateSchema } from '@obikai/domain';
+import { z } from 'zod';
+import { ForbiddenError, NotFoundError, WaiversService } from './waivers.service.js';
+
+/**
+ * Waivers REST endpoints (ADR-0014, scope §4.10). The actor is derived from the request's
+ * TenantContext (opened by TenancyMiddleware, ADR-0004); authorization is enforced in
+ * WaiversService via can(). Until the auth slice lands, the context carries no verified roles, so
+ * these endpoints are deny-by-default — the safe failure mode.
+ */
+function currentActor(): AuthzActor {
+  const ctx = getTenantContextOrThrow();
+  // The tenancy middleware populated roles + memberId from the resolved-tenant Membership (ADR-0012).
+  return {
+    userId: ctx.userId ?? 'anonymous',
+    roles: ctx.roles,
+    ...(ctx.memberId !== null ? { memberId: ctx.memberId } : {}),
+  };
+}
+
+function translate(error: unknown): never {
+  if (error instanceof ForbiddenError) throw new ForbiddenException(error.message);
+  if (error instanceof NotFoundError) throw new NotFoundException(error.message);
+  if (error instanceof z.ZodError) throw new BadRequestException(error.issues);
+  throw error;
+}
+
+// Editing a template mints a new version (ADR-0014); every body field is optional on a PATCH.
+const waiverTemplateUpdateSchema = waiverTemplateCreateSchema.partial();
+
+// `active` arrives as a query string; coerce the usual truthy/falsy spellings, else leave undefined.
+const activeQuerySchema = z
+  .enum(['true', 'false'])
+  .transform((v) => v === 'true')
+  .optional();
+
+@Controller('waivers')
+export class WaiversController {
+  constructor(private readonly service: WaiversService) {}
+
+  @Post('templates')
+  async createTemplate(@Body() body: unknown) {
+    try {
+      return await this.service.createTemplate(
+        currentActor(),
+        waiverTemplateCreateSchema.parse(body),
+      );
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Get('templates')
+  async listTemplates(@Query('active') active?: string) {
+    try {
+      const parsed = activeQuerySchema.parse(active);
+      return await this.service.listTemplates(
+        currentActor(),
+        parsed === undefined ? {} : { active: parsed },
+      );
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Get('templates/:id')
+  async getTemplate(@Param('id') id: string) {
+    try {
+      return await this.service.getTemplate(currentActor(), id);
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Patch('templates/:id')
+  async updateTemplate(@Param('id') id: string, @Body() body: unknown) {
+    try {
+      return await this.service.updateTemplate(
+        currentActor(),
+        id,
+        waiverTemplateUpdateSchema.parse(body),
+      );
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Post('sign')
+  async sign(@Body() body: unknown) {
+    try {
+      return await this.service.sign(currentActor(), waiverSignSchema.parse(body));
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  @Get('signatures')
+  async listSignatures(@Query('memberId') memberId?: string) {
+    try {
+      const parsed = z.string().min(1).parse(memberId);
+      return await this.service.listSignatures(currentActor(), parsed);
+    } catch (error) {
+      translate(error);
+    }
+  }
+}

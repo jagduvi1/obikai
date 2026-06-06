@@ -1,0 +1,20 @@
+{
+  "email.receipt.subject": "Your receipt from {dojo} — invoice {number}",
+  "email.receipt.heading": "Thank you for your payment",
+  "email.receipt.body": "Hi {name}, we have received your payment of {total} for invoice {number}. This email is your receipt.",
+  "email.receipt.lines.header": "Invoice items",
+  "email.receipt.line": "{description} × {quantity} — {lineTotal}",
+  "email.receipt.totals": "Subtotal {subtotal} · VAT {vatTotal} · Total {total}",
+  "email.dunning.subject": "Payment overdue — invoice {number} from {dojo}",
+  "email.dunning.heading": "Your invoice is overdue",
+  "email.dunning.body": "Hi {name}, invoice {number} for {total} is now overdue (reminder {stage}). Please settle it to keep your membership active.",
+  "email.dunning.action": "Pay now to avoid interruption to your training.",
+  "email.waiver.subject": "Please sign your waiver — {dojo}",
+  "email.waiver.heading": "A waiver needs your signature",
+  "email.waiver.body": "Hi {name}, please review and sign the waiver \"{title}\" for {memberName} before your next class.",
+  "email.waiver.action": "Sign the waiver to complete your registration.",
+  "email.reminder.subject": "Reminder: {program} at {time}",
+  "email.reminder.heading": "Your class is coming up",
+  "email.reminder.body": "Hi {name}, this is a reminder that {program} starts at {time} at {location}. See you on the mat!",
+  "email.signature": "— The team at {dojo}"
+}

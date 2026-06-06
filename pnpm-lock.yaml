@@ -235,6 +235,9 @@ importers:
       '@obikai/adapter-contracts':
         specifier: workspace:*
         version: link:../../packages/adapter-contracts
+      '@obikai/adapter-email-smtp':
+        specifier: workspace:*
+        version: link:../../adapters/email-smtp
       '@obikai/authz':
         specifier: workspace:*
         version: link:../../packages/authz
@@ -247,6 +250,9 @@ importers:
       '@obikai/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@obikai/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       express-rate-limit:
         specifier: ^7.4.1
         version: 7.5.1(express@4.22.1)
@@ -377,6 +383,9 @@ importers:
         specifier: 'catalog:'
         version: 3.25.76
     devDependencies:
+      fast-check:
+        specifier: 'catalog:'
+        version: 3.23.2
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

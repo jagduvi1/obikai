@@ -1,11 +1,21 @@
 import { type DynamicModule, Global, Module } from '@nestjs/common';
 import type { AppConfig } from '@obikai/config';
+import { AttendanceModule } from './attendance/attendance.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { EnrollmentsModule } from './billing/enrollments.module.js';
+import { InvoicesModule } from './billing/invoices.module.js';
+import { PlansModule } from './billing/plans.module.js';
+import { VatRatesModule } from './billing/vat-rates.module.js';
 import { CapabilitiesModule } from './capabilities/capabilities.module.js';
 import { APP_CONFIG } from './config.provider.js';
 import { HealthModule } from './health/health.module.js';
+import { HouseholdsModule } from './households/households.module.js';
+import { LocationsModule } from './locations/locations.module.js';
 import { MembersModule } from './members/members.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
+import { SchedulingModule } from './scheduling/scheduling.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
+import { WaiversModule } from './waivers/waivers.module.js';
 
 /**
  * Composition root (ADR-0003): the app wires everything; libraries stay framework-agnostic. The
@@ -14,7 +24,23 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
  */
 @Global()
 @Module({
-  imports: [HealthModule, AuthModule, TenancyModule, CapabilitiesModule, MembersModule],
+  imports: [
+    HealthModule,
+    AuthModule,
+    TenancyModule,
+    CapabilitiesModule,
+    MembersModule,
+    HouseholdsModule,
+    LocationsModule,
+    VatRatesModule,
+    PlansModule,
+    EnrollmentsModule,
+    InvoicesModule,
+    SchedulingModule,
+    AttendanceModule,
+    WaiversModule,
+    NotificationsModule,
+  ],
 })
 export class AppModule {
   static forRoot(config: AppConfig): DynamicModule {

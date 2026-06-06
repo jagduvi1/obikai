@@ -14,14 +14,23 @@ export type MembershipId = Brand<string, 'MembershipId'>;
 export type LocationId = Brand<string, 'LocationId'>;
 export type SessionId = Brand<string, 'SessionId'>;
 
-// CRM / membership / billing ids (ADR-0011)
+// CRM / membership / billing ids (ADR-0011/0013)
 export type MemberId = Brand<string, 'MemberId'>;
 export type HouseholdId = Brand<string, 'HouseholdId'>;
 export type PlanId = Brand<string, 'PlanId'>;
 export type EnrollmentId = Brand<string, 'EnrollmentId'>;
 export type InvoiceId = Brand<string, 'InvoiceId'>;
 export type PaymentId = Brand<string, 'PaymentId'>;
+export type VatRateId = Brand<string, 'VatRateId'>;
+
+// Scheduling / attendance / waiver ids (ADR-0014)
+export type ProgramId = Brand<string, 'ProgramId'>;
+export type ClassScheduleId = Brand<string, 'ClassScheduleId'>;
+export type ClassOccurrenceId = Brand<string, 'ClassOccurrenceId'>;
+export type BookingId = Brand<string, 'BookingId'>;
 export type AttendanceId = Brand<string, 'AttendanceId'>;
+export type WaiverTemplateId = Brand<string, 'WaiverTemplateId'>;
+export type WaiverSignatureId = Brand<string, 'WaiverSignatureId'>;
 
 // Rank-engine ids (ADR-0005)
 export type DisciplineId = Brand<string, 'DisciplineId'>;

@@ -10,3 +10,8 @@ export * from './result.js';
 export * from './member.js';
 export * from './household.js';
 export * from './auth.js';
+export * from './location.js';
+export * from './billing.js';
+export * from './scheduling.js';
+export * from './attendance.js';
+export * from './waiver.js';

@@ -1,5 +1,6 @@
-import type { Household, HouseholdCreateInput } from '@obikai/domain';
+import type { Household, HouseholdCreateInput, Member } from '@obikai/domain';
 import mongoose, { type Model, Schema, type Types } from 'mongoose';
+import { type MemberDoc, MemberModel, toMember } from './member.js';
 import type { TenantScoped } from './repository.js';
 import { tenantGuard } from './tenant-guard.js';
 
@@ -41,8 +42,31 @@ export function toHousehold(doc: HouseholdDoc): Household {
   };
 }
 
+/** Mutable household fields (payer reassignment, rename). Tenant + ids are server-side. */
+export interface HouseholdUpdateInput {
+  name?: string;
+  payerMemberId?: string | null;
+  payerUserId?: string | null;
+}
+
+function patchFields(patch: HouseholdUpdateInput): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (value !== undefined) out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * Tenant-scoped Household repository. Every method runs through the guarded model, so it requires an
+ * active TenantContext (ADR-0004). `listMembers` reads the (also-guarded) Member collection so a
+ * household's roster cannot cross tenants.
+ */
 export class HouseholdRepository {
-  constructor(private readonly model: Model<HouseholdDoc> = HouseholdModel) {}
+  constructor(
+    private readonly model: Model<HouseholdDoc> = HouseholdModel,
+    private readonly memberModel: Model<MemberDoc> = MemberModel,
+  ) {}
 
   async create(input: HouseholdCreateInput): Promise<Household> {
     const created = await this.model.create({
@@ -61,5 +85,24 @@ export class HouseholdRepository {
   async list(): Promise<Household[]> {
     const docs = await this.model.find({}).sort({ name: 1 }).lean<HouseholdDoc[]>().exec();
     return docs.map(toHousehold);
+  }
+
+  /** Update mutable household fields (payer reassignment, rename) within the active tenant. */
+  async update(id: string, patch: HouseholdUpdateInput): Promise<Household | null> {
+    const doc = await this.model
+      .findByIdAndUpdate(id, patchFields(patch), { new: true })
+      .lean<HouseholdDoc>()
+      .exec();
+    return doc ? toHousehold(doc) : null;
+  }
+
+  /** The household's member roster, alphabetical — tenant-scoped by the Member guard. */
+  async listMembers(householdId: string): Promise<Member[]> {
+    const docs = await this.memberModel
+      .find({ householdId })
+      .sort({ lastName: 1 })
+      .lean<MemberDoc[]>()
+      .exec();
+    return docs.map(toMember);
   }
 }

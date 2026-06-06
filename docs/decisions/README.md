@@ -19,3 +19,7 @@ supersession in both). Keep them short; put detail in code and `docs/`.
 | [0008](0008-license-posture.md) | AGPL license posture & CI gate | Accepted |
 | [0009](0009-config-and-secrets.md) | Config & secrets via validated env | Accepted |
 | [0010](0010-cla-pending.md) | Contribution agreement (CLA vs no-CLA) | **Pending (human-owned)** |
+| [0011](0011-membership-data-model.md) | Core membership/CRM/billing data model | Accepted |
+| [0012](0012-auth-and-sessions.md) | Authentication & session model | Accepted |
+| [0013](0013-billing-vat-invoicing.md) | Billing, EU VAT & invoicing | Accepted |
+| [0014](0014-scheduling-attendance-waivers.md) | Classes/scheduling, attendance & waivers | Accepted |
