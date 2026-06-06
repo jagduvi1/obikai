@@ -1,0 +1,46 @@
+version: 2
+updates:
+  # pnpm workspace dependencies (Dependabot understands the pnpm lockfile).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      # Batch low-risk dev/tooling bumps into one PR to cut noise.
+      dev-tooling:
+        patterns:
+          - '@biomejs/*'
+          - 'eslint*'
+          - 'turbo'
+          - 'typescript'
+          - 'vitest'
+          - '@types/*'
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: docker
+    directory: /docker
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+      - docker
+    commit-message:
+      prefix: chore

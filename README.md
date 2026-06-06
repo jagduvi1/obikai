@@ -1,5 +1,10 @@
 # Obikai
 
+[![CI](https://github.com/jagduvi1/obikai/actions/workflows/ci.yml/badge.svg)](https://github.com/jagduvi1/obikai/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/jagduvi1/obikai/actions/workflows/codeql.yml/badge.svg)](https://github.com/jagduvi1/obikai/actions/workflows/codeql.yml)
+[![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-blue.svg)](LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](tsconfig.base.json)
+
 **Dojo-native, open-source SaaS for martial-arts schools.** Built around the martial-arts
 journey — a configurable rank/grading engine, curriculum, attendance-linked promotions,
 competition, and dojo community. Membership, billing, and scheduling are the administrative
@@ -8,10 +13,9 @@ backbone, not the point.
 One AGPLv3 codebase runs as a **multi-tenant hosted service** *and* can be **self-hosted by a
 single dojo** (or an association hosting several clubs). Nordics / EU first.
 
-> Status: **Phase 0 — Foundations.** This is the skeleton: monorepo tooling, the pluggable
-> adapter seams, the pure rank engine, multi-tenant + auth/RBAC scaffolding, i18n + GDPR
-> primitives, CI/CD and Docker. Feature work (members, billing, scheduling, the rank UI) comes
-> next per [docs/scope.md](docs/scope.md) §9.
+> **Status:** Phase 0 (foundations) ✅ and most of Phase 1 (dojo core — members/households, auth,
+> billing + EU VAT, scheduling, attendance, waivers) are built and tested. The backend runs with
+> one `docker compose up`. See the **[Roadmap](ROADMAP.md)** for what's done and what's next.
 
 This is **not** a gym/fitness app. No workout logging, body-composition tracking, or
 fitness-class framing.

@@ -1,0 +1,9 @@
+# Default code owners for Obikai. Requested for review on every PR.
+# The architecture-critical seams get explicit ownership so changes there are never missed.
+* @jagduvi1
+
+# The crown-jewel pure engine and the multi-tenant isolation seam — review with extra care.
+/packages/rank-engine/   @jagduvi1
+/packages/db/             @jagduvi1
+/packages/adapter-contracts/ @jagduvi1
+/docs/decisions/          @jagduvi1

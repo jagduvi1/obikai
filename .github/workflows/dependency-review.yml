@@ -1,0 +1,24 @@
+name: Dependency review
+
+# On every PR, flag newly-introduced dependencies that carry known vulnerabilities or a
+# disallowed license — a fast first line of defence that complements the deny-by-default
+# AGPL license gate in ci.yml (scripts/license-check.mjs).
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+          # Deny copyleft/unknown licenses that are incompatible with AGPL distribution.
+          deny-licenses: GPL-2.0-only, LGPL-2.1-only, SSPL-1.0
