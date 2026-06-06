@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '../auth/auth-context';
+import { DisciplinesPage } from '../pages/DisciplinesPage';
 import { LoginPage } from '../pages/LoginPage';
+import { MemberDetailPage } from '../pages/MemberDetailPage';
 import { MembersPage } from '../pages/MembersPage';
 import { Layout } from './Layout';
 
@@ -26,6 +28,22 @@ export function App() {
         element={
           <RequireAuth>
             <MembersPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/members/:id"
+        element={
+          <RequireAuth>
+            <MemberDetailPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/disciplines"
+        element={
+          <RequireAuth>
+            <DisciplinesPage />
           </RequireAuth>
         }
       />

@@ -148,3 +148,94 @@ button:disabled {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+/* Rank screens */
+.muted {
+  color: var(--muted);
+}
+.form-ok {
+  color: #5fd07a;
+}
+.inline-form,
+.enroll-row {
+  display: flex;
+  align-items: end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+.inline-form input,
+.enroll-row select,
+.award-override input {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+.inline-form button,
+.enroll-row button,
+.step-card button {
+  padding: 0.5rem 0.9rem;
+  border: none;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #001;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rank-section {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+  background: var(--surface);
+}
+.step-list,
+.criteria,
+.history {
+  list-style: none;
+  padding: 0;
+}
+.step-card {
+  border-top: 1px solid var(--border);
+  padding: 0.75rem 0;
+}
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.criteria li {
+  padding: 0.25rem 0;
+}
+.badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+.badge-ready {
+  background: #15431f;
+  color: #7ff0a0;
+}
+.badge-close {
+  background: #4a3a12;
+  color: #ffd24d;
+}
+.badge-notYet {
+  background: #3a2030;
+  color: #ff9bb0;
+}
+.award-override {
+  display: flex;
+  align-items: end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+progress {
+  vertical-align: middle;
+}

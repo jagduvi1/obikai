@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { listMembers } from '../api/members';
 
 /** Members list — proves the full stack: auth'd fetch → typed @obikai/domain data → a11y table. */
@@ -33,7 +34,9 @@ export function MembersPage() {
             {data.map((m) => (
               <tr key={m.id}>
                 <td>
-                  {m.firstName} {m.lastName}
+                  <Link to={`/members/${m.id}`}>
+                    {m.firstName} {m.lastName}
+                  </Link>
                 </td>
                 <td>{m.email ?? '—'}</td>
                 <td>{m.status}</td>

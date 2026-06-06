@@ -11,7 +11,8 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
 const en = {
   app: { title: 'Obikai Admin', skipToContent: 'Skip to content', signOut: 'Sign out' },
-  nav: { members: 'Members', dashboard: 'Dashboard' },
+  nav: { members: 'Members', disciplines: 'Disciplines', dashboard: 'Dashboard' },
+  common: { yes: 'Yes', no: 'No' },
   login: {
     title: 'Sign in',
     email: 'Email',
@@ -27,6 +28,38 @@ const en = {
     empty: 'No members yet.',
     loading: 'Loading members…',
     error: 'Could not load members.',
+  },
+  disciplines: {
+    title: 'Disciplines',
+    name: 'Name',
+    presentation: 'Presentation',
+    active: 'Active',
+    create: 'Add discipline',
+    createError: 'Could not create the discipline.',
+    loading: 'Loading…',
+    empty: 'No disciplines yet.',
+  },
+  rank: {
+    title: 'Rank & grading',
+    enrollIn: 'Enrol in',
+    enroll: 'Enrol',
+    selectDiscipline: 'Select a discipline…',
+    notEnrolled: 'Not enrolled in any discipline yet.',
+    topOfLadder: 'At the top of the ladder — no next step.',
+    loading: 'Loading eligibility…',
+    error: 'Could not load eligibility.',
+    history: 'Promotion history',
+    noHistory: 'No promotions yet.',
+    award: 'Award next rank',
+    forcePromote: 'Force-promote',
+    overrideReason: 'Override reason',
+    overridePlaceholder: 'Why are you promoting past unmet criteria?',
+    awarded: 'Promoted to {{step}}.',
+    awardError: 'Could not award the promotion.',
+    refused: 'Not eligible — unmet: {{unmet}}. Provide an override reason to force-promote.',
+    override: 'override',
+    advisory: 'advisory',
+    status: { ready: 'Ready', close: 'Close', notYet: 'Not yet' },
   },
 } as const;
 
