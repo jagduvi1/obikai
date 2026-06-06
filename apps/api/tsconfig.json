@@ -24,5 +24,6 @@
     { "path": "../../adapters/auth-local" },
     { "path": "../../adapters/email-smtp" }
   ],
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
 }

@@ -41,6 +41,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^22.10.2",
     "typescript": "catalog:",
+    "vite": "catalog:",
     "vitest": "catalog:"
   }
 }
