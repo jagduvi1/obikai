@@ -138,7 +138,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./apps/${{ matrix.app }}/Dockerfile
+          # One multi-stage Dockerfile builds both apps; ARG APP selects which app to deploy.
+          file: ./docker/Dockerfile
           platforms: linux/amd64,linux/arm64
           build-args: |
             APP=${{ matrix.app }}

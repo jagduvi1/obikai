@@ -135,7 +135,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.28.0
+        # SHA-pinned (supply-chain hardening for the security scanner); Dependabot bumps the pin.
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -163,7 +164,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./apps/${{ matrix.app }}/Dockerfile
+          # One multi-stage Dockerfile builds both apps; ARG APP selects which app to deploy.
+          file: ./docker/Dockerfile
           build-args: |
             APP=${{ matrix.app }}
           push: false
