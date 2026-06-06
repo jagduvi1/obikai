@@ -56,6 +56,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     ['discipline', ['read', 'list']],
     ['rankSystem', ['read', 'list']],
     ['announcement', ['create', 'read', 'list']],
+    // Front-desk staff issue invoices, so they may READ the seller billing profile (legal/VAT
+    // details printed on invoices), but only the owner edits it.
+    ['tenantSettings', ['read']],
   ]),
 
   // A member: read-mostly self-service. They get tenant-wide read on shared info (classes,

@@ -21,6 +21,7 @@ import { MemberRankStatesModule } from './rank/member-rank-states.module.js';
 import { PromotionsModule } from './rank/promotions.module.js';
 import { RankSystemsModule } from './rank/rank-systems.module.js';
 import { SchedulingModule } from './scheduling/scheduling.module.js';
+import { BillingProfileModule } from './settings/billing-profile.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
 import { WaiversModule } from './waivers/waivers.module.js';
 
@@ -45,6 +46,7 @@ import { WaiversModule } from './waivers/waivers.module.js';
     EnrollmentsModule,
     InvoicesModule,
     SchedulingModule,
+    BillingProfileModule,
     AttendanceModule,
     WaiversModule,
     NotificationsModule,

@@ -10,6 +10,7 @@ import { MembersPage } from '../pages/MembersPage';
 import { OccurrenceDetailPage } from '../pages/OccurrenceDetailPage';
 import { OccurrencesPage } from '../pages/OccurrencesPage';
 import { PlansPage } from '../pages/PlansPage';
+import { SettingsPage } from '../pages/SettingsPage';
 import { Layout } from './Layout';
 
 /** Gate that waits for the silent-refresh check, then admits or bounces to /login. */
@@ -89,6 +90,14 @@ export function App() {
         element={
           <RequireAuth>
             <OccurrenceDetailPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <RequireAuth>
+            <SettingsPage />
           </RequireAuth>
         }
       />
