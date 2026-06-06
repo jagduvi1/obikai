@@ -9,3 +9,6 @@ export * from './tenant-context.js';
 export * from './tenant-guard.js';
 export * from './repository.js';
 export * from './migrate.js';
+export * from './connection.js';
+export * from './member.js';
+export * from './household.js';

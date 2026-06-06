@@ -232,6 +232,9 @@ importers:
       '@obikai/adapter-contracts':
         specifier: workspace:*
         version: link:../../packages/adapter-contracts
+      '@obikai/authz':
+        specifier: workspace:*
+        version: link:../../packages/authz
       '@obikai/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -247,6 +250,9 @@ importers:
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
     devDependencies:
       '@types/express':
         specifier: ^4.17.21
@@ -287,6 +293,19 @@ importers:
         version: 2.1.9(@types/node@22.19.20)
 
   packages/adapter-contracts:
+    dependencies:
+      '@obikai/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 2.1.9(@types/node@22.19.20)
+
+  packages/authz:
     dependencies:
       '@obikai/domain':
         specifier: workspace:*

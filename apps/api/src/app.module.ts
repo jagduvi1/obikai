@@ -3,6 +3,7 @@ import type { AppConfig } from '@obikai/config';
 import { CapabilitiesModule } from './capabilities/capabilities.module.js';
 import { APP_CONFIG } from './config.provider.js';
 import { HealthModule } from './health/health.module.js';
+import { MembersModule } from './members/members.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
 
 /**
@@ -12,7 +13,7 @@ import { TenancyModule } from './tenancy/tenancy.module.js';
  */
 @Global()
 @Module({
-  imports: [HealthModule, TenancyModule, CapabilitiesModule],
+  imports: [HealthModule, TenancyModule, CapabilitiesModule, MembersModule],
 })
 export class AppModule {
   static forRoot(config: AppConfig): DynamicModule {

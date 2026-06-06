@@ -9,6 +9,7 @@
   "references": [
     { "path": "../../packages/domain" },
     { "path": "../../packages/config" },
+    { "path": "../../packages/authz" },
     { "path": "../../packages/adapter-contracts" },
     { "path": "../../packages/db" }
   ],

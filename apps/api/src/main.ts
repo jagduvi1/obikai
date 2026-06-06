@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type AppConfig, ConfigError, loadConfig } from '@obikai/config';
+import { connectMongo } from '@obikai/db';
 import { AppModule } from './app.module.js';
 
 /** Default HTTP port when PORT is unset/blank. */
@@ -25,6 +26,11 @@ async function bootstrap(): Promise<void> {
     }
     throw error;
   }
+
+  // Mongo is mandatory infra (invariant 10). Connect before serving so the tenant-scoped
+  // repositories have a live connection; fail fast if it is unreachable.
+  await connectMongo(config.mongoUri);
+  logger.log('connected to MongoDB');
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(config));
 

@@ -13,6 +13,7 @@ const elements = [
   { type: 'adapter-contracts', pattern: 'packages/adapter-contracts/**' },
   { type: 'rank-engine', pattern: 'packages/rank-engine/**' },
   { type: 'config', pattern: 'packages/config/**' },
+  { type: 'authz', pattern: 'packages/authz/**' },
   { type: 'db', pattern: 'packages/db/**' },
   { type: 'gdpr', pattern: 'packages/gdpr/**' },
   { type: 'i18n', pattern: 'packages/i18n/**' },
@@ -51,6 +52,7 @@ export default [
             { from: 'domain', allow: [] },
             { from: 'adapter-contracts', allow: ['domain'] },
             { from: 'config', allow: ['domain'] },
+            { from: 'authz', allow: ['domain'] },
             { from: 'i18n', allow: ['domain'] },
             { from: 'gdpr', allow: ['domain', 'adapter-contracts'] },
             { from: 'db', allow: ['domain', 'config'] },
@@ -61,6 +63,7 @@ export default [
               allow: [
                 'domain',
                 'config',
+                'authz',
                 'adapter-contracts',
                 'rank-engine',
                 'db',
