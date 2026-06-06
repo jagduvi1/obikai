@@ -13,6 +13,8 @@ import { HouseholdsModule } from './households/households.module.js';
 import { LocationsModule } from './locations/locations.module.js';
 import { MembersModule } from './members/members.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { DisciplinesModule } from './rank/disciplines.module.js';
+import { RankSystemsModule } from './rank/rank-systems.module.js';
 import { SchedulingModule } from './scheduling/scheduling.module.js';
 import { TenancyModule } from './tenancy/tenancy.module.js';
 import { WaiversModule } from './waivers/waivers.module.js';
@@ -40,6 +42,8 @@ import { WaiversModule } from './waivers/waivers.module.js';
     AttendanceModule,
     WaiversModule,
     NotificationsModule,
+    DisciplinesModule,
+    RankSystemsModule,
   ],
 })
 export class AppModule {

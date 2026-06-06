@@ -14,6 +14,7 @@ export const RESOURCES = [
   'payment',
   'class',
   'attendance',
+  'discipline',
   'rankSystem',
   'promotion',
   'gradingEvent',
