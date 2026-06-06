@@ -65,6 +65,9 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   member: grant([
     ['class', ['read', 'list']],
     ['announcement', ['read', 'list']],
+    // Disciplines are shared, non-sensitive reference data (the arts the dojo offers), so members
+    // may read them tenant-wide (e.g. to label their own progress) — like classes/announcements.
+    ['discipline', ['read', 'list']],
   ]),
 
   // A guardian's BASE permissions; access to a specific minor's records is granted by the

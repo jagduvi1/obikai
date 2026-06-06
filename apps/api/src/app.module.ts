@@ -11,6 +11,7 @@ import { APP_CONFIG } from './config.provider.js';
 import { HealthModule } from './health/health.module.js';
 import { HouseholdsModule } from './households/households.module.js';
 import { LocationsModule } from './locations/locations.module.js';
+import { MeModule } from './me/me.module.js';
 import { MembersModule } from './members/members.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { CurriculumModule } from './rank/curriculum.module.js';
@@ -35,6 +36,7 @@ import { WaiversModule } from './waivers/waivers.module.js';
     AuthModule,
     TenancyModule,
     CapabilitiesModule,
+    MeModule,
     MembersModule,
     HouseholdsModule,
     LocationsModule,
