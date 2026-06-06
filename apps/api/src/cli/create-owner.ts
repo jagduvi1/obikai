@@ -8,6 +8,7 @@ import {
   IdentityRepository,
   MembershipRepository,
   type TenantContext,
+  TenantRegistryRepository,
   UserRepository,
   connectMongo,
   disconnectMongo,
@@ -40,6 +41,13 @@ export async function createOwner(
     const users = new UserRepository();
     const identities = new IdentityRepository();
     const memberships = new MembershipRepository();
+    const tenants = new TenantRegistryRepository();
+
+    // Register the self-host tenant in the global registry (ADR-0017) so the platform plane and the
+    // billing-tick scheduler can see it. Idempotent: the registry is tenant-global, so this runs
+    // without a tenant context, and re-running create-owner never mutates an existing tenant.
+    await tenants.ensureRegistered({ slug: tenantId, name: tenantId });
+    logger.log(`Registered self-host tenant "${tenantId}".`);
 
     const normalized = owner.email.trim().toLowerCase();
     const existing = await identities.findByEmailLower('local', normalized);

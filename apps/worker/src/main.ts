@@ -4,19 +4,34 @@
  * A single BullMQ `Worker` drains the `jobs` queue and dispatches on the job name. The worker is
  * deployed as its own process on the hosted plane; on self-host it can also be started in-process
  * by the api when `config.runWorkerInProcess` is true. Either way this same module is the unit of
- * work, so it MUST be safe to run standalone.
+ * work, so it MUST be safe to run standalone. It is also a PRODUCER: it registers the recurring
+ * `billing-tick` and enqueues that tick's per-tenant fan-out back onto the same queue (ADR-0017).
  *
- * Tenancy (ADR-0004): every job payload carries `tenantId`, and each handler does its work inside
- * an explicit `runInTenantContext(tenantId, ...)`. The worker NEVER relies on ambient tenant
- * state and NEVER reads/writes "all tenants" implicitly — that would be a cross-tenant PII vector
- * (ADR-0006 webhook→tenant binding, ADR-0007 erasure-cannot-cross-tenants).
+ * Tenancy (ADR-0004): every TENANT-SCOPED job carries `tenantId` and does its work inside an explicit
+ * `runInTenantContext(tenantId, ...)`. The worker NEVER relies on ambient tenant state and NEVER
+ * reads/writes "all tenants" implicitly — that would be a cross-tenant PII vector (ADR-0006
+ * webhook→tenant binding, ADR-0007 erasure-cannot-cross-tenants). The lone exception is the explicit
+ * PLATFORM job (`billing-tick`): it carries no tenantId and runs under the audited `runAsPlatform`
+ * marker purely to enumerate active tenants and fan out scoped jobs — never to touch tenant data.
  */
 import { type Tenancy, loadConfig } from '@obikai/config';
-import { type TenantContext, runInTenantContext } from '@obikai/db';
-import { type ConnectionOptions, type Job, Worker } from 'bullmq';
+import {
+  type TenantContext,
+  TenantRegistryRepository,
+  runAsPlatform,
+  runInTenantContext,
+} from '@obikai/db';
+import { type ConnectionOptions, type Job, Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { makeBillingDeps, runBillingForTenant, runDunningForTenant } from './billing-jobs.js';
-import { type BaseJobData, JOBS_QUEUE, type JobName } from './queues.js';
+import {
+  type AnyJobData,
+  BILLING_TICK,
+  type BaseJobData,
+  JOBS_QUEUE,
+  type JobName,
+} from './queues.js';
+import { BILLING_TICK_CRON, runBillingTick } from './scheduler.js';
 
 /**
  * Minimal structured logger. We avoid `console.log` (lint-forbidden) and depend on no logging
@@ -44,13 +59,41 @@ function makeLogger(): Logger {
   };
 }
 
+/** What each job handler needs from the runtime: a logger, the tenancy axis, and (for the platform
+ *  fan-out) the capability to enqueue tenant-scoped follow-up jobs onto the shared queue. */
+interface JobDeps {
+  readonly log: Logger;
+  readonly tenancy: Tenancy;
+  readonly enqueue: (name: JobName, data: BaseJobData) => Promise<void>;
+}
+
 /**
- * Dispatch one job to its handler. Each branch is a documented STUB: it opens tenant context and
- * logs intent. Real billing/dunning/etc. logic lands in later phases behind this seam, so the
- * runtime wiring (queue, context, shutdown) can be verified independently of the domain work.
+ * Dispatch one job to its handler. PLATFORM jobs (e.g. `billing-tick`) run FIRST, under the explicit
+ * `runAsPlatform(...)` marker, and carry no tenantId — they fan work out per tenant. Everything else
+ * is tenant-scoped: it must carry a `tenantId` and runs inside `runInTenantContext`. The tenant
+ * branches are documented STUBs where noted; real logic lands behind this seam (ADR-0001/0004).
  */
-async function handleJob(job: Job<BaseJobData>, log: Logger, tenancy: Tenancy): Promise<void> {
-  const { tenantId } = job.data;
+async function handleJob(job: Job<AnyJobData>, deps: JobDeps): Promise<void> {
+  const { log, tenancy, enqueue } = deps;
+
+  // ── Platform (cross-tenant) jobs — explicit marker, no tenantId (ADR-0004/0017) ──────────────
+  if (job.name === BILLING_TICK) {
+    await runAsPlatform(async () => {
+      const registry = new TenantRegistryRepository();
+      const tickLog = (msg: string, meta?: Record<string, unknown>): void =>
+        log.error(msg, { ...meta, jobId: job.id });
+      const result = await runBillingTick(
+        { listActiveSlugs: async () => (await registry.listActive()).map((tenant) => tenant.slug) },
+        { enqueue },
+        tickLog,
+      );
+      log.info('billing-tick', { jobId: job.id, ...result });
+    });
+    return;
+  }
+
+  // ── Tenant-scoped jobs — require a tenantId, run in tenant context ────────────────────────────
+  const { tenantId } = job.data as BaseJobData;
   if (!tenantId) {
     // A job without a tenant cannot be scoped safely — fail loudly rather than guess (ADR-0004).
     throw new Error(`job ${job.id ?? '?'} (${job.name}) is missing tenantId`);
@@ -122,15 +165,30 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const log = makeLogger();
 
-  // BullMQ requires `maxRetriesPerRequest: null` on the shared connection (its blocking commands
-  // must not be aborted by ioredis's retry cap).
+  // BullMQ requires `maxRetriesPerRequest: null` on the worker (consumer) connection — its blocking
+  // commands must not be aborted by ioredis's retry cap. The producer (Queue) gets its OWN
+  // connection: a Worker blocks on its connection, so sharing one with a Queue is discouraged.
   const connection = new Redis(config.redisUrl, { maxRetriesPerRequest: null });
+  const producerConnection = new Redis(config.redisUrl, { maxRetriesPerRequest: null });
 
-  const worker = new Worker<BaseJobData>(JOBS_QUEUE, (job) => handleJob(job, log, config.tenancy), {
-    // The IORedis instance is a valid BullMQ connection at runtime; cast over the dual-ioredis
-    // type identity (bullmq bundles its own ioredis types).
-    connection: connection as unknown as ConnectionOptions,
+  // The worker is also a PRODUCER: the platform billing-tick fans out per-tenant jobs back onto this
+  // same queue, and we register the recurring tick itself here so the worker is self-contained.
+  const queue = new Queue(JOBS_QUEUE, {
+    connection: producerConnection as unknown as ConnectionOptions,
   });
+  const enqueue = async (name: JobName, data: BaseJobData): Promise<void> => {
+    await queue.add(name, data);
+  };
+
+  const worker = new Worker<AnyJobData>(
+    JOBS_QUEUE,
+    (job) => handleJob(job, { log, tenancy: config.tenancy, enqueue }),
+    {
+      // The IORedis instance is a valid BullMQ connection at runtime; cast over the dual-ioredis
+      // type identity (bullmq bundles its own ioredis types).
+      connection: connection as unknown as ConnectionOptions,
+    },
+  );
 
   worker.on('failed', (job, err) => {
     log.error('job failed', { jobId: job?.id, name: job?.name, error: err.message });
@@ -139,16 +197,27 @@ async function main(): Promise<void> {
     log.error('worker error', { error: err.message });
   });
 
-  log.info('worker started', { queue: JOBS_QUEUE, deployMode: config.deployMode });
+  // Register the daily recurring billing-tick (ADR-0017). `upsertJobScheduler` is idempotent — on
+  // every restart it updates the existing schedule rather than stacking duplicates.
+  await queue.upsertJobScheduler(
+    BILLING_TICK,
+    { pattern: BILLING_TICK_CRON },
+    { name: BILLING_TICK },
+  );
 
-  // Graceful shutdown: stop accepting new jobs, let in-flight jobs finish, close the connection.
+  log.info('worker started', { queue: JOBS_QUEUE, deployMode: config.deployMode });
+  log.info('scheduler registered', { job: BILLING_TICK, cron: BILLING_TICK_CRON });
+
+  // Graceful shutdown: stop accepting new jobs, let in-flight jobs finish, close the connections.
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     log.info('shutting down', { signal });
     await worker.close();
+    await queue.close();
     await connection.quit();
+    await producerConnection.quit();
     log.info('shutdown complete');
   };
 

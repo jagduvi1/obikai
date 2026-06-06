@@ -14,6 +14,7 @@ export * from './member.js';
 export * from './household.js';
 export * from './auth.js';
 export * from './location.js';
+export * from './tenant.js';
 export * from './billing.js';
 export * from './scheduling.js';
 export * from './rrule.js';

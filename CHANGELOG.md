@@ -21,4 +21,8 @@ independently via [Changesets](https://github.com/changesets/changesets).
   hash-chained audit log, export, erasure with per-model policy, ROPA/retention registry).
 - Docker + docker-compose (one-command local/self-host), Traefik edge, CI/CD with an AGPL
   license gate, SBOM, and image signing.
+- Tenant-global tenant registry (`Tenant` domain type + `TenantRegistryRepository`,
+  platform-marker-guarded enumeration) and a worker recurring-billing scheduler: a daily
+  `billing-tick` platform job fans out per-tenant `billing-run` + `dunning` under `runAsPlatform`.
+  Self-host registers its tenant at bootstrap (ADR-0017).
 - Architecture decision records in `docs/decisions/`.
