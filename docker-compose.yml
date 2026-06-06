@@ -1,0 +1,125 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Obikai — base compose (ADR-0002/0009). Defines the four mandatory services for a
+# self-host bring-up: api, worker, mongo, redis. All configuration is env-driven
+# from .env (copy .env.example → .env); no secrets live in this file.
+#
+# Three-file split (matching the Glosan reference, improved per the plan):
+#   docker-compose.yml            ← this base (services, healthchecks, limits)
+#   docker-compose.override.yml   ← auto-loaded for LOCAL DEV (bind mounts, ports,
+#                                   `local` profile adds minio + mailpit)
+#   docker-compose.prod.yml       ← self-host/hosted: pulls ghcr.io images, joins
+#                                   the external `web` network, adds Traefik labels
+#
+# Container names are prefixed `obikai-` (Glosan convention). Every long-running
+# service: restart unless-stopped, a healthcheck, a memory limit, runs non-root,
+# named volumes for state. Note: in self-host single-box mode RUN_WORKER_IN_PROCESS
+# defaults true, so the `worker` service is optional — start it only when you scale
+# jobs out of the api process.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  api:
+    image: obikai-api
+    container_name: obikai-api
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        APP: api
+    env_file: .env
+    restart: unless-stopped
+    # Non-root: the runtime stage's `node` user (uid 1000).
+    user: "1000:1000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # Compiled TS healthcheck baked into the image (ADR-0008 TS-end-to-end).
+      test: ["CMD", "node", "dist/healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+
+  worker:
+    image: obikai-worker
+    container_name: obikai-worker
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        APP: worker
+    env_file: .env
+    restart: unless-stopped
+    user: "1000:1000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "dist/healthcheck.js"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    security_opt:
+      - no-new-privileges:true
+
+  mongo:
+    image: mongo:7
+    container_name: obikai-mongo
+    restart: unless-stopped
+    # mongo:7 drops to the `mongodb` user (uid 999) internally; pin it explicitly.
+    user: "999:999"
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    volumes:
+      - mongo-data:/data/db
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7
+    container_name: obikai-redis
+    restart: unless-stopped
+    user: "999:999"
+    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - redis-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  mongo-data:
+  redis-data:

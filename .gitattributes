@@ -1,0 +1,17 @@
+# Normalize line endings to LF in the repo for cross-platform consistency.
+* text=auto eol=lf
+
+# Lockfiles & generated text stay LF.
+pnpm-lock.yaml text eol=lf
+
+# Binary assets git should not touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary

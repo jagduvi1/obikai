@@ -1,0 +1,188 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+# ─────────────────────────────────────────────────────────────────────────────────────────
+# HUMAN-OWNED: registry & EU-region posture.
+#
+# Images publish to GitHub Container Registry (ghcr.io/<owner>/obikai-<app>). GHCR has no
+# single pinned region; for an EU data-residency guarantee a human operator must either
+# (a) confirm GHCR's terms are acceptable for these (PII-free) artifacts, or (b) repoint the
+# `REGISTRY` env below + the login step to an EU-hosted OCI registry (e.g. an eu-* Scaleway /
+# OVH / Hetzner registry) and provide the corresponding credentials as secrets. Application
+# data residency is enforced at the deploy layer, not here — these are code artifacts only.
+# Do not change the registry without an operator sign-off.
+# ─────────────────────────────────────────────────────────────────────────────────────────
+env:
+  REGISTRY: ghcr.io
+  NODE_VERSION: '20'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Gate the release on a green full suite. We never publish an artifact we have not tested.
+  verify:
+    name: Verify (full suite + gates)
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      MONGO_URL: mongodb://localhost:27017
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Boundaries
+        run: pnpm boundaries
+
+      - name: Build
+        run: pnpm build
+
+      - name: Test
+        run: pnpm test
+
+      - name: License gate (ADR-0008)
+        run: pnpm license:check
+
+      - name: Rank-engine purity guard (ADR-0003/0005)
+        run: node scripts/assert-rank-engine-purity.mjs
+
+  # Build, publish (multi-arch, by tag AND digest), SBOM, and keyless-sign each app image.
+  publish:
+    name: Publish ${{ matrix.app }}
+    runs-on: ubuntu-latest
+    needs: verify
+    permissions:
+      contents: read
+      packages: write # push to GHCR
+      id-token: write # OIDC token for cosign keyless signing
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, worker]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup QEMU (multi-arch emulation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ${{ env.REGISTRY }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tags from semver (NOT :latest only) — full version, major.minor, and major — plus the
+      # immutable digest emitted by the build step below.
+      - name: Derive image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/obikai-${{ matrix.app }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Build & push (linux/amd64, linux/arm64)
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/${{ matrix.app }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            APP=${{ matrix.app }}
+          push: true
+          provenance: true
+          sbom: false # SBOM generated explicitly below via anchore for a CycloneDX artifact
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,scope=${{ matrix.app }},mode=max
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      # Keyless (OIDC) signing — no long-lived keys. Signs the immutable digest, covering
+      # every tag that points at it.
+      - name: Sign image (cosign keyless)
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/obikai-${{ matrix.app }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      # CycloneDX SBOM is the secondary license/provenance record (ADR-0008). Generated from
+      # the published image by digest and attached to the GitHub Release.
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ github.repository_owner }}/obikai-${{ matrix.app }}@${{ steps.build.outputs.digest }}
+          format: cyclonedx-json
+          output-file: sbom-${{ matrix.app }}.cdx.json
+
+      - name: Attest SBOM to the image (cosign)
+        env:
+          COSIGN_EXPERIMENTAL: '1'
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/obikai-${{ matrix.app }}
+        run: >-
+          cosign attest --yes
+          --predicate sbom-${{ matrix.app }}.cdx.json
+          --type cyclonedx
+          "${IMAGE}@${DIGEST}"
+
+      - name: Upload SBOM to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: sbom-${{ matrix.app }}.cdx.json

@@ -1,0 +1,62 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Traefik DYNAMIC configuration (file provider) — EXAMPLE. Copy to your Traefik
+# stack's dynamic-config directory (e.g. /etc/traefik/dynamic/obikai.yml).
+#
+# Purpose: define the security-headers and rate-limit middlewares ONCE, here, and
+# reference them by `@file` name from every router (see docker-compose.prod.yml).
+# This fixes the Glosan reference's per-location/per-router duplication, where the
+# same header block was copy-pasted onto each host — a drift/regression hazard.
+#
+# This is also where tenant CUSTOM DOMAINS are layered in dynamically: as a club
+# verifies its own domain, a router is added here (or via the Traefik API) that
+# matches Host(`their-domain.example`) and REUSES the shared middlewares below —
+# no per-host middleware copies. The CSP/header VALUES themselves remain owned by
+# the TS source-of-truth (docker/web/gen-headers.ts, ADR-0008); the values here
+# must be kept in sync with that generator and are duplicated only because Traefik
+# headers are applied at the proxy edge rather than by Caddy.
+# ─────────────────────────────────────────────────────────────────────────────
+
+http:
+  middlewares:
+    # Shared security headers — applied to every Obikai router via @file reference.
+    obikai-security-headers:
+      headers:
+        stsSeconds: 31536000
+        stsIncludeSubdomains: true
+        stsPreload: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: "strict-origin-when-cross-origin"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=(), payment=()"
+        customResponseHeaders:
+          X-Permitted-Cross-Domain-Policies: "none"
+          Cross-Origin-Opener-Policy: "same-origin"
+          Cross-Origin-Resource-Policy: "same-origin"
+          Server: ""
+
+    # Shared rate limit — sane default protecting the API/login surface. Tune per
+    # deployment; defined once so every router gets identical, non-drifting limits.
+    obikai-ratelimit:
+      rateLimit:
+        average: 100
+        burst: 50
+        period: 1s
+
+    # Convenience chain so a router can attach both with a single middleware name.
+    obikai-default-chain:
+      chain:
+        middlewares:
+          - obikai-security-headers
+          - obikai-ratelimit
+
+  # Example of a dynamically-added tenant custom-domain router reusing the shared
+  # middlewares (the hosted plane writes entries like this as domains are verified).
+  # routers:
+  #   tenant-acme-custom:
+  #     rule: "Host(`dojo.acme.example`)"
+  #     entrypoints: ["websecure"]
+  #     service: "obikai-api@docker"
+  #     middlewares:
+  #       - obikai-default-chain@file
+  #     tls:
+  #       certResolver: "le"

@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose a feature or improvement
+labels: [enhancement, triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+      description: What dojo problem does this solve? Who is it for (owner, instructor, member, guardian)?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: Area
+      options:
+        - Rank / grading / curriculum
+        - Members & CRM
+        - Memberships & billing
+        - Classes & scheduling
+        - Attendance & check-in
+        - Member app / portal
+        - Communication
+        - Reporting
+        - Admin / compliance / GDPR
+        - Adapters / self-hosting
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: invariants
+    attributes:
+      label: Invariant check
+      description: Does this stay within the CLAUDE.md invariants (AGPL, no lock-in, AI never authoritative, etc.)? Note any tension.

@@ -1,0 +1,12 @@
+{
+  "app.name": "Obikai",
+  "app.tagline": "Dojohantering, gjort rätt",
+  "nav.dashboard": "Översikt",
+  "nav.members": "Medlemmar",
+  "nav.ranks": "Grader",
+  "nav.billing": "Fakturering",
+  "nav.settings": "Inställningar",
+  "action.save": "Spara",
+  "action.cancel": "Avbryt",
+  "greeting.welcome": "Välkommen, {name}"
+}

@@ -1,0 +1,43 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Caddyfile.template — TEMPLATE, not the served config. The {{...}} placeholders
+# are filled by docker/web/gen-headers.ts (the TS source-of-truth, ADR-0008) to
+# produce the final Caddyfile. Do NOT hand-author the security headers below —
+# edit gen-headers.ts and regenerate, so the CSP stays tested in TypeScript.
+#
+#   {{SITE_ADDRESS}}      ← env SITE_ADDRESS (default ':8080')
+#   {{SECURITY_HEADERS}}  ← generated header + CSP block
+#
+# This server only serves the built SPA (static assets). TLS and tenant routing
+# are handled upstream by Traefik (docker-compose.prod.yml); Caddy listens on a
+# plain container port behind it.
+# ─────────────────────────────────────────────────────────────────────────────
+
+{
+	# Caddy serves behind Traefik; do not let it try to provision its own certs.
+	auto_https off
+	admin off
+}
+
+{{SITE_ADDRESS}} {
+	root * /srv
+	encode gzip zstd
+
+	# Hashed, content-addressed assets (Vite emits /assets/*.<hash>.{js,css}) are
+	# immutable — cache hard. The HTML shell must NOT be cached so new deploys are
+	# picked up immediately.
+	@immutable path /assets/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	@html path / /index.html
+	header @html Cache-Control "no-cache"
+
+	# Security headers + CSP — generated from gen-headers.ts (do not edit by hand).
+	header {
+{{SECURITY_HEADERS}}
+	}
+
+	# SPA fallback: serve real files when they exist, otherwise index.html so the
+	# client-side router can take over (deep links / refresh on a route).
+	try_files {path} /index.html
+	file_server
+}

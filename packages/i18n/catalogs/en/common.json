@@ -1,0 +1,12 @@
+{
+  "app.name": "Obikai",
+  "app.tagline": "Dojo management, done right",
+  "nav.dashboard": "Dashboard",
+  "nav.members": "Members",
+  "nav.ranks": "Ranks",
+  "nav.billing": "Billing",
+  "nav.settings": "Settings",
+  "action.save": "Save",
+  "action.cancel": "Cancel",
+  "greeting.welcome": "Welcome, {name}"
+}

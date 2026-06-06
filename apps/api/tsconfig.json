@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/config" },
+    { "path": "../../packages/adapter-contracts" },
+    { "path": "../../packages/db" }
+  ],
+  "include": ["src/**/*"]
+}

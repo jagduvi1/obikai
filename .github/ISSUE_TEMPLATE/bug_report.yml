@@ -1,0 +1,49 @@
+name: Bug report
+description: Report a defect in Obikai
+labels: [bug, triage]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, plus what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+  - type: dropdown
+    id: deploy-mode
+    attributes:
+      label: Deploy mode
+      options:
+        - self-host (single-tenant)
+        - self-host (multi-tenant / association)
+        - hosted SaaS
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, Node version, Docker version, relevant adapter config (NEVER paste secrets).
+  - type: checkboxes
+    id: not-security
+    attributes:
+      label: Confirmation
+      options:
+        - label: This is not a security vulnerability (those go to SECURITY.md, privately).
+          required: true

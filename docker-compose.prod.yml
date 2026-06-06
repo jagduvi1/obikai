@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Obikai — PRODUCTION compose (self-host / hosted). Explicitly selected:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Differences vs base: pulls pre-built images from GHCR by an explicit VERSION
+# tag (NEVER :latest — reproducible, rollback-able deploys), joins the EXTERNAL
+# `web` network where a shared Traefik already runs (Glosan convention), and adds
+# Traefik routing labels. Mongo/Redis still come from the base file unchanged.
+#
+# Required env (set in .env): VERSION (image tag, e.g. v1.4.2), APP_DOMAIN
+# (the host this instance answers on), BASE_DOMAIN (the tenant apex), and a
+# Traefik certresolver name in CERT_RESOLVER.
+#
+# ── Tenant-aware routing (see docs/decisions/0002 + plan) ─────────────────────
+# Multi-tenant hosted resolves tenants by Host header (ADR-0004), so the edge must
+# accept BOTH:
+#   1. the wildcard subdomain space `*.${BASE_DOMAIN}`  → <slug>.obikai.app
+#   2. a tenant's own custom domain (dynamic, added at runtime via the Traefik
+#      dynamic config / API as a club verifies its domain)
+# The static label below matches the wildcard + the instance's APP_DOMAIN; custom
+# domains are layered in through docker/traefik-dynamic.example.yml (file provider)
+# so per-tenant routers reuse the SAME shared middlewares (no per-host duplication).
+# Self-host single-tenant simply sets APP_DOMAIN to its one domain.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  api:
+    image: ghcr.io/obikai/api:${VERSION}
+    build: !reset null
+    networks:
+      - default
+      - web
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=web"
+      # Wildcard tenant subdomains + this instance's own domain. HostRegexp covers
+      # `*.${BASE_DOMAIN}`; the Host() term covers the bare APP_DOMAIN / apex.
+      - "traefik.http.routers.obikai-api.rule=Host(`${APP_DOMAIN}`) || HostRegexp(`^.+\\.${BASE_DOMAIN}$`)"
+      - "traefik.http.routers.obikai-api.entrypoints=websecure"
+      - "traefik.http.routers.obikai-api.tls=true"
+      - "traefik.http.routers.obikai-api.tls.certresolver=${CERT_RESOLVER}"
+      # Wildcard cert so every <slug>.${BASE_DOMAIN} is covered by one certificate.
+      - "traefik.http.routers.obikai-api.tls.domains[0].main=${BASE_DOMAIN}"
+      - "traefik.http.routers.obikai-api.tls.domains[0].sans=*.${BASE_DOMAIN}"
+      - "traefik.http.services.obikai-api.loadbalancer.server.port=3000"
+      # Shared middlewares defined once in the dynamic config (no per-router copies).
+      - "traefik.http.routers.obikai-api.middlewares=obikai-security-headers@file,obikai-ratelimit@file"
+
+  worker:
+    image: ghcr.io/obikai/worker:${VERSION}
+    build: !reset null
+    # The worker has no inbound HTTP; it stays off the `web` network.
+    labels:
+      - "traefik.enable=false"
+
+networks:
+  # Shared, pre-existing reverse-proxy network managed by the Traefik stack.
+  web:
+    external: true

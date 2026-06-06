@@ -1,0 +1,21 @@
+# Architecture Decision Records
+
+Lightweight ADRs for consequential architecture choices and any deviations from
+[`docs/scope.md`](../scope.md). Format is a trimmed [MADR](https://adr.github.io/madr/):
+**Context → Decision → Consequences → Alternatives considered → Status**.
+
+These are immutable once `Accepted`; to change one, add a new ADR that supersedes it (note the
+supersession in both). Keep them short; put detail in code and `docs/`.
+
+| ADR | Title | Status |
+|----:|-------|--------|
+| [0001](0001-stack-and-tooling.md) | Stack & tooling (pnpm, Turbo, NestJS, Mongoose, Zod, Biome, Vitest) | Accepted |
+| [0002](0002-deploy-model-two-axis.md) | Two-axis deploy model (`deployMode` × `tenancy`) | Accepted |
+| [0003](0003-monorepo-and-boundaries.md) | Monorepo layout & enforced import boundaries | Accepted |
+| [0004](0004-tenancy-auth-rbac.md) | Multi-tenant isolation, auth & RBAC, tenant-global identity | Accepted |
+| [0005](0005-rank-engine-and-ai-exclusion.md) | Pure rank engine, versioning & structural AI exclusion | Accepted |
+| [0006](0006-payments-adapter.md) | Payments: Mandate/Charge abstraction, webhook-driven, manual default | Accepted |
+| [0007](0007-gdpr-erasure.md) | GDPR erasure: pseudonymize-by-reference + per-subject crypto-shred | Accepted |
+| [0008](0008-license-posture.md) | AGPL license posture & CI gate | Accepted |
+| [0009](0009-config-and-secrets.md) | Config & secrets via validated env | Accepted |
+| [0010](0010-cla-pending.md) | Contribution agreement (CLA vs no-CLA) | **Pending (human-owned)** |
