@@ -22,6 +22,7 @@
   "dependencies": {
     "@obikai/adapter-contracts": "workspace:*",
     "@obikai/authz": "workspace:*",
+    "@obikai/billing": "workspace:*",
     "@obikai/config": "workspace:*",
     "@obikai/db": "workspace:*",
     "@obikai/domain": "workspace:*",

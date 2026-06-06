@@ -5,6 +5,7 @@
  */
 export {
   can,
+  systemActor,
   type AuthzActor,
   type AuthzTarget,
   type CanOptions,

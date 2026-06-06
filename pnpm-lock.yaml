@@ -272,6 +272,9 @@ importers:
       '@obikai/authz':
         specifier: workspace:*
         version: link:../../packages/authz
+      '@obikai/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@obikai/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -318,12 +321,21 @@ importers:
 
   apps/worker:
     dependencies:
+      '@obikai/authz':
+        specifier: workspace:*
+        version: link:../../packages/authz
+      '@obikai/billing':
+        specifier: workspace:*
+        version: link:../../packages/billing
       '@obikai/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@obikai/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@obikai/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       bullmq:
         specifier: ^5.34.10
         version: 5.78.0
@@ -362,6 +374,25 @@ importers:
 
   packages/authz:
     dependencies:
+      '@obikai/domain':
+        specifier: workspace:*
+        version: link:../domain
+    devDependencies:
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: 'catalog:'
+        version: 6.4.3(@types/node@22.19.20)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.8(@types/node@22.19.20)(vite@6.4.3(@types/node@22.19.20))
+
+  packages/billing:
+    dependencies:
+      '@obikai/authz':
+        specifier: workspace:*
+        version: link:../authz
       '@obikai/domain':
         specifier: workspace:*
         version: link:../domain

@@ -99,6 +99,15 @@ export interface Invoice {
   readonly number: string | null;
   readonly memberId: MemberId;
   readonly householdId: HouseholdId | null;
+  /**
+   * The enrollment this invoice bills, for recurring subscriptions — null for ad-hoc/manual
+   * invoices. Together with `periodStart` it is the idempotency key for automated billing: the DB
+   * enforces at most one invoice per (tenant, enrollment, periodStart), so a re-run never double-bills.
+   */
+  readonly enrollmentId: EnrollmentId | null;
+  /** Service period this invoice covers (ISO date), for recurring billing; null for ad-hoc. */
+  readonly periodStart: string | null;
+  readonly periodEnd: string | null;
   readonly status: InvoiceStatus;
   readonly currency: Currency;
   readonly lines: readonly InvoiceLine[];
@@ -177,6 +186,62 @@ export function prorateByDays(amount: Money, totalDays: number, remainingDays: n
   // Half away from zero, matching computeVat — symmetric for credits/refunds (negative amounts).
   const portion = raw >= 0 ? Math.floor(raw + 0.5) : Math.ceil(raw - 0.5);
   return money(portion, amount.currency);
+}
+
+// ── Recurring billing periods ──────────────────────────────────────────────────
+/** Months advanced per billing interval (0 for the non-recurring 'none'). */
+export function intervalMonths(interval: BillingInterval): number {
+  switch (interval) {
+    case 'monthly':
+      return 1;
+    case 'quarterly':
+      return 3;
+    case 'yearly':
+      return 12;
+    case 'none':
+      return 0;
+  }
+}
+
+/**
+ * Add `months` to a `YYYY-MM-DD` date in UTC, clamping the day to the target month's last day
+ * (e.g. 2026-01-31 + 1 month → 2026-02-28). Pure/deterministic — no ambient clock.
+ */
+export function addMonthsUTC(isoDate: string, months: number): string {
+  const [y, m, d] = isoDate.split('-').map(Number) as [number, number, number];
+  // Anchor on the 1st so setUTCMonth never rolls over a short month, then clamp the day.
+  const base = new Date(Date.UTC(y, m - 1 + months, 1));
+  const year = base.getUTCFullYear();
+  const month = base.getUTCMonth(); // 0-based
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const day = Math.min(d, lastDay);
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+export interface BillingPeriod {
+  /** Inclusive period start, `YYYY-MM-DD`. */
+  readonly periodStart: string;
+  /** Exclusive period end (== the next period's start), `YYYY-MM-DD`. */
+  readonly periodEnd: string;
+}
+
+/**
+ * The next billing period to invoice for a recurring enrollment, or null if none is due as of
+ * `asOf` (a `YYYY-MM-DD`). The next period starts where the last ended (`currentPeriodEnd`), or at
+ * `startDate` for the first invoice. Bills in advance: a period is due once it has started
+ * (`periodStart <= asOf`). Returns null for non-recurring intervals ('none'). One period per call;
+ * successive runs catch up a lapsed enrollment.
+ */
+export function computeBillingPeriod(
+  interval: BillingInterval,
+  startDate: string,
+  currentPeriodEnd: string | null,
+  asOf: string,
+): BillingPeriod | null {
+  if (intervalMonths(interval) === 0) return null;
+  const periodStart = currentPeriodEnd ?? startDate;
+  if (periodStart > asOf) return null; // period hasn't started yet → nothing due
+  return { periodStart, periodEnd: addMonthsUTC(periodStart, intervalMonths(interval)) };
 }
 
 // ── Payment attempts ───────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import { type Tenancy, loadConfig } from '@obikai/config';
 import { type TenantContext, runInTenantContext } from '@obikai/db';
 import { type ConnectionOptions, type Job, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
+import { makeBillingDeps, runBillingForTenant, runDunningForTenant } from './billing-jobs.js';
 import { type BaseJobData, JOBS_QUEUE, type JobName } from './queues.js';
 
 /**
@@ -69,17 +70,27 @@ async function handleJob(job: Job<BaseJobData>, log: Logger, tenancy: Tenancy): 
 
   const name = job.name as JobName;
   await runInTenantContext(ctx, async () => {
+    // Per-item failures inside a sweep are logged via this and never abort the whole job.
+    const jobLog = (msg: string, meta?: Record<string, unknown>): void =>
+      log.error(msg, { ...meta, jobId: job.id });
+    const now = (): Date => new Date();
     switch (name) {
-      case 'billing-run':
-        // Generate due invoices for the tenant's active memberships/subscriptions, then enqueue
-        // charges against saved mandates (ADR-0006). STUB.
-        log.info('billing-run', { tenantId, jobId: job.id });
+      case 'billing-run': {
+        // Issue the next due recurring invoice for every active enrollment in this tenant. The
+        // BillingService is idempotent (one invoice per enrollment-period), so re-delivery is safe.
+        const { billing, enrollments } = makeBillingDeps(now);
+        const result = await runBillingForTenant(billing, enrollments, now, jobLog);
+        log.info('billing-run', { tenantId, jobId: job.id, ...result });
         return;
-      case 'dunning':
-        // Advance overdue invoices through the dunning ladder (reminders, retries, grace, suspend)
-        // for the tenant. STUB.
-        log.info('dunning', { tenantId, jobId: job.id });
+      }
+      case 'dunning': {
+        // Advance overdue OPEN invoices one step along the dunning ladder; the final rung freezes
+        // the linked enrollment. No-op outside each invoice's retry window (idempotent).
+        const { billing, invoices } = makeBillingDeps(now);
+        const result = await runDunningForTenant(billing, invoices, now, jobLog);
+        log.info('dunning', { tenantId, jobId: job.id, ...result });
         return;
+      }
       case 'reminders':
         // Send class/payment/grading reminders via the configured email/sms adapters. STUB.
         log.info('reminders', { tenantId, jobId: job.id });

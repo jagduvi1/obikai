@@ -4,6 +4,12 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "references": [{ "path": "../../packages/config" }, { "path": "../../packages/db" }],
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/authz" },
+    { "path": "../../packages/billing" },
+    { "path": "../../packages/config" },
+    { "path": "../../packages/db" }
+  ],
   "include": ["src/**/*"]
 }
