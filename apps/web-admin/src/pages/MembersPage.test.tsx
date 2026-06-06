@@ -1,6 +1,7 @@
 import type { Member } from '@obikai/domain';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { MembersPage } from './MembersPage';
 
@@ -15,7 +16,9 @@ function renderPage() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MembersPage />
+      <MemoryRouter>
+        <MembersPage />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
