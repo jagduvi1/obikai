@@ -16,6 +16,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { CurriculumModule } from './rank/curriculum.module.js';
 import { DisciplinesModule } from './rank/disciplines.module.js';
 import { GradingEventsModule } from './rank/grading-events.module.js';
+import { MemberRankStatesModule } from './rank/member-rank-states.module.js';
 import { PromotionsModule } from './rank/promotions.module.js';
 import { RankSystemsModule } from './rank/rank-systems.module.js';
 import { SchedulingModule } from './scheduling/scheduling.module.js';
@@ -50,6 +51,7 @@ import { WaiversModule } from './waivers/waivers.module.js';
     PromotionsModule,
     GradingEventsModule,
     CurriculumModule,
+    MemberRankStatesModule,
   ],
 })
 export class AppModule {
