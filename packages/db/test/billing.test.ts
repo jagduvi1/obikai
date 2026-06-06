@@ -9,6 +9,9 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  DuplicateInvoicePeriodError,
+  EnrollmentModel,
+  EnrollmentRepository,
   InvoiceCounterModel,
   InvoiceCounterRepository,
   InvoiceModel,
@@ -42,10 +45,17 @@ afterAll(async () => {
   await mongod.stop();
 });
 
+const enrollments = new EnrollmentRepository();
+
+beforeAll(async () => {
+  await EnrollmentModel.syncIndexes();
+}, 120_000);
+
 beforeEach(async () => {
   // Clear via the raw driver — bypasses the guard so no tenant context is needed for teardown.
   await mongoose.connection.collection('invoicecounters').deleteMany({});
   await mongoose.connection.collection('invoices').deleteMany({});
+  await mongoose.connection.collection('enrollments').deleteMany({});
 });
 
 describe('InvoiceCounterRepository.allocateInvoiceNumber', () => {
@@ -144,5 +154,215 @@ describe('Invoice {tenantId, number} uniqueness', () => {
     await expect(
       runInTenantContext(ctx('t1'), () => invoices.update(inv.id, { status: 'draft' })),
     ).rejects.toThrow();
+  });
+});
+
+describe('Recurring billing idempotency index {tenantId, enrollmentId, periodStart}', () => {
+  const recurringFields = (
+    memberId: string,
+    enrollmentId: string | null,
+    periodStart: string | null,
+  ) => ({
+    memberId,
+    enrollmentId,
+    periodStart,
+    periodEnd: periodStart ? '2026-07-01' : null,
+    currency: 'SEK' as const,
+    lines: [],
+    subtotal: money(0, 'SEK'),
+    vatTotal: money(0, 'SEK'),
+    total: money(0, 'SEK'),
+  });
+
+  it('rejects a second invoice for the same (enrollment, period) — the double-bill backstop', async () => {
+    await runInTenantContext(ctx('t1'), () =>
+      invoices.create(recurringFields('m1', 'enr1', '2026-06-01')),
+    );
+    // Same enrollment + same periodStart in the same tenant → typed duplicate error.
+    await expect(
+      runInTenantContext(ctx('t1'), () =>
+        invoices.create(recurringFields('m1', 'enr1', '2026-06-01')),
+      ),
+    ).rejects.toBeInstanceOf(DuplicateInvoicePeriodError);
+  });
+
+  it('allows different periods for the same enrollment, and the same period across tenants', async () => {
+    await runInTenantContext(ctx('t1'), () =>
+      invoices.create(recurringFields('m1', 'enr1', '2026-06-01')),
+    );
+    // Next period for the same enrollment is fine.
+    await runInTenantContext(ctx('t1'), () =>
+      invoices.create(recurringFields('m1', 'enr1', '2026-07-01')),
+    );
+    // Same enrollment+period in a DIFFERENT tenant is independent (index is tenant-scoped).
+    const other = await runInTenantContext(ctx('t2'), () =>
+      invoices.create(recurringFields('m1', 'enr1', '2026-06-01')),
+    );
+    expect(other.id).toBeTruthy();
+  });
+
+  it('does NOT constrain ad-hoc invoices (enrollmentId null) — partial index', async () => {
+    await runInTenantContext(ctx('t1'), () => invoices.create(recurringFields('m1', null, null)));
+    const second = await runInTenantContext(ctx('t1'), () =>
+      invoices.create(recurringFields('m2', null, null)),
+    );
+    expect(second.id).toBeTruthy(); // two null-enrollment invoices coexist
+  });
+
+  it('findByEnrollmentPeriod returns the invoice for resume/idempotency', async () => {
+    const created = await runInTenantContext(ctx('t1'), () =>
+      invoices.create(recurringFields('m1', 'enr1', '2026-06-01')),
+    );
+    const found = await runInTenantContext(ctx('t1'), () =>
+      invoices.findByEnrollmentPeriod('enr1', '2026-06-01'),
+    );
+    expect(found?.id).toBe(created.id);
+    const missing = await runInTenantContext(ctx('t1'), () =>
+      invoices.findByEnrollmentPeriod('enr1', '2026-08-01'),
+    );
+    expect(missing).toBeNull();
+  });
+});
+
+describe('listDunnable + advanceDunningStep (dunning persistence)', () => {
+  const open = (memberId: string, dueAt: string, nextRetryAt: string | null, stage = 0) => ({
+    memberId,
+    dueAt,
+    nextRetryAt,
+    stage,
+  });
+
+  /** Create an invoice and force it into an open/overdue dunning state via the raw model. */
+  async function seedOpen(tenantId: string, o: ReturnType<typeof open>): Promise<string> {
+    const inv = await runInTenantContext(ctx(tenantId), () =>
+      invoices.create({
+        memberId: o.memberId,
+        currency: 'SEK',
+        lines: [],
+        subtotal: money(0, 'SEK'),
+        vatTotal: money(0, 'SEK'),
+        total: money(0, 'SEK'),
+      }),
+    );
+    await mongoose.connection.collection('invoices').updateOne(
+      { _id: new mongoose.Types.ObjectId(inv.id) },
+      {
+        $set: {
+          status: 'open',
+          dueAt: o.dueAt,
+          nextRetryAt: o.nextRetryAt,
+          dunningStage: o.stage,
+        },
+      },
+    );
+    return inv.id;
+  }
+
+  it('selects only open, past-due, retry-due invoices', async () => {
+    const now = '2026-06-06T00:00:00.000Z';
+    const dunnable = await seedOpen('t1', open('m1', '2026-05-01T00:00:00.000Z', null)); // overdue, never retried
+    const inWindow = await seedOpen(
+      't1',
+      open('m2', '2026-05-01T00:00:00.000Z', '2026-09-01T00:00:00.000Z'),
+    ); // retry in future
+    const notDue = await seedOpen('t1', open('m3', '2026-12-01T00:00:00.000Z', null)); // due in future
+
+    const rows = await runInTenantContext(ctx('t1'), () => invoices.listDunnable(now));
+    const ids = rows.map((r) => r.id);
+    expect(ids).toContain(dunnable);
+    expect(ids).not.toContain(inWindow);
+    expect(ids).not.toContain(notDue);
+  });
+
+  it('advanceDunningStep applies only at the expected open stage (atomic guard)', async () => {
+    const id = await seedOpen('t1', open('m1', '2026-05-01T00:00:00.000Z', null, 1));
+    // Wrong fromStage → null, no change.
+    const miss = await runInTenantContext(ctx('t1'), () =>
+      invoices.advanceDunningStep(id, 0, { dunningStage: 1, nextRetryAt: null }),
+    );
+    expect(miss).toBeNull();
+    // Correct fromStage → advances atomically.
+    const hit = await runInTenantContext(ctx('t1'), () =>
+      invoices.advanceDunningStep(id, 1, {
+        dunningStage: 2,
+        nextRetryAt: '2026-06-09T00:00:00.000Z',
+      }),
+    );
+    expect(hit?.dunningStage).toBe(2);
+    // Re-applying the same step is now a no-op (precondition gone) — idempotent under re-delivery.
+    const again = await runInTenantContext(ctx('t1'), () =>
+      invoices.advanceDunningStep(id, 1, { dunningStage: 2, nextRetryAt: null }),
+    );
+    expect(again).toBeNull();
+  });
+});
+
+describe('listDueForBilling (recurring candidate query)', () => {
+  async function seedEnrollment(
+    tenantId: string,
+    fields: {
+      memberId: string;
+      status: string;
+      startDate: string;
+      currentPeriodEnd: string | null;
+    },
+  ): Promise<string> {
+    const enr = await runInTenantContext(ctx(tenantId), () =>
+      enrollments.create({
+        memberId: fields.memberId,
+        planId: 'plan1',
+        startDate: fields.startDate,
+      }),
+    );
+    await mongoose.connection
+      .collection('enrollments')
+      .updateOne(
+        { _id: new mongoose.Types.ObjectId(enr.id) },
+        { $set: { status: fields.status, currentPeriodEnd: fields.currentPeriodEnd } },
+      );
+    return enr.id;
+  }
+
+  it('returns active, started, period-ended enrollments and excludes frozen/future/already-current', async () => {
+    const due = await seedEnrollment('t1', {
+      memberId: 'm1',
+      status: 'active',
+      startDate: '2026-05-01',
+      currentPeriodEnd: '2026-06-01',
+    }); // active, period ended
+    const firstBill = await seedEnrollment('t1', {
+      memberId: 'm2',
+      status: 'active',
+      startDate: '2026-05-15',
+      currentPeriodEnd: null,
+    }); // active, never billed, started
+    const frozen = await seedEnrollment('t1', {
+      memberId: 'm3',
+      status: 'frozen',
+      startDate: '2026-05-01',
+      currentPeriodEnd: '2026-06-01',
+    });
+    const current = await seedEnrollment('t1', {
+      memberId: 'm4',
+      status: 'active',
+      startDate: '2026-05-01',
+      currentPeriodEnd: '2026-09-01',
+    }); // period still running
+    const future = await seedEnrollment('t1', {
+      memberId: 'm5',
+      status: 'active',
+      startDate: '2026-12-01',
+      currentPeriodEnd: null,
+    }); // not started
+
+    const rows = await runInTenantContext(ctx('t1'), () =>
+      enrollments.listDueForBilling('2026-06-06'),
+    );
+    const ids = rows.map((r) => r.id);
+    expect(ids).toContain(due);
+    expect(ids).toContain(firstBill);
+    expect(ids).not.toContain(frozen);
+    expect(ids).not.toContain(current);
+    expect(ids).not.toContain(future);
   });
 });

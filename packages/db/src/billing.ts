@@ -317,6 +317,26 @@ export class EnrollmentRepository {
     return docs.map(toEnrollment);
   }
 
+  /**
+   * ACTIVE enrollments that may be due for billing as of `asOf` (a `YYYY-MM-DD`): already started
+   * (startDate <= asOf) and either never billed (currentPeriodEnd null) or whose period has ended
+   * (currentPeriodEnd <= asOf). This is a coarse candidate filter — the billing service applies the
+   * precise per-plan period/interval logic (`computeBillingPeriod`) and skips non-recurring plans.
+   * Frozen/cancelled/pending enrollments are excluded.
+   */
+  async listDueForBilling(asOf: string): Promise<Enrollment[]> {
+    const docs = await this.model
+      .find({
+        status: 'active',
+        startDate: { $lte: asOf },
+        $or: [{ currentPeriodEnd: null }, { currentPeriodEnd: { $lte: asOf } }],
+      })
+      .sort({ startDate: 1 })
+      .lean<EnrollmentDoc[]>()
+      .exec();
+    return docs.map(toEnrollment);
+  }
+
   async update(
     id: string,
     patch: {
@@ -368,6 +388,9 @@ export interface InvoiceDoc extends TenantScoped {
   number: string | null;
   memberId: string;
   householdId: string | null;
+  enrollmentId: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
   status: InvoiceStatus;
   currency: string;
   lines: InvoiceLineDoc[];
@@ -391,6 +414,9 @@ const invoiceSchema = new Schema<InvoiceDoc>(
     number: { type: String, default: null },
     memberId: { type: String, required: true },
     householdId: { type: String, default: null },
+    enrollmentId: { type: String, default: null },
+    periodStart: { type: String, default: null },
+    periodEnd: { type: String, default: null },
     status: { type: String, required: true, default: 'draft' },
     currency: { type: String, required: true },
     lines: { type: [invoiceLineSchema], required: true, default: [] },
@@ -417,6 +443,16 @@ invoiceSchema.index(
 );
 // Hot list query: invoices for a member within a tenant.
 invoiceSchema.index({ tenantId: 1, memberId: 1 });
+// Recurring-billing idempotency: AT MOST ONE invoice per (tenant, enrollment, periodStart). The
+// partial filter scopes the uniqueness to subscription invoices (enrollmentId is a string); ad-hoc
+// invoices (enrollmentId: null) are unconstrained. This is the DB-level guarantee that a re-run of
+// billing-run can never double-bill the same period, even under concurrency (ADR-0013).
+invoiceSchema.index(
+  { tenantId: 1, enrollmentId: 1, periodStart: 1 },
+  { unique: true, partialFilterExpression: { enrollmentId: { $type: 'string' } } },
+);
+// Dunning sweep: open invoices ordered for the worker to walk.
+invoiceSchema.index({ tenantId: 1, status: 1, dueAt: 1 });
 
 export const InvoiceModel: Model<InvoiceDoc> =
   (mongoose.models.Invoice as Model<InvoiceDoc> | undefined) ??
@@ -440,6 +476,9 @@ export function toInvoice(doc: InvoiceDoc): Invoice {
     number: doc.number,
     memberId: doc.memberId as Invoice['memberId'],
     householdId: (doc.householdId as Invoice['householdId']) ?? null,
+    enrollmentId: (doc.enrollmentId as Invoice['enrollmentId']) ?? null,
+    periodStart: doc.periodStart,
+    periodEnd: doc.periodEnd,
     status: doc.status,
     currency: doc.currency as Currency,
     lines: doc.lines.map(toInvoiceLine),
@@ -477,6 +516,9 @@ function lineFields(l: InvoiceLine): InvoiceLineDoc {
 export interface InvoiceCreateFields {
   memberId: string;
   householdId?: string | null;
+  enrollmentId?: string | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
   status?: InvoiceStatus;
   currency: Currency;
   lines: readonly InvoiceLine[];
@@ -487,6 +529,14 @@ export interface InvoiceCreateFields {
   sellerVatId?: string | null;
   buyerVatId?: string | null;
   dueAt?: string | null;
+}
+
+/** Raised when an invoice already exists for an (enrollment, periodStart) — the idempotency guard. */
+export class DuplicateInvoicePeriodError extends Error {
+  constructor(enrollmentId: string, periodStart: string) {
+    super(`invoice already exists for enrollment ${enrollmentId} period ${periodStart}`);
+    this.name = 'DuplicateInvoicePeriodError';
+  }
 }
 
 /** Raised when an issued invoice's immutable fields would be changed (ADR-0007/0013 legal retention). */
@@ -501,22 +551,62 @@ export class InvoiceRepository {
   constructor(private readonly model: Model<InvoiceDoc> = InvoiceModel) {}
 
   async create(input: InvoiceCreateFields): Promise<Invoice> {
-    const created = await this.model.create({
-      number: null,
-      memberId: input.memberId,
-      householdId: input.householdId ?? null,
-      status: input.status ?? 'draft',
-      currency: input.currency,
-      lines: input.lines.map(lineFields),
-      subtotal: moneyFields(input.subtotal),
-      vatTotal: moneyFields(input.vatTotal),
-      total: moneyFields(input.total),
-      reverseCharge: input.reverseCharge ?? false,
-      sellerVatId: input.sellerVatId ?? null,
-      buyerVatId: input.buyerVatId ?? null,
-      dueAt: input.dueAt ?? null,
-    });
-    return toInvoice(created.toObject() as unknown as InvoiceDoc);
+    try {
+      const created = await this.model.create({
+        number: null,
+        memberId: input.memberId,
+        householdId: input.householdId ?? null,
+        enrollmentId: input.enrollmentId ?? null,
+        periodStart: input.periodStart ?? null,
+        periodEnd: input.periodEnd ?? null,
+        status: input.status ?? 'draft',
+        currency: input.currency,
+        lines: input.lines.map(lineFields),
+        subtotal: moneyFields(input.subtotal),
+        vatTotal: moneyFields(input.vatTotal),
+        total: moneyFields(input.total),
+        reverseCharge: input.reverseCharge ?? false,
+        sellerVatId: input.sellerVatId ?? null,
+        buyerVatId: input.buyerVatId ?? null,
+        dueAt: input.dueAt ?? null,
+      });
+      return toInvoice(created.toObject() as unknown as InvoiceDoc);
+    } catch (err) {
+      // The {tenant, enrollment, periodStart} unique index rejected a concurrent double-bill — make
+      // it a typed, catchable signal so the billing service can resume/skip idempotently.
+      if (
+        input.enrollmentId != null &&
+        input.periodStart != null &&
+        (err as { code?: number }).code === 11000
+      ) {
+        throw new DuplicateInvoicePeriodError(input.enrollmentId, input.periodStart);
+      }
+      throw err;
+    }
+  }
+
+  /** Resume/idempotency lookup: the invoice (if any) for an enrollment's billing period. */
+  async findByEnrollmentPeriod(enrollmentId: string, periodStart: string): Promise<Invoice | null> {
+    const doc = await this.model.findOne({ enrollmentId, periodStart }).lean<InvoiceDoc>().exec();
+    return doc ? toInvoice(doc) : null;
+  }
+
+  /**
+   * Invoices eligible for a dunning step as of `nowIso`: OPEN, past due, and either never retried or
+   * past their `nextRetryAt`. Oldest-due first. The retry-window filter makes the dunning sweep
+   * idempotent against re-delivered jobs (a duplicate run before nextRetryAt selects nothing).
+   */
+  async listDunnable(nowIso: string): Promise<Invoice[]> {
+    const docs = await this.model
+      .find({
+        status: 'open',
+        dueAt: { $ne: null, $lt: nowIso },
+        $or: [{ nextRetryAt: null }, { nextRetryAt: { $lte: nowIso } }],
+      })
+      .sort({ dueAt: 1 })
+      .lean<InvoiceDoc[]>()
+      .exec();
+    return docs.map(toInvoice);
   }
 
   async findById(id: string): Promise<Invoice | null> {
@@ -560,6 +650,29 @@ export class InvoiceRepository {
   }
 
   /**
+   * Atomically apply a dunning step: write `patch` ONLY if the invoice is still OPEN at the expected
+   * `fromStage`. Returns the updated invoice, or null if a concurrent/re-delivered worker already
+   * advanced it (the {status:'open', dunningStage} precondition no longer matches). This is what
+   * makes the dunning ladder idempotent under concurrency — at most one caller wins each rung
+   * (ADR-0013).
+   */
+  async advanceDunningStep(
+    id: string,
+    fromStage: number,
+    patch: { status?: InvoiceStatus; dunningStage: number; nextRetryAt: string | null },
+  ): Promise<Invoice | null> {
+    const doc = await this.model
+      .findOneAndUpdate(
+        { _id: id, status: 'open', dunningStage: fromStage },
+        { $set: patch },
+        { new: true },
+      )
+      .lean<InvoiceDoc>()
+      .exec();
+    return doc ? toInvoice(doc) : null;
+  }
+
+  /**
    * Post-issue lifecycle transitions only (paid / uncollectible / dunning fields). The invoice
    * NUMBER is never set here (use `assignNumber`), and reverting to `draft` is rejected — issued
    * invoices are immutable for legal retention (ADR-0007/0013). Lines/totals are not in the patch
@@ -593,11 +706,12 @@ export class InvoiceRepository {
 
 // ── InvoiceCounter (gapless per-tenant numbering) ──────────────────────────────-
 /**
- * One counter document PER TENANT (`tenantId` unique). `allocateInvoiceNumber` bumps `seq`
- * atomically with `findOneAndUpdate({ $inc })` so concurrent issues within a tenant get
- * 1,2,3,… with NO gaps, while two tenants' sequences are fully independent. Deliberately NOT
- * tenant-guarded: numbering must be reachable during the issue path with a plain, explicit
- * `{ tenantId }` filter, and we never want the guard rewriting the upsert's `$setOnInsert`.
+ * One counter document PER (tenant, year) — see the compound-unique index below.
+ * `allocateInvoiceNumber` bumps `seq` atomically with `findOneAndUpdate({ $inc })` so concurrent
+ * issues within a tenant-year get 1,2,3,… with NO gaps; the sequence resets each year and two
+ * tenants' sequences are fully independent. Deliberately NOT tenant-guarded: numbering must be
+ * reachable during the issue path with a plain, explicit `{ tenantId, year }` filter, and we never
+ * want the guard rewriting the upsert's `$setOnInsert`.
  */
 export interface InvoiceCounterDoc {
   _id: Types.ObjectId;

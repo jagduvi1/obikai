@@ -73,6 +73,19 @@ function permissionsForRole(
   return undefined;
 }
 
+/**
+ * The platform's own actor for automated, tenant-authorized background work (billing runs, dunning).
+ * It carries the `owner` role so it may perform exactly the billing/payment operations a tenant
+ * owner could — but it is ONLY ever used by the worker inside an EXPLICIT tenant context (ADR-0004),
+ * where the audit trail records a null user + the job id. It is never a request principal, and it is
+ * still bound by the tenant guard, so it cannot act across tenants. (A dedicated least-privilege
+ * system role is a possible future refinement; `owner` avoids threading a custom catalog through
+ * every `can()` call.)
+ */
+export function systemActor(): AuthzActor {
+  return { userId: 'system', roles: [{ role: 'owner', locationScope: 'ALL' }] };
+}
+
 export function can(actor: AuthzActor, target: AuthzTarget, opts: CanOptions = {}): boolean {
   const { resource, action, locationId, ownerMemberId } = target;
 

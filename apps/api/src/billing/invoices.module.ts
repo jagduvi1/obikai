@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BillingService } from '@obikai/billing';
 import {
   EnrollmentRepository,
   InvoiceCounterRepository,
@@ -7,7 +8,6 @@ import {
   PlanRepository,
   VatRateRepository,
 } from '@obikai/db';
-import { BillingService } from './billing.service.js';
 import { InvoicesController } from './invoices.controller.js';
 import { InvoicesService } from './invoices.service.js';
 
