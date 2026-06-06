@@ -24,6 +24,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/occurrences">{t('nav.schedule')}</NavLink>
           <NavLink to="/locations">{t('nav.locations')}</NavLink>
           <NavLink to="/plans">{t('nav.plans')}</NavLink>
+          <NavLink to="/settings">{t('nav.settings')}</NavLink>
         </nav>
         <button type="button" className="link-button" onClick={() => void logout()}>
           {t('app.signOut')}

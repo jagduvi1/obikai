@@ -22,6 +22,7 @@ export type EnrollmentId = Brand<string, 'EnrollmentId'>;
 export type InvoiceId = Brand<string, 'InvoiceId'>;
 export type PaymentId = Brand<string, 'PaymentId'>;
 export type VatRateId = Brand<string, 'VatRateId'>;
+export type BillingProfileId = Brand<string, 'BillingProfileId'>;
 
 // Scheduling / attendance / waiver ids (ADR-0014)
 export type ProgramId = Brand<string, 'ProgramId'>;

@@ -26,3 +26,4 @@ supersession in both). Keep them short; put detail in code and `docs/`.
 | [0015](0015-rank-discipline-data-model.md) | Rank/discipline data model & promotion history | Accepted |
 | [0016](0016-frontend-stack.md) | Frontend stack (web-admin / web-member) | Accepted |
 | [0017](0017-tenant-registry-and-scheduler.md) | Tenant registry & recurring-billing scheduler | Accepted |
+| [0018](0018-seller-billing-profile.md) | Seller billing/legal profile (tenant settings) | Accepted |

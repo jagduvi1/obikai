@@ -314,3 +314,33 @@ progress {
 .row-actions .link-button {
   margin-left: 0;
 }
+
+/* Settings: a vertical form with labelled fields and side-by-side rows */
+.stacked-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 640px;
+  margin: 1rem 0;
+}
+.field-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.field-row .field {
+  flex: 1 1 8rem;
+}
+.stacked-form input,
+.stacked-form textarea {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  width: 100%;
+}
+.stacked-form textarea {
+  resize: vertical;
+}
