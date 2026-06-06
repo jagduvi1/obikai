@@ -14,30 +14,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
+  # Local run uses the real built runtime image (production CMD), just with the host port exposed
+  # and the bundled S3/SMTP sandboxes below. NOTE: live-reload dev for the NestJS api needs a tsc
+  # watch (esbuild/tsx don't emit decorator metadata Nest relies on) — tracked as a follow-up; for
+  # now `--build` rebuilds the image on change.
   api:
-    build:
-      target: build
-    # Run from mounted source with live reload during development.
-    command: ["pnpm", "--filter", "@obikai/api", "dev"]
-    volumes:
-      - ./:/repo
-      - /repo/node_modules
-    working_dir: /repo
     ports:
       - "3000:3000"
-    environment:
-      NODE_ENV: development
-
-  worker:
-    build:
-      target: build
-    command: ["pnpm", "--filter", "@obikai/worker", "dev"]
-    volumes:
-      - ./:/repo
-      - /repo/node_modules
-    working_dir: /repo
-    environment:
-      NODE_ENV: development
 
   mongo:
     ports:

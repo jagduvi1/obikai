@@ -16,7 +16,7 @@ import { loginInputSchema, registerInputSchema } from '@obikai/domain';
 import type { CookieOptions, Request, Response } from 'express';
 import { z } from 'zod';
 import { APP_CONFIG } from '../config.provider.js';
-import { type AuthService, InvalidCredentialsError } from './auth.service.js';
+import { AuthService, InvalidCredentialsError } from './auth.service.js';
 import type { IssuedTokens, SessionMeta } from './token.service.js';
 
 /** httpOnly cookie name carrying the refresh token for browser clients. */

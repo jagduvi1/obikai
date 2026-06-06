@@ -21,7 +21,7 @@ import {
   memberUpdateSchema,
 } from '@obikai/domain';
 import { z } from 'zod';
-import { ForbiddenError, type MembersService, NotFoundError } from './members.service.js';
+import { ForbiddenError, MembersService, NotFoundError } from './members.service.js';
 
 /**
  * Members REST endpoints (scope §4.1). The actor is derived from the request's TenantContext

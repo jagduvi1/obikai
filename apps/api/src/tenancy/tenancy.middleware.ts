@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, type NestMiddleware } from '@nestjs/common';
 import type { AppConfig } from '@obikai/config';
-import { type MembershipRepository, type TenantContext, runInTenantContext } from '@obikai/db';
+import { MembershipRepository, type TenantContext, runInTenantContext } from '@obikai/db';
 import { type RoleAssignment, type TenantId, brand } from '@obikai/domain';
 import type { NextFunction, Request, Response } from 'express';
-import type { TokenService } from '../auth/token.service.js';
+import { TokenService } from '../auth/token.service.js';
 import { APP_CONFIG } from '../config.provider.js';
 import { resolveTenantFromHost } from './tenant-resolver.js';
 

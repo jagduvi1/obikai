@@ -60,9 +60,7 @@ ENV OBIKAI_APP=${APP}
 WORKDIR /app
 COPY --from=prune --chown=node:node /app/out ./
 USER node
-# Compiled TS healthcheck (see docker/web/gen-headers.ts comment re: TS sources).
-# dist/healthcheck.js is produced by the app's own build; it exits 0 when ready.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD ["node", "dist/healthcheck.js"]
-# The app's package.json `main` resolves to dist/index.js for both api and worker.
-CMD ["node", "dist/index.js"]
+# Liveness/readiness is defined per-service in compose (the api has an HTTP /healthz; the worker
+# has no HTTP server), so no baked HEALTHCHECK here — it would be wrong for one of the two apps.
+# Both apps' entrypoint is dist/main.js (their package.json `main`).
+CMD ["node", "dist/main.js"]

@@ -4,7 +4,11 @@
     "outDir": "dist",
     "rootDir": "src",
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    // NestJS DI reads `design:paramtypes` metadata, which requires class param types to remain
+    // VALUE imports. verbatimModuleSyntax elides them → metadata becomes `Function` and DI fails at
+    // runtime. Off for the Nest app (standard Nest setup); pure packages keep it on.
+    "verbatimModuleSyntax": false
   },
   "references": [
     { "path": "../../packages/domain" },
