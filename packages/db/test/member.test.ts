@@ -15,8 +15,8 @@ const ctx = (tenantId: string): TenantContext => ({
   tenantId,
   userId: 'u1',
   sessionId: 's1',
-  roles: ['staff'],
-  locationScope: 'ALL',
+  roles: [{ role: 'staff', locationScope: 'ALL' }],
+  memberId: null,
   requestId: `req-${tenantId}`,
   tenancy: 'multi',
 });

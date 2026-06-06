@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type AppConfig, ConfigError, loadConfig } from '@obikai/config';
 import { connectMongo } from '@obikai/db';
+import rateLimit from 'express-rate-limit';
 import { AppModule } from './app.module.js';
 
 /** Default HTTP port when PORT is unset/blank. */
@@ -37,6 +38,13 @@ async function bootstrap(): Promise<void> {
   // Honour the operator's reverse-proxy depth so req.ip / X-Forwarded-* are trusted correctly
   // (ADR-0009: trustProxyHops is operator-configured, never assumed).
   app.set('trust proxy', config.trustProxyHops);
+
+  // Coarse brute-force + scrypt-CPU-amplification guard on the unauthenticated auth endpoints
+  // (ADR-0012 review fix). Keyed by client IP (req.ip is reliable once trust proxy is set).
+  app.use(
+    '/auth',
+    rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false }),
+  );
 
   const port = portFromEnv(process.env.PORT);
   await app.listen(port);

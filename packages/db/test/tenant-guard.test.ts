@@ -30,8 +30,8 @@ function ctx(tenantId: string): TenantContext {
     tenantId,
     userId: 'user-1',
     sessionId: 'session-1',
-    roles: ['owner'],
-    locationScope: 'ALL',
+    roles: [{ role: 'owner', locationScope: 'ALL' }],
+    memberId: null,
     requestId: `req-${tenantId}`,
     tenancy: 'multi',
   };

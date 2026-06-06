@@ -32,7 +32,12 @@ export const EnvSchema = z
     REDIS_URL: z.string().min(1),
     RUN_WORKER_IN_PROCESS: boolish.default(true),
 
-    AUTH_JWT_SECRET: z.string().min(16, 'AUTH_JWT_SECRET must be at least 16 chars'),
+    AUTH_JWT_SECRET: z
+      .string()
+      .min(
+        32,
+        'AUTH_JWT_SECRET must be at least 32 chars (HS256 key strength); use `openssl rand -hex 32`',
+      ),
     DATA_MASTER_KEY: z.string().min(16, 'DATA_MASTER_KEY must be at least 16 chars'),
 
     STORAGE_PROVIDER: storageProviderSchema.default('s3'),

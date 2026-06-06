@@ -9,3 +9,4 @@ export * from './rbac.js';
 export * from './result.js';
 export * from './member.js';
 export * from './household.js';
+export * from './auth.js';

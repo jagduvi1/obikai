@@ -11,7 +11,8 @@
     { "path": "../../packages/config" },
     { "path": "../../packages/authz" },
     { "path": "../../packages/adapter-contracts" },
-    { "path": "../../packages/db" }
+    { "path": "../../packages/db" },
+    { "path": "../../adapters/auth-local" }
   ],
   "include": ["src/**/*"]
 }

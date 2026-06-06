@@ -1,56 +1,70 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, type NestMiddleware } from '@nestjs/common';
 import type { AppConfig } from '@obikai/config';
-import { type TenantContext, runInTenantContext } from '@obikai/db';
-import { type TenantId, type UserId, brand } from '@obikai/domain';
+import { type MembershipRepository, type TenantContext, runInTenantContext } from '@obikai/db';
+import { type RoleAssignment, type TenantId, brand } from '@obikai/domain';
 import type { NextFunction, Request, Response } from 'express';
+import type { TokenService } from '../auth/token.service.js';
 import { APP_CONFIG } from '../config.provider.js';
 import { resolveTenantFromHost } from './tenant-resolver.js';
 
 /**
- * Opens an AsyncLocalStorage TenantContext for the lifetime of each request (ADR-0004). Tenant
- * isolation is structural: any tenant-owned data access with no open context throws, so this
- * middleware MUST run before any controller that reads tenant data.
- *
- * Resolution order: self-host uses the single configured tenant; hosted derives the tenant from
- * the Host header. An unresolvable host is rejected (404) rather than silently defaulting to a
- * tenant — guessing here would be a cross-dojo leak.
- *
- * CROSS-CHECK STUB: once auth middleware populates a verified access token, this must assert that
- * `token.tenantId === resolvedTenant` (a membership for the resolved tenant), per ADR-0004 — the
- * resolved REQUEST tenant wins, never the token's tenantId alone. Auth is not wired yet, so the
- * userId/roles below are placeholders and the equality check is a TODO, not yet enforced.
+ * Opens an AsyncLocalStorage TenantContext for each request (ADR-0004/0012). Resolution order:
+ *  1. Resolve the request tenant from the Host (self-host: the single tenant). Unknown host → 404.
+ *  2. Verify the access token (if any) → the acting userId + sessionId.
+ *  3. Load the user's Membership for the RESOLVED tenant → roles + memberId. The RESOLVED tenant
+ *     always wins; the token never carries roles (ADR-0012). No/!active membership ⇒ role-less ⇒
+ *     can() denies (safe default).
+ * Tenant isolation is structural: any tenant-owned access with no open context throws.
  */
 @Injectable()
 export class TenancyMiddleware implements NestMiddleware {
-  constructor(@Inject(APP_CONFIG) private readonly config: AppConfig) {}
+  constructor(
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+    private readonly tokens: TokenService,
+    private readonly memberships: MembershipRepository,
+  ) {}
 
-  use(req: Request, res: Response, next: NextFunction): void {
+  async use(req: Request, res: Response, next: NextFunction): Promise<void> {
     const resolved = resolveTenantFromHost(this.config, req.headers.host);
     if (resolved === null) {
       res.status(404).json({ error: 'unknown_tenant' });
       return;
     }
-
-    // STUB: until the data layer resolves slug → TenantId, brand the slug as the id placeholder.
     const tenantId = brand<TenantId>(resolved.slug);
-    // STUB: auth not wired — anonymous principal until the token guard populates it.
-    const userId: UserId | null = null;
+
+    let userId: string | null = null;
+    let sessionId: string | null = null;
+    let roles: readonly RoleAssignment[] = [];
+    let memberId: string | null = null;
+
+    const claims = await this.verify(req);
+    if (claims) {
+      userId = claims.userId;
+      sessionId = claims.sessionId;
+      const membership = await this.memberships.resolveForRequest(resolved.slug, userId);
+      if (membership && membership.status === 'active') {
+        roles = membership.roles;
+        memberId = membership.memberId;
+      }
+    }
 
     const context: TenantContext = {
       tenantId,
       userId,
-      sessionId: null,
-      roles: [],
-      locationScope: 'ALL',
+      sessionId,
+      roles,
+      memberId,
       requestId: requestIdOf(req),
       tenancy: this.config.tenancy,
     };
+    runInTenantContext(context, () => next());
+  }
 
-    // TODO(auth): assert token.tenantId resolves to `tenantId` here before proceeding (ADR-0004).
-    runInTenantContext(context, () => {
-      next();
-    });
+  private async verify(req: Request): Promise<{ userId: string; sessionId: string } | null> {
+    const header = req.headers.authorization;
+    if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;
+    return this.tokens.verifyAccess(header.slice('Bearer '.length).trim());
   }
 }
 

@@ -31,14 +31,11 @@ import { ForbiddenError, type MembersService, NotFoundError } from './members.se
  */
 function currentActor(): AuthzActor {
   const ctx = getTenantContextOrThrow();
+  // The tenancy middleware populated roles + memberId from the resolved-tenant Membership (ADR-0012).
   return {
     userId: ctx.userId ?? 'anonymous',
-    // Context roles are simple strings today; map to tenant-wide assignments. The auth slice will
-    // populate location-scoped assignments and the actor's own memberId (for self-access).
-    roles: ctx.roles.map((role) => ({
-      role: role as AuthzActor['roles'][number]['role'],
-      locationScope: 'ALL' as const,
-    })),
+    roles: ctx.roles,
+    ...(ctx.memberId !== null ? { memberId: ctx.memberId } : {}),
   };
 }
 

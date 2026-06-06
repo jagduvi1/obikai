@@ -17,7 +17,7 @@ import type {
   RegisterPasswordInput,
   VerifyPasswordInput,
 } from '@obikai/adapter-contracts';
-import { hashPassword, verifyPassword } from './hash.js';
+import { DECOY_HASH, hashPassword, verifyPassword } from './hash.js';
 import { EmailAlreadyRegisteredError, type IdentityStore, type StoredCredential } from './store.js';
 
 const PROVIDER_ID = 'local';
@@ -80,6 +80,9 @@ export class LocalAuthProvider implements AuthPort {
     const email = normaliseEmail(input.email);
     const credential = await this.#store.findByEmail(email);
     if (credential === null) {
+      // Burn comparable CPU against a decoy so "unknown email" and "wrong password" take similar
+      // time — closes the login timing/enumeration oracle.
+      verifyPassword(input.password, DECOY_HASH);
       return null;
     }
     if (!verifyPassword(input.password, credential.passwordHash)) {

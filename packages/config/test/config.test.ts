@@ -4,7 +4,7 @@ import { ConfigError, loadConfig } from '../src/index.js';
 const base: Record<string, string> = {
   MONGO_URI: 'mongodb://localhost/obikai',
   REDIS_URL: 'redis://localhost:6379',
-  AUTH_JWT_SECRET: '0123456789abcdef0123',
+  AUTH_JWT_SECRET: '0123456789abcdef0123456789abcdef',
   DATA_MASTER_KEY: '0123456789abcdef0123',
   SELF_HOST_TENANT_SLUG: 'mydojo',
   S3_ENDPOINT: 'http://localhost:9000',

@@ -62,7 +62,7 @@ async function handleJob(job: Job<BaseJobData>, log: Logger, tenancy: Tenancy): 
     userId: null,
     sessionId: null,
     roles: [],
-    locationScope: 'ALL',
+    memberId: null,
     requestId: job.id ?? `${job.name}:${tenantId}`,
     tenancy,
   };

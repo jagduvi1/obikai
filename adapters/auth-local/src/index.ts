@@ -12,4 +12,4 @@ export {
   type NewCredential,
   type StoredCredential,
 } from './store.js';
-export { hashPassword, verifyPassword } from './hash.js';
+export { hashPassword, verifyPassword, DECOY_HASH } from './hash.js';

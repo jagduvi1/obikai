@@ -12,8 +12,17 @@
 
 import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 
-/** scrypt cost parameter (CPU/memory). 2^15 = 32768 is the Node default; safe and portable. */
-const SCRYPT_N = 16384;
+/** scrypt cost parameter (CPU/memory). 2^15 = 32768 (the Node default), a sensible portable floor. */
+const SCRYPT_N = 32768;
+/** Block size r — fixed at the scrypt default. */
+const SCRYPT_R = 8;
+/** Parallelization p — fixed at the scrypt default. */
+const SCRYPT_P = 1;
+/**
+ * Explicit memory ceiling so raising N never surprise-throws Node's implicit ~32MB cap. scrypt
+ * needs ~128 * N * r bytes; at N=32768,r=8 that's ~32MB, so we allow headroom (128MB).
+ */
+const SCRYPT_MAXMEM = 128 * 1024 * 1024;
 /** Salt length in bytes. */
 const SALT_BYTES = 16;
 /** Derived key length in bytes. */
@@ -22,15 +31,23 @@ const KEY_BYTES = 64;
 const SCHEME = 'scrypt';
 const SEPARATOR = '$';
 
+const SCRYPT_OPTS = { N: SCRYPT_N, r: SCRYPT_R, p: SCRYPT_P, maxmem: SCRYPT_MAXMEM } as const;
+
 /**
  * Hash a plaintext password into a self-describing, storable string:
  * `scrypt$<N>$<saltHex>$<hashHex>`. A fresh random salt is generated per call.
  */
 export function hashPassword(password: string): string {
   const salt = randomBytes(SALT_BYTES);
-  const derived = scryptSync(password, salt, KEY_BYTES, { N: SCRYPT_N });
+  const derived = scryptSync(password, salt, KEY_BYTES, SCRYPT_OPTS);
   return [SCHEME, String(SCRYPT_N), salt.toString('hex'), derived.toString('hex')].join(SEPARATOR);
 }
+
+/**
+ * A precomputed decoy hash. Verifying against it lets the "unknown email" path spend comparable
+ * CPU to the "known email, wrong password" path, closing the login timing/enumeration oracle.
+ */
+export const DECOY_HASH: string = hashPassword('obikai-decoy-password');
 
 /**
  * Verify a plaintext password against an encoded hash produced by {@link hashPassword}.
@@ -56,6 +73,11 @@ export function verifyPassword(password: string, encoded: string): boolean {
   if (salt.length === 0 || expected.length === 0) {
     return false;
   }
-  const actual = scryptSync(password, salt, expected.length, { N: n });
+  const actual = scryptSync(password, salt, expected.length, {
+    N: n,
+    r: SCRYPT_R,
+    p: SCRYPT_P,
+    maxmem: SCRYPT_MAXMEM,
+  });
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
