@@ -38,6 +38,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     ['promotion', ['read', 'list', 'award', 'approve']],
     ['gradingEvent', ['create', 'read', 'list', 'update']],
     ['curriculum', ['read', 'list', 'update']],
+    ['discipline', ['read', 'list']],
     ['rankSystem', ['read', 'list']],
     ['announcement', ['create', 'read', 'list']],
     ['auditLog', ['read', 'list']],
@@ -52,6 +53,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     ['class', ['create', 'read', 'list', 'update']],
     ['attendance', ['create', 'read', 'list', 'update']],
     ['waiver', ['create', 'read', 'list']],
+    ['discipline', ['read', 'list']],
+    ['rankSystem', ['read', 'list']],
     ['announcement', ['create', 'read', 'list']],
   ]),
 

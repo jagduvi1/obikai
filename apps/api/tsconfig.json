@@ -21,6 +21,7 @@
     { "path": "../../packages/billing" },
     { "path": "../../packages/adapter-contracts" },
     { "path": "../../packages/db" },
+    { "path": "../../packages/rank-engine" },
     { "path": "../../packages/i18n" },
     { "path": "../../adapters/auth-local" },
     { "path": "../../adapters/email-smtp" }

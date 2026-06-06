@@ -287,6 +287,9 @@ importers:
       '@obikai/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@obikai/rank-engine':
+        specifier: workspace:*
+        version: link:../../packages/rank-engine
       express-rate-limit:
         specifier: ^7.4.1
         version: 7.5.1(express@4.22.1)
