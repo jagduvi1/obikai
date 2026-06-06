@@ -8,5 +8,6 @@
     { "path": "../../packages/domain" },
     { "path": "../../packages/adapter-contracts" }
   ],
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts"]
 }

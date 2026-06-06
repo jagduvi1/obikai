@@ -21,6 +21,7 @@
     "@obikai/adapter-contracts": "workspace:*",
     "@obikai/domain": "workspace:*",
     "fast-check": "catalog:",
+    "vite": "catalog:",
     "vitest": "catalog:"
   },
   "devDependencies": {
