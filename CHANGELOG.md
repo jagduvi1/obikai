@@ -34,6 +34,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 - GDPR: every member mutation (create / update / delete) is now recorded on the tenant's audit chain
   with the acting user, target, source IP, and (for updates) the changed field NAMES only — closing
   the previously **unaudited hard-delete** of member records (audit H9).
+- GDPR: **executable ROPA registry** (Art. 30) — `buildRopaRegistry()` registers a `ProcessingRecord`
+  (purpose, lawful basis, controller/processor role, retention, `findBySubject`, `toExport`, erasure
+  strategy) for every member-keyed PII model (member, attendance, booking, enrollment, invoice,
+  payment, rank state, promotion, grading result, curriculum completion, waiver). This is the keystone
+  that drives data export (Art. 15/20) and erasure (Art. 17) in the next PRs — accountability as code.
 - GDPR: **self-service consent** (Art. 6(1)(a)/7, audit H8). An append-only `ConsentModel` +
   `ConsentRepository` (db, implementing the `@obikai/gdpr` port) where withdrawal appends a `withdrawn`
   record and never erases the grant evidence (Art. 7(1) demonstrability), plus `/me/consent` endpoints
