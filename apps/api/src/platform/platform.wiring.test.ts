@@ -57,6 +57,10 @@ describe('platform plane middleware wiring', () => {
     await request(app.getHttpServer()).get('/platform/tenants/acme/usage').expect(401);
   });
 
+  it('also guards the audit endpoint — /platform/audit → 401 unauth', async () => {
+    await request(app.getHttpServer()).get('/platform/audit').expect(401);
+  });
+
   it('does not leave the plane unbound (an unknown /platform path is still middleware-gated)', async () => {
     // Any /platform/* path is owned by the platform middleware; an unmapped one is 401 (gated),
     // never a tenant 404 — confirming TenancyMiddleware does not run here.

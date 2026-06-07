@@ -1,6 +1,12 @@
 import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
-import { MemberRepository, PlatformGrantRepository, TenantRegistryRepository } from '@obikai/db';
+import {
+  MemberRepository,
+  PlatformAuditRepository,
+  PlatformGrantRepository,
+  TenantRegistryRepository,
+} from '@obikai/db';
 import { AuthModule } from '../auth/auth.module.js';
+import { PlatformAuditController } from './audit.controller.js';
 import { PlatformMiddleware } from './platform.middleware.js';
 import { PlatformTenantsController } from './tenants.controller.js';
 
@@ -12,12 +18,13 @@ import { PlatformTenantsController } from './tenants.controller.js';
  */
 @Module({
   imports: [AuthModule],
-  controllers: [PlatformTenantsController],
+  controllers: [PlatformTenantsController, PlatformAuditController],
   providers: [
     PlatformMiddleware,
     { provide: PlatformGrantRepository, useFactory: () => new PlatformGrantRepository() },
     { provide: TenantRegistryRepository, useFactory: () => new TenantRegistryRepository() },
     { provide: MemberRepository, useFactory: () => new MemberRepository() },
+    { provide: PlatformAuditRepository, useFactory: () => new PlatformAuditRepository() },
   ],
 })
 export class PlatformModule implements NestModule {

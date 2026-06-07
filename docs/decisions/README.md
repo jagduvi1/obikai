@@ -31,3 +31,4 @@ supersession in both). Keep them short; put detail in code and `docs/`.
 | [0020](0020-waiver-document-storage.md) | Waiver signed-document storage | Accepted |
 | [0021](0021-platform-authorization.md) | Platform (cross-tenant) authorization model | Accepted |
 | [0022](0022-platform-http-plane.md) | Platform HTTP plane (`/platform/*`) | Accepted |
+| [0023](0023-platform-audit-log.md) | Platform audit log (append-only, hash-chained) | Accepted |
