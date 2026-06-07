@@ -34,6 +34,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 - GDPR: every member mutation (create / update / delete) is now recorded on the tenant's audit chain
   with the acting user, target, source IP, and (for updates) the changed field NAMES only — closing
   the previously **unaudited hard-delete** of member records (audit H9).
+- GDPR: **self-service consent** (Art. 6(1)(a)/7, audit H8). An append-only `ConsentModel` +
+  `ConsentRepository` (db, implementing the `@obikai/gdpr` port) where withdrawal appends a `withdrawn`
+  record and never erases the grant evidence (Art. 7(1) demonstrability), plus `/me/consent` endpoints
+  (`GET` list, `POST` grant, `DELETE /:purpose` withdraw) — a member can now grant and withdraw their
+  own consent, each change recorded on the tenant audit chain.
 
 ### Fixed
 
