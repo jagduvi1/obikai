@@ -7,6 +7,7 @@ import {
   paymentProviderSchema,
   smsProviderSchema,
   storageProviderSchema,
+  vatValidationProviderSchema,
 } from './providers.js';
 
 /** process.env values are strings; accept "true"/"1" as truthy. */
@@ -76,6 +77,9 @@ export const EnvSchema = z
     OLLAMA_BASE_URL: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     OPENAI_API_KEY: z.string().optional(),
+
+    VAT_VALIDATION_PROVIDER: vatValidationProviderSchema.default('none'),
+    VIES_BASE_URL: z.string().url().optional(),
 
     SEED_ON_START: boolish.default(false),
     BOOTSTRAP_OWNER_EMAIL: z.string().email().optional(),
