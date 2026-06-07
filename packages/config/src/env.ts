@@ -9,6 +9,7 @@ import {
   storageProviderSchema,
   vatValidationProviderSchema,
 } from './providers.js';
+import { isEuDataResidencyRegion } from './residency.js';
 
 /** process.env values are strings; accept "true"/"1" as truthy. */
 const boolish = z
@@ -48,6 +49,9 @@ export const EnvSchema = z
     S3_ACCESS_KEY_ID: z.string().optional(),
     S3_SECRET_ACCESS_KEY: z.string().optional(),
     S3_FORCE_PATH_STYLE: boolish.default(true),
+    // Audited escape hatch: allow a non-EU/EEA storage region in HOSTED mode (Arts. 44–49). Off by
+    // default so a hosted deployment cannot SILENTLY place member data outside the EU.
+    ALLOW_NON_EU_RESIDENCY: boolish.default(false),
     FS_STORAGE_ROOT: z.string().default('/data/storage'),
     // Externally-reachable origin the guarded `/files` route is served from (fs storage only).
     STORAGE_PUBLIC_BASE_URL: z.string().url().optional(),
@@ -98,6 +102,14 @@ export const EnvSchema = z
     }
     if (env.STORAGE_PROVIDER === 's3') {
       require(Boolean(env.S3_ENDPOINT), 'S3_ENDPOINT', 'required when STORAGE_PROVIDER=s3');
+      // EU data residency (Arts. 44–49): the hosted managed service must keep member data in the
+      // EU/EEA. The region string is authoritative for a real AWS-backed deploy; self-host is exempt
+      // (the operator controls physical location and S3-compatible region strings are arbitrary).
+      if (env.DEPLOY_MODE === 'hosted' && !env.ALLOW_NON_EU_RESIDENCY) {
+        require(isEuDataResidencyRegion(
+          env.S3_REGION,
+        ), 'S3_REGION', `hosted deployments must use an EU/EEA region for data residency (got "${env.S3_REGION}"); set ALLOW_NON_EU_RESIDENCY=true to override (audited)`);
+      }
     }
     if (env.STORAGE_PROVIDER === 'fs') {
       // fs presigns URLs to the app's own `/files` route, so it must know its public origin.

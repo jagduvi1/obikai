@@ -45,3 +45,27 @@ describe('loadConfig', () => {
     expect(cfg.tenancy).toBe('multi');
   });
 });
+
+describe('EU data-residency enforcement (hosted)', () => {
+  const hosted: Record<string, string> = { ...base, DEPLOY_MODE: 'hosted', TENANCY: 'multi' };
+
+  it('the default S3_REGION is an EU/EEA region (CI drift guard)', () => {
+    // No region set → schema default must remain EU, so a hosted deploy is compliant out of the box.
+    expect(() => loadConfig(hosted)).not.toThrow();
+  });
+
+  it('rejects a non-EU storage region in hosted mode', () => {
+    expect(() => loadConfig({ ...hosted, S3_REGION: 'us-east-1' })).toThrow(/EU\/EEA region/);
+  });
+
+  it('allows a non-EU region only with the audited escape hatch', () => {
+    expect(() =>
+      loadConfig({ ...hosted, S3_REGION: 'us-east-1', ALLOW_NON_EU_RESIDENCY: 'true' }),
+    ).not.toThrow();
+  });
+
+  it('does NOT constrain the region for self-host (operator controls physical location)', () => {
+    // self-host with an arbitrary S3-compatible region (e.g. MinIO default) must be accepted.
+    expect(() => loadConfig({ ...base, S3_REGION: 'us-east-1' })).not.toThrow();
+  });
+});
