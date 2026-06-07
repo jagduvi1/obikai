@@ -11,6 +11,7 @@ import { type PlatformActor, canPlatform } from '@obikai/authz';
 import type { AppConfig } from '@obikai/config';
 import {
   MemberRepository,
+  PlatformAuditRepository,
   type TenantContext,
   TenantRegistryRepository,
   runInTenantContext,
@@ -32,17 +33,25 @@ export class PlatformTenantsController {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly tenants: TenantRegistryRepository,
     private readonly members: MemberRepository,
+    private readonly audit: PlatformAuditRepository,
   ) {}
 
   @Get()
   async list(@Req() req: PlatformRequest) {
-    this.authorize(getPlatformActor(req), { resource: 'tenant', action: 'list' });
-    return this.tenants.list();
+    const actor = getPlatformActor(req);
+    this.authorize(actor, { resource: 'tenant', action: 'list' });
+    const tenants = await this.tenants.list();
+    await this.record(req, actor, 'tenant.list', '*');
+    return tenants;
   }
 
   @Get(':slug')
   async get(@Req() req: PlatformRequest, @Param('slug') slug: string) {
-    this.authorize(getPlatformActor(req), { resource: 'tenant', action: 'read' });
+    const actor = getPlatformActor(req);
+    this.authorize(actor, { resource: 'tenant', action: 'read' });
+    // Record the probe (raw slug) BEFORE the existence check so negative probes — tenant-namespace
+    // enumeration — are also audited, not just hits (ADR-0023: every platform read is recorded).
+    await this.record(req, actor, 'tenant.read', slug);
     const tenant = await this.tenants.findBySlug(slug);
     if (!tenant) throw new NotFoundException('unknown tenant');
     return tenant;
@@ -50,7 +59,9 @@ export class PlatformTenantsController {
 
   @Get(':slug/usage')
   async usage(@Req() req: PlatformRequest, @Param('slug') slug: string) {
-    this.authorize(getPlatformActor(req), { resource: 'usage', action: 'read' });
+    const actor = getPlatformActor(req);
+    this.authorize(actor, { resource: 'usage', action: 'read' });
+    await this.record(req, actor, 'tenant.usage.read', slug);
     const tenant = await this.tenants.findBySlug(slug);
     if (!tenant) throw new NotFoundException('unknown tenant');
 
@@ -73,5 +84,21 @@ export class PlatformTenantsController {
 
   private authorize(actor: PlatformActor, perm: PlatformPermission): void {
     if (!canPlatform(actor, perm)) throw new ForbiddenException('forbidden');
+  }
+
+  /** Record the read to the tamper-evident platform audit log (ADR-0023), in platform scope. */
+  private record(
+    req: PlatformRequest,
+    actor: PlatformActor,
+    action: string,
+    targetId: string,
+  ): Promise<unknown> {
+    return this.audit.append({
+      actorUserId: actor.userId,
+      action,
+      targetType: 'tenant',
+      targetId,
+      ip: req.ip ?? null,
+    });
   }
 }
