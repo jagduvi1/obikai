@@ -79,6 +79,10 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Fixed
 
+- `/readyz` now reflects **real** readiness — it checks the live Mongo connection instead of returning
+  a hardcoded all-true, so an orchestrator won't route traffic to an instance with a dead database
+  (audit F1). `/healthz` stays dependency-free for liveness. (Redis/migrations/email checks are added
+  as those become hard dependencies for the api.)
 - API observability: a **global exception filter** (unmapped errors → structured server-side log +
   `x-request-id`, generic 500 body that leaks nothing), **structured JSON logging** matching the worker
   (one shipper parses both), and the auth adapter's logger is **no longer silenced** (failed

@@ -1,14 +1,13 @@
 /**
- * Readiness probe response. Each check is a coarse boolean a load balancer / orchestrator can
- * gate traffic on. `emailTransport` is included deliberately (ADR-0009): a first-boot SMTP
- * misconfiguration must be observable, not silent, since email-independent owner bootstrap is the
- * only lockout escape hatch.
+ * Readiness probe response. Each check is a coarse boolean a load balancer / orchestrator gates
+ * traffic on, and reflects REAL state (no hardcoded true — audit F1). Only genuine HARD dependencies
+ * appear: today that is Mongo (every request hits a tenant-scoped repository). More checks are added
+ * as their dependencies become load-bearing for the api — `redis` once rate-limiting moves to a shared
+ * store, `migrationsApplied` once the migration runner lands, `emailTransport` if email moves onto a
+ * request's critical path. (`/healthz` stays dependency-free for liveness.)
  */
 export interface ReadyzChecks {
   readonly mongo: boolean;
-  readonly redis: boolean;
-  readonly migrationsApplied: boolean;
-  readonly emailTransport: boolean;
 }
 
 export interface ReadyzResponse {
