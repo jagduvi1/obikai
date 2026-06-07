@@ -626,27 +626,28 @@ export class InvoiceRepository {
   }
 
   /**
-   * Atomically claim a DRAFT invoice for issue (draft → open) and stamp issuedAt/dueAt. Returns the
-   * claimed invoice, or null if it was not a draft (already issued / not found). This is the
-   * concurrency guard: only ONE caller can win the claim, so a number is allocated at most once per
-   * invoice (no TOCTOU double-allocation, ADR-0013).
+   * Atomically issue a DRAFT invoice: flip draft → open AND stamp issuedAt/dueAt AND set the gapless
+   * `number` — all in ONE document write. Returns the issued invoice, or null if it was not a draft
+   * (already issued / not found). The pre-allocated `number` is set here rather than in a second
+   * write so there is NEVER a persisted "open invoice without a number" — the legally-invalid state
+   * the old claim-then-assign ordering could leave on a crash (audit H4). The {status:'draft'} guard
+   * is the concurrency guard: only ONE caller wins, so the transition (and the number) is applied at
+   * most once per invoice. A duplicate `number` within a tenant is rejected by the {tenantId, number}
+   * unique index (the hard backstop), surfacing as a write error rather than a silent collision.
+   * ADR-0013.
    */
-  async claimForIssue(id: string, issuedAt: string, dueAt: string): Promise<Invoice | null> {
+  async claimForIssueWithNumber(
+    id: string,
+    opts: { issuedAt: string; dueAt: string; number: string },
+  ): Promise<Invoice | null> {
     const doc = await this.model
       .findOneAndUpdate(
         { _id: String(id), status: 'draft' },
-        { $set: { status: 'open', issuedAt, dueAt } },
+        {
+          $set: { status: 'open', issuedAt: opts.issuedAt, dueAt: opts.dueAt, number: opts.number },
+        },
         { new: true },
       )
-      .lean<InvoiceDoc>()
-      .exec();
-    return doc ? toInvoice(doc) : null;
-  }
-
-  /** Assign the gapless number exactly once (only when still null), so a retry can't overwrite it. */
-  async assignNumber(id: string, number: string): Promise<Invoice | null> {
-    const doc = await this.model
-      .findOneAndUpdate({ _id: String(id), number: null }, { $set: { number } }, { new: true })
       .lean<InvoiceDoc>()
       .exec();
     return doc ? toInvoice(doc) : null;
@@ -677,8 +678,9 @@ export class InvoiceRepository {
 
   /**
    * Post-issue lifecycle transitions only (paid / uncollectible / dunning fields). The invoice
-   * NUMBER is never set here (use `assignNumber`), and reverting to `draft` is rejected — issued
-   * invoices are immutable for legal retention (ADR-0007/0013). Lines/totals are not in the patch
+   * NUMBER is never set here (it is set once, atomically, by `claimForIssueWithNumber`), and
+   * reverting to `draft` is rejected — issued invoices are immutable for legal retention
+   * (ADR-0007/0013). Lines/totals are not in the patch
    * surface at all, so they can never be mutated post-creation.
    */
   async update(

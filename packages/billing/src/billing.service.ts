@@ -95,10 +95,14 @@ export interface BillingInvoiceStore {
   findByEnrollmentPeriod(enrollmentId: string, periodStart: string): Promise<Invoice | null>;
   /** Open, past-due invoices eligible for a dunning step as of `nowIso`. */
   listDunnable(nowIso: string): Promise<Invoice[]>;
-  /** Atomic draft→open claim (concurrency guard). Returns null if not a draft. */
-  claimForIssue(id: string, issuedAt: string, dueAt: string): Promise<Invoice | null>;
-  /** Assign the gapless number exactly once (only when still null). */
-  assignNumber(id: string, number: string): Promise<Invoice | null>;
+  /**
+   * Atomic single-write issue: draft→open + issuedAt/dueAt + the pre-allocated gapless `number`, all
+   * at once (concurrency guard, returns null if not a draft). No "open without a number" intermediate.
+   */
+  claimForIssueWithNumber(
+    id: string,
+    opts: { issuedAt: string; dueAt: string; number: string },
+  ): Promise<Invoice | null>;
   /**
    * Atomically apply a dunning step ONLY if the invoice is still open at `fromStage`. Returns the
    * updated invoice, or null if a concurrent/re-delivered worker already advanced it (the
@@ -212,31 +216,51 @@ export class BillingService {
     return this.issue(actor, draft.id);
   }
 
-  /** Assign the gapless number + set status 'open' + issuedAt/dueAt on an existing draft invoice. */
+  /**
+   * Issue an existing draft: allocate the gapless number and commit status 'open' + issuedAt/dueAt +
+   * number in a SINGLE atomic write.
+   *
+   * Crash-safety (audit H4): the number is allocated FIRST, then `claimForIssueWithNumber` writes
+   * status, dates and number together — so a crash can never leave a persisted "open invoice without
+   * a number" (a legally-invalid issued invoice). We confirm the draft (and read its tenantId) before
+   * allocating, so issuing an already-issued invoice never burns a number. The unavoidable residual
+   * on single-node Mongo is a GAP: a crash between the counter `$inc` and the claim — or a concurrent
+   * loser — leaves the allocated number unused. A gap is auditable and acceptable; an unnumbered
+   * issued invoice is not. True two-document atomicity (counter + invoice) needs a Mongo transaction
+   * on a replica set; tracked separately. Concurrency-safe & idempotent: the {status:'draft'} guard
+   * means only one caller wins; a loser re-reads and returns the already-issued invoice.
+   */
   async issue(actor: AuthzActor, invoiceId: string): Promise<Invoice> {
     if (!can(actor, { resource: 'invoice', action: 'create' }))
       throw new ForbiddenError('create', 'invoice');
+
+    // Confirm it's a draft before allocating a number (so an already-issued invoice never burns one)
+    // and to source the tenantId for the per-tenant counter from the invoice itself.
+    const draft = await this.stores.invoices.findById(invoiceId);
+    if (!draft) throw new NotFoundError('invoice', invoiceId);
+    if (draft.status !== 'draft')
+      throw new BillingError(`invoice ${invoiceId} is not a draft (status=${draft.status})`);
 
     // Read the clock ONCE so the printed number-year can never diverge from issuedAt (review fix).
     const now = this.now();
     const issuedAt = now.toISOString();
     const dueAt = addDays(issuedAt, DEFAULT_DUE_DAYS);
-
-    // Atomically claim the draft (draft → open). Only one concurrent caller can win, so the number
-    // below is allocated AT MOST ONCE per invoice — closing the TOCTOU double-allocation gap.
-    const claimed = await this.stores.invoices.claimForIssue(invoiceId, issuedAt, dueAt);
-    if (!claimed) {
-      const existing = await this.stores.invoices.findById(invoiceId);
-      if (!existing) throw new NotFoundError('invoice', invoiceId);
-      throw new BillingError(`invoice ${invoiceId} is not a draft (status=${existing.status})`);
-    }
-
-    // We won the claim → allocate the gapless number for the issue year and assign it once.
     const year = now.getUTCFullYear();
-    const number = await this.stores.counters.allocateInvoiceNumber(claimed.tenantId, year);
-    const issued = await this.stores.invoices.assignNumber(invoiceId, number);
-    if (!issued) throw new BillingError(`failed to assign number to invoice ${invoiceId}`);
-    return issued;
+
+    // Allocate first, then commit status+dates+number in one write (see method doc for crash-safety).
+    const number = await this.stores.counters.allocateInvoiceNumber(draft.tenantId, year);
+    const issued = await this.stores.invoices.claimForIssueWithNumber(invoiceId, {
+      issuedAt,
+      dueAt,
+      number,
+    });
+    if (issued) return issued;
+
+    // Lost the draft→open race to a concurrent issue() (our allocated number is now an unused gap).
+    // If the invoice is now issued, return it so the caller still sees a consistent result.
+    const after = await this.stores.invoices.findById(invoiceId);
+    if (after && after.status !== 'draft') return after;
+    throw new BillingError(`failed to issue invoice ${invoiceId}`);
   }
 
   /**
@@ -325,9 +349,10 @@ export class BillingService {
   }
 
   /**
-   * Issue a draft, tolerating a concurrent run that issued it first: if our `claimForIssue` loses
-   * the race (the invoice is no longer a draft), re-fetch and return the already-issued invoice
-   * instead of throwing. Keeps recurring billing idempotent under concurrency.
+   * Issue a draft, tolerating a concurrent run that issued it first. `issue()` is already idempotent
+   * under the draft→open race (it returns the issued invoice rather than throwing); this also catches
+   * the case where the invoice flipped to non-draft between the caller's read and `issue()`, re-fetching
+   * and returning the issued invoice instead of throwing. Keeps recurring billing idempotent.
    */
   private async ensureIssued(actor: AuthzActor, invoice: Invoice): Promise<Invoice> {
     if (invoice.status !== 'draft') return invoice;
