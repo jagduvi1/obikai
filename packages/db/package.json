@@ -20,6 +20,7 @@
   "dependencies": {
     "@obikai/config": "workspace:*",
     "@obikai/domain": "workspace:*",
+    "@obikai/gdpr": "workspace:*",
     "mongoose": "^8.9.5"
   },
   "devDependencies": {

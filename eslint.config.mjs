@@ -58,7 +58,10 @@ export default [
             { from: 'authz', allow: ['domain'] },
             { from: 'i18n', allow: ['domain'] },
             { from: 'gdpr', allow: ['domain', 'adapter-contracts'] },
-            { from: 'db', allow: ['domain', 'config'] },
+            // db may implement the gdpr ports (audit log, consent, identity-map, keystore) and reuse
+            // its pure hash-chain primitives. gdpr is a DB-free leaf (domain + adapter-contracts only),
+            // so db→gdpr is acyclic; gdpr never imports db. See ADR-0026.
+            { from: 'db', allow: ['domain', 'config', 'gdpr'] },
             { from: 'adapter-impl', allow: ['adapter-contracts', 'domain', 'config'] },
             { from: 'test-utils', allow: ['domain', 'adapter-contracts', 'rank-engine', 'config'] },
             {
