@@ -8,6 +8,7 @@ import {
   SessionRepository,
   UserRepository,
 } from '@obikai/db';
+import { adapterLogger } from '../common/logging.js';
 import { APP_CONFIG } from '../config.provider.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
@@ -16,13 +17,6 @@ import { TokenService } from './token.service.js';
 
 /** Injection token for the auth adapter's runtime context. */
 const AUTH_ADAPTER_CONTEXT = 'AUTH_ADAPTER_CONTEXT';
-
-const silentLogger = {
-  debug: () => undefined,
-  info: () => undefined,
-  warn: () => undefined,
-  error: () => undefined,
-};
 
 /**
  * Auth wiring (ADR-0012). Composes the tenant-global identity repositories, the `auth-local`
@@ -39,7 +33,8 @@ const silentLogger = {
     {
       provide: AUTH_ADAPTER_CONTEXT,
       useValue: {
-        logger: silentLogger,
+        // Real structured logger (was a no-op): register/login rejections + lockouts are now recorded.
+        logger: adapterLogger('auth'),
         readSecret: async () => {
           throw new Error('no secret store configured');
         },

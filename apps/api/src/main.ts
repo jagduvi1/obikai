@@ -7,6 +7,8 @@ import { connectMongo, disconnectMongo } from '@obikai/db';
 import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
+import { AllExceptionsFilter } from './common/all-exceptions.filter.js';
+import { jsonLogger } from './common/logging.js';
 
 /** Default HTTP port when PORT is unset/blank. */
 const DEFAULT_PORT = 3000;
@@ -34,7 +36,13 @@ async function bootstrap(): Promise<void> {
   await connectMongo(config.mongoUri);
   logger.log('connected to MongoDB');
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(config));
+  const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(config), {
+    // Structured single-line JSON logs, matching the worker so one shipper parses both (F3).
+    logger: jsonLogger,
+  });
+
+  // Catch every unmapped error: structured log + request id, generic 500 body (no leak) — F2.
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // Honour the operator's reverse-proxy depth so req.ip / X-Forwarded-* are trusted correctly
   // (ADR-0009: trustProxyHops is operator-configured, never assumed).

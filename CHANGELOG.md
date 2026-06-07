@@ -79,6 +79,10 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Fixed
 
+- API observability: a **global exception filter** (unmapped errors → structured server-side log +
+  `x-request-id`, generic 500 body that leaks nothing), **structured JSON logging** matching the worker
+  (one shipper parses both), and the auth adapter's logger is **no longer silenced** (failed
+  logins/lockouts are now recorded) — audit F2/F3.
 - API hardening: **security headers (helmet)** on the JSON API, configurable **CORS** allow-list
   (`CORS_ORIGINS`, credentials-aware), and **graceful shutdown** (drains in-flight requests + closes
   Mongo cleanly on SIGTERM/SIGINT, so deploys are zero-downtime-safe and can't truncate billing/PII
