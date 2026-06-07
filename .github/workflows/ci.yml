@@ -167,6 +167,9 @@ jobs:
           - app: web-member
             file: ./docker/web-member.Dockerfile
             args: ''
+          - app: web-platform
+            file: ./docker/web-platform.Dockerfile
+            args: ''
     steps:
       - name: Checkout
         uses: actions/checkout@v4
