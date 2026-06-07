@@ -13,6 +13,7 @@ export type UserId = Brand<string, 'UserId'>;
 export type MembershipId = Brand<string, 'MembershipId'>;
 export type LocationId = Brand<string, 'LocationId'>;
 export type SessionId = Brand<string, 'SessionId'>;
+export type PlatformGrantId = Brand<string, 'PlatformGrantId'>;
 
 // CRM / membership / billing ids (ADR-0011/0013)
 export type MemberId = Brand<string, 'MemberId'>;
