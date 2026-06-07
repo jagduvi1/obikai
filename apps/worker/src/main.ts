@@ -182,8 +182,18 @@ async function main(): Promise<void> {
 
   // The worker is also a PRODUCER: the platform billing-tick fans out per-tenant jobs back onto this
   // same queue, and we register the recurring tick itself here so the worker is self-contained.
+  // Durability defaults for EVERY enqueued job: retry transient Mongo/Redis blips with exponential
+  // backoff (a single failure must not permanently drop a tenant's billing/dunning run), and bound
+  // Redis memory by reaping old completed/failed jobs (else they accumulate unbounded on the small
+  // self-host footprint). Handlers stay idempotent (per-(enrollment,period) dedupe), so retries are safe.
   const queue = new Queue(JOBS_QUEUE, {
     connection: producerConnection as unknown as ConnectionOptions,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5_000 },
+      removeOnComplete: { age: 24 * 3_600, count: 1_000 },
+      removeOnFail: { age: 14 * 24 * 3_600 },
+    },
   });
   const enqueue = async (name: JobName, data: BaseJobData): Promise<void> => {
     await queue.add(name, data);
@@ -211,7 +221,17 @@ async function main(): Promise<void> {
   await queue.upsertJobScheduler(
     BILLING_TICK,
     { pattern: BILLING_TICK_CRON },
-    { name: BILLING_TICK },
+    // The tick only fans out; if a run fails the next cron fires anyway, so keep retries low and reap
+    // its history so the repeatable job doesn't pile up.
+    {
+      name: BILLING_TICK,
+      opts: {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 5_000 },
+        removeOnComplete: { age: 24 * 3_600, count: 100 },
+        removeOnFail: { age: 14 * 24 * 3_600 },
+      },
+    },
   );
 
   log.info('worker started', { queue: JOBS_QUEUE, deployMode: config.deployMode });
