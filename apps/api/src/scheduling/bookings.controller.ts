@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   ForbiddenException,
@@ -10,7 +11,7 @@ import {
   Post,
 } from '@nestjs/common';
 import type { AuthzActor } from '@obikai/authz';
-import { getTenantContextOrThrow } from '@obikai/db';
+import { DuplicateBookingError, getTenantContextOrThrow } from '@obikai/db';
 import { bookingCreateSchema } from '@obikai/domain';
 import { z } from 'zod';
 import { BookingsService } from './bookings.service.js';
@@ -33,7 +34,10 @@ function currentActor(): AuthzActor {
 function translate(error: unknown): never {
   if (error instanceof ForbiddenError) throw new ForbiddenException(error.message);
   if (error instanceof NotFoundError) throw new NotFoundException(error.message);
-  if (error instanceof ConflictError) throw new BadRequestException(error.message);
+  // A booking conflict (cancelled occurrence, already-booked member, or the unique-index race
+  // surfacing as DuplicateBookingError) is a state conflict → 409, matching auth/billing.
+  if (error instanceof ConflictError || error instanceof DuplicateBookingError)
+    throw new ConflictException(error.message);
   if (error instanceof z.ZodError) throw new BadRequestException(error.issues);
   throw error;
 }

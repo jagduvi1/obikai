@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
@@ -32,7 +33,7 @@ function currentActor(): AuthzActor {
 function translate(error: unknown): never {
   if (error instanceof ForbiddenError) throw new ForbiddenException(error.message);
   if (error instanceof NotFoundError) throw new NotFoundException(error.message);
-  if (error instanceof ConflictError) throw new BadRequestException(error.message);
+  if (error instanceof ConflictError) throw new ConflictException(error.message);
   if (error instanceof z.ZodError) throw new BadRequestException(error.issues);
   throw error;
 }

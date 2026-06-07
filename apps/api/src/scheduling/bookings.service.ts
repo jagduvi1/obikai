@@ -27,6 +27,8 @@ export interface BookingsStore {
   listByOccurrence(occurrenceId: string, opts?: { status?: BookingStatus }): Promise<Booking[]>;
   countByOccurrence(occurrenceId: string, status: BookingStatus): Promise<number>;
   setStatus(id: string, status: BookingStatus): Promise<Booking | null>;
+  /** Atomic compare-and-swap: promote a booking waitlisted→booked iff still waitlisted, else null. */
+  promoteIfWaitlisted(id: string): Promise<Booking | null>;
 }
 
 export class BookingsService {
@@ -92,11 +94,17 @@ export class BookingsService {
     if (!cancelled) throw new NotFoundError('booking', id);
 
     if (freedSeat) {
-      // Oldest waitlisted booking inherits the freed seat (listByOccurrence is bookedAt-ascending).
-      const [next] = await this.store.listByOccurrence(existing.occurrenceId, {
+      // Promote the oldest waitlisted booking into the freed seat (FIFO by bookedAt). Claim each
+      // candidate with an atomic compare-and-swap so two concurrent cancels can never promote the
+      // SAME booking (which would silently lose one freed seat); if our oldest candidate was already
+      // claimed by a concurrent cancel, advance to the next. No transaction is needed on single-node
+      // Mongo — this claim-and-retry is the codebase's standard concurrency idiom (ADR-0012/0023).
+      const waitlisted = await this.store.listByOccurrence(existing.occurrenceId, {
         status: 'waitlisted',
       });
-      if (next) await this.store.setStatus(next.id, 'booked');
+      for (const candidate of waitlisted) {
+        if (await this.store.promoteIfWaitlisted(candidate.id)) break;
+      }
     }
 
     return cancelled;
