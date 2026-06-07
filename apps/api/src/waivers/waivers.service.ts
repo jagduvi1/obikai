@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import type { StoragePort } from '@obikai/adapter-contracts';
 import { type AuthzActor, can } from '@obikai/authz';
 import type {
   WaiverSignInput,
@@ -73,14 +75,29 @@ export interface WaiverSignatureStore {
 export interface WaiverSignContext {
   /** Caller IP for the audit trail, or null when unavailable. */
   ip?: string | null;
-  /** Object-storage key of the rendered signed document — storage adapter lands later, accept null. */
+  /** Object-storage key of the uploaded signed document (from `createDocumentUploadUrl`), or null. */
   documentStorageKey?: string | null;
+  /** The resolved request tenant — required to validate `documentStorageKey` stays in-namespace. */
+  tenantId?: string;
+}
+
+/** The object-storage key prefix all of a tenant's waiver documents live under (ADR-0019). A signed
+ *  document key MUST be inside this namespace, so one tenant can never reference another's object. */
+export function waiverDocumentPrefix(tenantId: string): string {
+  return `waivers/${tenantId}/`;
+}
+
+/** Allow only a short, safe file extension; anything else falls back to `pdf` (the usual case). */
+export function safeDocumentExt(ext: string): string {
+  const lower = ext.trim().toLowerCase();
+  return /^[a-z0-9]{1,8}$/.test(lower) ? lower : 'pdf';
 }
 
 export class WaiversService {
   constructor(
     private readonly templates: WaiverTemplateStore,
     private readonly signatures: WaiverSignatureStore,
+    private readonly storage: StoragePort,
   ) {}
 
   async createTemplate(
@@ -144,6 +161,18 @@ export class WaiversService {
       isSelf || can(actor, { resource: 'member', action: 'update', ownerMemberId: input.memberId });
     if (!canRecord && !canSelfOrGuardian) throw new ForbiddenError('create', 'waiver');
 
+    // A client-supplied document key must live in THIS tenant's namespace — otherwise a signature
+    // could later hand out a presigned URL to another tenant's object (cross-tenant read).
+    const documentStorageKey = context.documentStorageKey ?? null;
+    if (documentStorageKey !== null) {
+      if (
+        !context.tenantId ||
+        !documentStorageKey.startsWith(waiverDocumentPrefix(context.tenantId))
+      ) {
+        throw new ForbiddenError('create', 'waiver');
+      }
+    }
+
     const template = await this.templates.findById(input.templateId);
     if (!template) throw new NotFoundError('waiver', input.templateId);
 
@@ -157,7 +186,7 @@ export class WaiversService {
       guardianForMemberId: input.guardianForMemberId ?? null,
       signedAt: new Date().toISOString(),
       ip: context.ip ?? null,
-      documentStorageKey: context.documentStorageKey ?? null,
+      documentStorageKey,
     });
   }
 
@@ -167,5 +196,41 @@ export class WaiversService {
     if (!isSelf && !can(actor, { resource: 'waiver', action: 'list' }))
       throw new ForbiddenError('list', 'waiver');
     return this.signatures.listByMember(memberId);
+  }
+
+  /**
+   * Allocate a presigned PUT URL for a (not-yet-signed) waiver document, keyed under THIS tenant's
+   * namespace. The client uploads the bytes to the URL, then passes the returned `key` to `sign`.
+   * Anyone who could sign may stage a document: staff (`waiver:create`) or any member (for self).
+   */
+  async createDocumentUploadUrl(
+    actor: AuthzActor,
+    tenantId: string,
+    input: { contentType: string; ext: string },
+  ): Promise<{ key: string; url: string; headers?: Record<string, string> }> {
+    const canRecord = can(actor, { resource: 'waiver', action: 'create' });
+    if (!canRecord && actor.memberId === undefined) throw new ForbiddenError('create', 'waiver');
+    const key = `${waiverDocumentPrefix(tenantId)}${randomUUID()}.${safeDocumentExt(input.ext)}`;
+    const { url, headers } = await this.storage.presignPut({ key, contentType: input.contentType });
+    return headers ? { key, url, headers } : { key, url };
+  }
+
+  /**
+   * Presigned GET URL for a signature's stored document. Visible to the covered member (self), their
+   * guardian (member-update grant), or staff (`waiver:read`/`list`). 404 if no document is attached.
+   */
+  async getDocumentDownloadUrl(actor: AuthzActor, id: string): Promise<{ url: string }> {
+    const signature = await this.signatures.findById(id);
+    if (!signature) throw new NotFoundError('waiver signature', id);
+    const isSelf = actor.memberId !== undefined && actor.memberId === signature.memberId;
+    const canRead =
+      can(actor, { resource: 'waiver', action: 'read' }) ||
+      can(actor, { resource: 'waiver', action: 'list' });
+    const canSelfOrGuardian =
+      isSelf ||
+      can(actor, { resource: 'member', action: 'update', ownerMemberId: signature.memberId });
+    if (!canRead && !canSelfOrGuardian) throw new ForbiddenError('read', 'waiver');
+    if (!signature.documentStorageKey) throw new NotFoundError('waiver document', id);
+    return this.storage.presignGet({ key: signature.documentStorageKey });
   }
 }
