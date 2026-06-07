@@ -25,7 +25,9 @@
 
 services:
   api:
-    image: ghcr.io/obikai/api:${VERSION}
+    # Matches what release.yml publishes: ${REGISTRY}/${owner}/obikai-<app>. Override IMAGE_REGISTRY /
+    # IMAGE_NAMESPACE to pull from your own registry; VERSION pins the release tag.
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-jagduvi1}/obikai-api:${VERSION:-latest}
     build: !reset null
     networks:
       - default
@@ -47,7 +49,7 @@ services:
       - "traefik.http.routers.obikai-api.middlewares=obikai-security-headers@file,obikai-ratelimit@file"
 
   worker:
-    image: ghcr.io/obikai/worker:${VERSION}
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-jagduvi1}/obikai-worker:${VERSION:-latest}
     build: !reset null
     # The worker has no inbound HTTP; it stays off the `web` network.
     labels:

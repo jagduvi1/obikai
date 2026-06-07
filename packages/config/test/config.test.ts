@@ -28,6 +28,20 @@ describe('loadConfig', () => {
     expect(() => loadConfig({})).toThrow(ConfigError);
   });
 
+  it('refuses to boot with a placeholder JWT secret or data key (audit E4)', () => {
+    // The values shipped in .env.example must FAIL validation so a deploy can't use a known key.
+    expect(() =>
+      loadConfig({ ...base, AUTH_JWT_SECRET: 'change-me-to-a-strong-random-string' }),
+    ).toThrow(/AUTH_JWT_SECRET/);
+    expect(() =>
+      loadConfig({ ...base, DATA_MASTER_KEY: 'change-me-to-a-32-byte-hex-key' }),
+    ).toThrow(/DATA_MASTER_KEY/);
+    // A real random secret (no dictionary placeholder words) passes.
+    expect(() =>
+      loadConfig({ ...base, AUTH_JWT_SECRET: 'k7m2p9x4q1w8z5n3b6v0a1s2d4f6g8h0' }),
+    ).not.toThrow();
+  });
+
   it('requires SELF_HOST_TENANT_SLUG for single-tenant self-host', () => {
     const withoutSlug: Record<string, string> = { ...base };
     withoutSlug.SELF_HOST_TENANT_SLUG = undefined;
