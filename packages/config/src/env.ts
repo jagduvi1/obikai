@@ -17,6 +17,14 @@ const boolish = z
   .transform((v) => v === true || v === 'true' || v === '1');
 
 /**
+ * Reject obvious placeholder/example secrets so a deployment can't accidentally ship the value from
+ * `.env.example` — a publicly-known signing key would be a cross-tenant account-takeover (audit E4).
+ * Real random secrets (e.g. `openssl rand -hex 32`) never match these dictionary patterns.
+ */
+const PLACEHOLDER_SECRET = /change.?me|replace.?me|your.?(secret|key)|placeholder|example|^$/i;
+const looksLikePlaceholder = (s: string): boolean => PLACEHOLDER_SECRET.test(s);
+
+/**
  * The raw environment schema — mirrors `.env.example`. Validated once at boot (ADR-0009);
  * defaults are the self-hostable, no-lock-in, AI-OFF choices. Cross-field rules (e.g. "S3
  * needs an endpoint", "OIDC needs an issuer") are enforced in `superRefine` so a misconfigured
@@ -100,6 +108,13 @@ export const EnvSchema = z
         env.SELF_HOST_TENANT_SLUG,
       ), 'SELF_HOST_TENANT_SLUG', 'required for single-tenant self-host');
     }
+    // Refuse to boot with a placeholder/example secret (a publicly-known key = account takeover).
+    require(!looksLikePlaceholder(
+      env.AUTH_JWT_SECRET,
+    ), 'AUTH_JWT_SECRET', 'looks like a placeholder — set a real random secret (`openssl rand -hex 32`)');
+    require(!looksLikePlaceholder(
+      env.DATA_MASTER_KEY,
+    ), 'DATA_MASTER_KEY', 'looks like a placeholder — set a real random key (`openssl rand -hex 32`)');
     if (env.STORAGE_PROVIDER === 's3') {
       require(Boolean(env.S3_ENDPOINT), 'S3_ENDPOINT', 'required when STORAGE_PROVIDER=s3');
       // EU data residency (Arts. 44–49): the hosted managed service must keep member data in the

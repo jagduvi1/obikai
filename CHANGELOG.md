@@ -79,6 +79,12 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Fixed
 
+- Boot safety: the app now **refuses to start with a placeholder/example secret** for
+  `AUTH_JWT_SECRET` or `DATA_MASTER_KEY` (the `.env.example` "change-me…" values fail validation by
+  design) — a self-hoster can't accidentally ship a publicly-known signing key (audit E4).
+- Deploy: `docker-compose.prod.yml` now references the images **release.yml actually publishes**
+  (`${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/obikai-{api,worker}`, overridable) instead of a name that
+  404s (audit G5).
 - Invoice issuing is now crash-safe: the gapless number is allocated first and committed together
   with `status: 'open'` + `issuedAt`/`dueAt` in a single atomic write (`claimForIssueWithNumber`),
   so a crash can never leave a persisted "open invoice without a number" (a legally-invalid issued
