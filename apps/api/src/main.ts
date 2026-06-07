@@ -3,8 +3,9 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type AppConfig, ConfigError, loadConfig } from '@obikai/config';
-import { connectMongo } from '@obikai/db';
+import { connectMongo, disconnectMongo } from '@obikai/db';
 import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 
 /** Default HTTP port when PORT is unset/blank. */
@@ -39,12 +40,43 @@ async function bootstrap(): Promise<void> {
   // (ADR-0009: trustProxyHops is operator-configured, never assumed).
   app.set('trust proxy', config.trustProxyHops);
 
+  // Security headers on the JSON API itself (the SPA tier was already hardened at the edge). HSTS,
+  // nosniff, frameguard, no-referrer, etc. — safe defaults for an API serving credentials + PII.
+  app.use(helmet());
+
+  // CORS: the SPAs are a DIFFERENT origin in dev (localhost:5173 → :3000) and in any split deploy.
+  // Explicit allow-list (credentials:true forbids `*`); empty = same-origin only. Bootstrap-only env,
+  // read here like PORT. Comma-separated, e.g. CORS_ORIGINS="https://app.dojo.se,http://localhost:5173".
+  const corsOrigins = (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (corsOrigins.length > 0) {
+    app.enableCors({ origin: corsOrigins, credentials: true });
+    logger.log(`CORS enabled for ${corsOrigins.length} origin(s)`);
+  }
+
   // Coarse brute-force + scrypt-CPU-amplification guard on the unauthenticated auth endpoints
   // (ADR-0012 review fix). Keyed by client IP (req.ip is reliable once trust proxy is set).
   app.use(
     '/auth',
     rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false }),
   );
+
+  // Graceful shutdown: stop accepting connections, let in-flight requests drain, close Mongo cleanly
+  // (truncated billing/PII writes otherwise) so deploys/rescheduling are zero-downtime-safe.
+  let shuttingDown = false;
+  const shutdown = async (signal: string): Promise<void> => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.log(`shutting down (${signal})`);
+    await app.close();
+    await disconnectMongo();
+    logger.log('shutdown complete');
+    process.exit(0);
+  };
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+  process.on('SIGINT', () => void shutdown('SIGINT'));
 
   const port = portFromEnv(process.env.PORT);
   await app.listen(port);

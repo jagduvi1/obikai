@@ -79,6 +79,10 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Fixed
 
+- API hardening: **security headers (helmet)** on the JSON API, configurable **CORS** allow-list
+  (`CORS_ORIGINS`, credentials-aware), and **graceful shutdown** (drains in-flight requests + closes
+  Mongo cleanly on SIGTERM/SIGINT, so deploys are zero-downtime-safe and can't truncate billing/PII
+  writes) — audit E5/F4.
 - Boot safety: the app now **refuses to start with a placeholder/example secret** for
   `AUTH_JWT_SECRET` or `DATA_MASTER_KEY` (the `.env.example` "change-me…" values fail validation by
   design) — a self-hoster can't accidentally ship a publicly-known signing key (audit E4).
