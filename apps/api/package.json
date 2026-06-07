@@ -32,6 +32,8 @@
     "@nestjs/platform-express": "^10.4.15",
     "@obikai/adapter-auth-local": "workspace:*",
     "@obikai/adapter-email-smtp": "workspace:*",
+    "@obikai/adapter-storage-fs": "workspace:*",
+    "@obikai/adapter-storage-s3": "workspace:*",
     "@obikai/i18n": "workspace:*",
     "express-rate-limit": "^7.4.1",
     "jose": "^5.9.6",

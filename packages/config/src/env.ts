@@ -48,6 +48,8 @@ export const EnvSchema = z
     S3_SECRET_ACCESS_KEY: z.string().optional(),
     S3_FORCE_PATH_STYLE: boolish.default(true),
     FS_STORAGE_ROOT: z.string().default('/data/storage'),
+    // Externally-reachable origin the guarded `/files` route is served from (fs storage only).
+    STORAGE_PUBLIC_BASE_URL: z.string().url().optional(),
 
     EMAIL_PROVIDER: emailProviderSchema.default('smtp'),
     SMTP_HOST: z.string().optional(),
@@ -92,6 +94,12 @@ export const EnvSchema = z
     }
     if (env.STORAGE_PROVIDER === 's3') {
       require(Boolean(env.S3_ENDPOINT), 'S3_ENDPOINT', 'required when STORAGE_PROVIDER=s3');
+    }
+    if (env.STORAGE_PROVIDER === 'fs') {
+      // fs presigns URLs to the app's own `/files` route, so it must know its public origin.
+      require(Boolean(
+        env.STORAGE_PUBLIC_BASE_URL,
+      ), 'STORAGE_PUBLIC_BASE_URL', 'required when STORAGE_PROVIDER=fs');
     }
     if (env.EMAIL_PROVIDER === 'smtp') {
       require(Boolean(env.SMTP_HOST), 'SMTP_HOST', 'required when EMAIL_PROVIDER=smtp');
