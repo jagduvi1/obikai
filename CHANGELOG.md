@@ -34,6 +34,10 @@ independently via [Changesets](https://github.com/changesets/changesets).
 - GDPR: every member mutation (create / update / delete) is now recorded on the tenant's audit chain
   with the acting user, target, source IP, and (for updates) the changed field NAMES only — closing
   the previously **unaudited hard-delete** of member records (audit H9).
+- GDPR: **fail-safe tenant-isolation coverage test** (Art. 5(1)(f)/32). A test enumerates every
+  registered Mongoose model and asserts each is either tenant-guarded (a query with no TenantContext
+  throws) or in an explicit tenant-global allow-list — so a future PII model that forgets
+  `plugin(tenantGuard)` fails the build instead of silently leaking across tenants.
 - GDPR: **right to erasure** (Art. 17, audit H4/H6). `POST /members/:id/erasure` (staff-only,
   irreversible) runs a tested cross-collection erasure: anonymize the Member root (releasing the
   unique-email index), hard-delete the footprint (bookings/attendance/enrollments/rank state/curriculum/
