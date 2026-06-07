@@ -29,3 +29,4 @@ supersession in both). Keep them short; put detail in code and `docs/`.
 | [0018](0018-seller-billing-profile.md) | Seller billing/legal profile (tenant settings) | Accepted |
 | [0019](0019-storage-adapter-wiring.md) | Storage adapter wiring & guarded `/files` route | Accepted |
 | [0020](0020-waiver-document-storage.md) | Waiver signed-document storage | Accepted |
+| [0021](0021-platform-authorization.md) | Platform (cross-tenant) authorization model | Accepted |
