@@ -5,7 +5,7 @@
  * plain, serializable DTOs.
  */
 
-export type AdapterKind = 'payments' | 'email' | 'sms' | 'storage' | 'auth' | 'ai';
+export type AdapterKind = 'payments' | 'email' | 'sms' | 'storage' | 'auth' | 'ai' | 'vat';
 
 /** Stable, opaque handle to WHERE a secret lives — never the secret value in a tenant document. */
 export type SecretRef =

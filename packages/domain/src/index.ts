@@ -7,6 +7,7 @@ export * from './locale.js';
 export * from './money.js';
 export * from './rbac.js';
 export * from './platform.js';
+export * from './vat.js';
 export * from './result.js';
 export * from './member.js';
 export * from './household.js';

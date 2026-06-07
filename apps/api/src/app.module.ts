@@ -6,6 +6,7 @@ import { EnrollmentsModule } from './billing/enrollments.module.js';
 import { InvoicesModule } from './billing/invoices.module.js';
 import { PlansModule } from './billing/plans.module.js';
 import { VatRatesModule } from './billing/vat-rates.module.js';
+import { VatModule } from './billing/vat.module.js';
 import { CapabilitiesModule } from './capabilities/capabilities.module.js';
 import { APP_CONFIG } from './config.provider.js';
 import { HealthModule } from './health/health.module.js';
@@ -44,6 +45,7 @@ import { WaiversModule } from './waivers/waivers.module.js';
     HouseholdsModule,
     LocationsModule,
     VatRatesModule,
+    VatModule,
     PlansModule,
     EnrollmentsModule,
     InvoicesModule,

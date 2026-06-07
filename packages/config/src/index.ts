@@ -13,7 +13,12 @@ import {
   type PaymentProviderId,
   type SmsProviderId,
   type StorageProviderId,
+  type VatValidationProviderId,
 } from './providers.js';
+
+/** Official EU VIES REST endpoint; used when `VIES_BASE_URL` is unset (ADR-0025). */
+const VIES_DEFAULT_BASE_URL =
+  'https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number';
 
 export * from './deploy.js';
 export * from './providers.js';
@@ -79,6 +84,11 @@ export interface AppConfig {
     readonly ollamaBaseUrl: string | null;
     readonly anthropicApiKey: string | null;
     readonly openaiApiKey: string | null;
+  };
+  readonly vatValidation: {
+    readonly provider: VatValidationProviderId;
+    /** VIES REST endpoint; defaults to the official EU service when unset (ADR-0025). */
+    readonly viesBaseUrl: string;
   };
   readonly bootstrapOwner: { readonly email: string; readonly password: string } | null;
 }
@@ -155,6 +165,10 @@ function toAppConfig(env: RawEnv): AppConfig {
       ollamaBaseUrl: env.OLLAMA_BASE_URL ?? null,
       anthropicApiKey: env.ANTHROPIC_API_KEY ?? null,
       openaiApiKey: env.OPENAI_API_KEY ?? null,
+    },
+    vatValidation: {
+      provider: env.VAT_VALIDATION_PROVIDER,
+      viesBaseUrl: env.VIES_BASE_URL ?? VIES_DEFAULT_BASE_URL,
     },
     bootstrapOwner:
       env.BOOTSTRAP_OWNER_EMAIL && env.BOOTSTRAP_OWNER_PASSWORD

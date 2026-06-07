@@ -33,9 +33,14 @@ export type AiProviderId = (typeof AI_PROVIDERS)[number];
  * unless a per-tenant DPA/consent flag is set. */
 export const LOCAL_AI_PROVIDERS: ReadonlySet<AiProviderId> = new Set(['none', 'ollama']);
 
+/** VAT-number existence validation: off by default (`none`) or the EU VIES service. */
+export const VAT_VALIDATION_PROVIDERS = ['none', 'vies'] as const;
+export type VatValidationProviderId = (typeof VAT_VALIDATION_PROVIDERS)[number];
+
 export const paymentProviderSchema = z.enum(PAYMENT_PROVIDERS);
 export const emailProviderSchema = z.enum(EMAIL_PROVIDERS);
 export const smsProviderSchema = z.enum(SMS_PROVIDERS);
 export const storageProviderSchema = z.enum(STORAGE_PROVIDERS);
 export const authProviderSchema = z.enum(AUTH_PROVIDERS);
 export const aiProviderSchema = z.enum(AI_PROVIDERS);
+export const vatValidationProviderSchema = z.enum(VAT_VALIDATION_PROVIDERS);

@@ -249,6 +249,31 @@ importers:
         specifier: 'catalog:'
         version: 4.1.8(@types/node@22.19.20)(jsdom@25.0.1)(vite@6.4.3(@types/node@22.19.20))
 
+  adapters/vat:
+    dependencies:
+      '@obikai/adapter-contracts':
+        specifier: workspace:*
+        version: link:../../packages/adapter-contracts
+      '@obikai/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.19.20
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: 'catalog:'
+        version: 6.4.3(@types/node@22.19.20)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.8(@types/node@22.19.20)(jsdom@25.0.1)(vite@6.4.3(@types/node@22.19.20))
+
   apps/api:
     dependencies:
       '@nestjs/common':
@@ -275,6 +300,9 @@ importers:
       '@obikai/adapter-storage-s3':
         specifier: workspace:*
         version: link:../../adapters/storage-s3
+      '@obikai/adapter-vat':
+        specifier: workspace:*
+        version: link:../../adapters/vat
       '@obikai/authz':
         specifier: workspace:*
         version: link:../../packages/authz

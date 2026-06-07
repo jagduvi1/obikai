@@ -33,3 +33,4 @@ supersession in both). Keep them short; put detail in code and `docs/`.
 | [0022](0022-platform-http-plane.md) | Platform HTTP plane (`/platform/*`) | Accepted |
 | [0023](0023-platform-audit-log.md) | Platform audit log (append-only, hash-chained) | Accepted |
 | [0024](0024-platform-admin-ui.md) | Platform-admin UI (`web-platform`) | Accepted |
+| [0025](0025-vat-validation.md) | VAT-number validation (format + VIES) | Accepted |
