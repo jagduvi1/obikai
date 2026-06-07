@@ -34,6 +34,10 @@ independently via [Changesets](https://github.com/changesets/changesets).
 - GDPR: every member mutation (create / update / delete) is now recorded on the tenant's audit chain
   with the acting user, target, source IP, and (for updates) the changed field NAMES only — closing
   the previously **unaudited hard-delete** of member records (audit H9).
+- GDPR: **data-subject export** (Art. 15/20, audit H7). `GET /me/data-export` returns a machine-readable
+  JSON bundle of all the caller's personal data — member-keyed PII assembled via the ROPA registry plus
+  the tenant-global identity (login account + sessions; secrets excluded). The access is recorded on
+  the tenant audit chain. A member can now download their own data.
 - GDPR: **executable ROPA registry** (Art. 30) — `buildRopaRegistry()` registers a `ProcessingRecord`
   (purpose, lawful basis, controller/processor role, retention, `findBySubject`, `toExport`, erasure
   strategy) for every member-keyed PII model (member, attendance, booking, enrollment, invoice,
