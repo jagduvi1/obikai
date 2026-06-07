@@ -139,6 +139,12 @@ export class MemberRepository {
     return docs.map(toMember);
   }
 
+  /** Count members in the active tenant (guard injects tenantId), optionally by status. */
+  async count(opts: { status?: MemberStatus } = {}): Promise<number> {
+    const filter = opts.status ? { status: String(opts.status) } : {};
+    return this.model.countDocuments(filter).exec();
+  }
+
   async update(id: string, patch: MemberUpdateInput): Promise<Member | null> {
     const doc = await this.model
       .findByIdAndUpdate(id, patchFields(patch), { new: true })

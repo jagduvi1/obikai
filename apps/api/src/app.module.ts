@@ -14,6 +14,7 @@ import { LocationsModule } from './locations/locations.module.js';
 import { MeModule } from './me/me.module.js';
 import { MembersModule } from './members/members.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { PlatformModule } from './platform/platform.module.js';
 import { CurriculumModule } from './rank/curriculum.module.js';
 import { DisciplinesModule } from './rank/disciplines.module.js';
 import { GradingEventsModule } from './rank/grading-events.module.js';
@@ -51,6 +52,7 @@ import { WaiversModule } from './waivers/waivers.module.js';
     AttendanceModule,
     WaiversModule,
     NotificationsModule,
+    PlatformModule,
     DisciplinesModule,
     RankSystemsModule,
     PromotionsModule,
