@@ -38,6 +38,7 @@
     "@obikai/adapter-vat": "workspace:*",
     "@obikai/i18n": "workspace:*",
     "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
     "jose": "^5.9.6",
     "pdf-lib": "^1.17.1",
     "reflect-metadata": "^0.2.2",
