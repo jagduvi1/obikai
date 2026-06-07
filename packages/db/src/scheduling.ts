@@ -9,7 +9,7 @@ import type {
   ProgramCreateInput,
 } from '@obikai/domain';
 import mongoose, { type Model, Schema, type Types } from 'mongoose';
-import type { TenantScoped } from './repository.js';
+import { TenantRepository, type TenantScoped } from './repository.js';
 import { tenantGuard, tenantUniqueIndex } from './tenant-guard.js';
 
 /**
@@ -335,17 +335,22 @@ export class ClassOccurrenceRepository {
    * Idempotently materialize occurrences. Each row is upserted on `{scheduleId, startsAt}` so
    * re-running over an overlapping horizon never duplicates an instance; returns the count of NEW
    * occurrences created.
+   *
+   * Issued as ONE `bulkWrite` rather than N sequential `updateOne`s — collapsing N round-trips (a
+   * 90-day daily horizon is ~90) into a single op. `bulkWrite` fires NO Mongoose middleware, so it
+   * goes through the `TenantRepository.bulkWrite` wrapper, which tenant-stamps every filter and every
+   * `$setOnInsert`. Idempotency is unchanged: it still rests on the unique `{tenantId, scheduleId,
+   * startsAt}` index, and `$setOnInsert` still leaves existing rows (incl. per-occurrence overrides
+   * such as a cancelled status) untouched. New-occurrence count comes from `upsertedCount`.
    */
   async materialize(rows: OccurrenceMaterializeInput[]): Promise<number> {
     if (rows.length === 0) return 0;
-    let created = 0;
-    for (const row of rows) {
-      // Upsert keyed by the unique (scheduleId, startsAt); $setOnInsert leaves existing rows (and
-      // any per-occurrence overrides such as a cancelled status) untouched.
-      const res = await this.model
-        .updateOne(
-          { scheduleId: String(row.scheduleId), startsAt: String(row.startsAt) },
-          {
+    const repo = new TenantRepository<ClassOccurrenceDoc>(this.model);
+    const res = await repo.bulkWrite(
+      rows.map((row) => ({
+        updateOne: {
+          filter: { scheduleId: String(row.scheduleId), startsAt: String(row.startsAt) },
+          update: {
             $setOnInsert: {
               scheduleId: row.scheduleId,
               programId: row.programId,
@@ -356,12 +361,11 @@ export class ClassOccurrenceRepository {
               status: 'scheduled',
             },
           },
-          { upsert: true },
-        )
-        .exec();
-      if ((res.upsertedCount ?? 0) > 0) created++;
-    }
-    return created;
+          upsert: true,
+        },
+      })),
+    );
+    return res.upsertedCount ?? 0;
   }
 
   async setStatus(id: string, status: OccurrenceStatus): Promise<ClassOccurrence | null> {

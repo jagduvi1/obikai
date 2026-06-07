@@ -44,3 +44,9 @@ independently via [Changesets](https://github.com/changesets/changesets).
   `DuplicateBookingError` from the `{occurrence, member}` unique index) instead of a raw 500.
 - Scheduling endpoints now map state conflicts to **409 Conflict** (was 400), matching the auth and
   billing modules.
+
+### Changed
+
+- Occurrence materialization now issues a single `bulkWrite` instead of N sequential upserts —
+  collapsing an N-occurrence horizon (e.g. ~90 for a daily class over 90 days) into one round-trip.
+  Idempotency is unchanged (same `{tenantId, scheduleId, startsAt}` unique index + `$setOnInsert`).
