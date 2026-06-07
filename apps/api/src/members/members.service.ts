@@ -1,5 +1,12 @@
 import { type AuthzActor, can } from '@obikai/authz';
-import type { Member, MemberCreateInput, MemberStatus, MemberUpdateInput } from '@obikai/domain';
+import type { AuditAppendInput } from '@obikai/db';
+import type {
+  Member,
+  MemberCreateInput,
+  MemberStatus,
+  MemberUpdateInput,
+  UserId,
+} from '@obikai/domain';
 
 /**
  * MembersService — business logic + RBAC enforcement for the Members feature (scope §4.1). It is
@@ -31,13 +38,53 @@ export interface MembersStore {
   remove(id: string): Promise<boolean>;
 }
 
-export class MembersService {
-  constructor(private readonly store: MembersStore) {}
+/**
+ * The per-tenant GDPR audit surface — satisfied by @obikai/db's `AuditLogRepository`. Member is a core
+ * data subject, so every MUTATION of a member record is recorded for accountability (Art. 5(2)/30,
+ * audit H9). Reads are not audited (normal in-tenant operation; auditing them would bloat the chain).
+ */
+export interface AuditPort {
+  append(input: AuditAppendInput): Promise<unknown>;
+}
 
-  async create(actor: AuthzActor, input: MemberCreateInput): Promise<Member> {
+/** Request-derived audit context threaded from the controller (PII-minimized: source IP only). */
+export interface AuditMeta {
+  readonly ip?: string;
+}
+
+export class MembersService {
+  constructor(
+    private readonly store: MembersStore,
+    private readonly audit: AuditPort,
+  ) {}
+
+  /** Record a member mutation on the tenant's audit chain. `diff` carries changed FIELD NAMES only. */
+  private recordMutation(
+    actor: AuthzActor,
+    action: 'member.create' | 'member.update' | 'member.delete',
+    targetId: string,
+    meta: AuditMeta,
+    diff?: Record<string, unknown>,
+  ): Promise<unknown> {
+    return this.audit.append({
+      actorId: actor.userId as UserId,
+      actorType: 'user',
+      action,
+      targetType: 'member',
+      targetId,
+      ...(diff !== undefined ? { diff } : {}),
+      ...(meta.ip !== undefined ? { ip: meta.ip } : {}),
+    });
+  }
+
+  async create(actor: AuthzActor, input: MemberCreateInput, meta: AuditMeta = {}): Promise<Member> {
     if (!can(actor, { resource: 'member', action: 'create' }))
       throw new ForbiddenError('create', 'member');
-    return this.store.create(input);
+    const created = await this.store.create(input);
+    // Audit-after-success: the resulting id is only known post-create. The residual crash window
+    // (created but not yet audited) closes once create+append run in one transaction (replica set).
+    await this.recordMutation(actor, 'member.create', created.id, meta);
+    return created;
   }
 
   async list(actor: AuthzActor, opts: { status?: MemberStatus } = {}): Promise<Member[]> {
@@ -56,7 +103,12 @@ export class MembersService {
     return existing;
   }
 
-  async update(actor: AuthzActor, id: string, patch: MemberUpdateInput): Promise<Member> {
+  async update(
+    actor: AuthzActor,
+    id: string,
+    patch: MemberUpdateInput,
+    meta: AuditMeta = {},
+  ): Promise<Member> {
     const existing = await this.store.findById(id);
     if (!existing) throw new NotFoundError('member', id);
     if (!can(actor, { resource: 'member', action: 'update', ownerMemberId: existing.id })) {
@@ -64,13 +116,17 @@ export class MembersService {
     }
     const updated = await this.store.update(id, patch);
     if (!updated) throw new NotFoundError('member', id);
+    // PII-minimized diff: record WHICH fields changed, never the personal-data values themselves.
+    await this.recordMutation(actor, 'member.update', id, meta, { fields: Object.keys(patch) });
     return updated;
   }
 
-  async remove(actor: AuthzActor, id: string): Promise<void> {
+  async remove(actor: AuthzActor, id: string, meta: AuditMeta = {}): Promise<void> {
     if (!can(actor, { resource: 'member', action: 'delete' }))
       throw new ForbiddenError('delete', 'member');
     const ok = await this.store.remove(id);
     if (!ok) throw new NotFoundError('member', id);
+    // A hard delete is irreversible — recording the actor/target/time is the whole point of H9.
+    await this.recordMutation(actor, 'member.delete', id, meta);
   }
 }

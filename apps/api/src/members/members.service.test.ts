@@ -1,7 +1,9 @@
 import type { AuthzActor } from '@obikai/authz';
+import type { AuditAppendInput } from '@obikai/db';
 import type { Member, MemberCreateInput, MemberStatus, MemberUpdateInput } from '@obikai/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  type AuditPort,
   ForbiddenError,
   MembersService,
   type MembersStore,
@@ -55,20 +57,32 @@ class FakeStore implements MembersStore {
   }
 }
 
+/** Records every audit append so tests can assert mutations are written to the tenant's chain. */
+class FakeAudit implements AuditPort {
+  readonly entries: AuditAppendInput[] = [];
+  async append(input: AuditAppendInput): Promise<unknown> {
+    this.entries.push(input);
+    return input;
+  }
+}
+
 const actor = (over: Partial<AuthzActor> = {}): AuthzActor => ({
   userId: 'u1',
   roles: [],
   ...over,
 });
 const staff = actor({ roles: [{ role: 'staff', locationScope: 'ALL' }] });
+const owner = actor({ roles: [{ role: 'owner', locationScope: 'ALL' }] });
 const member = actor({ roles: [{ role: 'member', locationScope: 'ALL' }] });
 
 const sample: MemberCreateInput = { firstName: 'Aiko', lastName: 'Tanaka', status: 'active' };
 
 describe('MembersService RBAC', () => {
   let svc: MembersService;
+  let audit: FakeAudit;
   beforeEach(() => {
-    svc = new MembersService(new FakeStore());
+    audit = new FakeAudit();
+    svc = new MembersService(new FakeStore(), audit);
   });
 
   it('lets staff create and list members', async () => {
@@ -112,5 +126,41 @@ describe('MembersService RBAC', () => {
     await expect(svc.update(member, created.id, { status: 'active' })).rejects.toBeInstanceOf(
       ForbiddenError,
     );
+  });
+
+  it('audits every member mutation (create/update/delete) with actor, target, and ip (H9)', async () => {
+    const created = await svc.create(staff, sample, { ip: '203.0.113.9' });
+    await svc.update(staff, created.id, { status: 'frozen' }, { ip: '203.0.113.9' });
+    await svc.remove(owner, created.id, { ip: '203.0.113.9' }); // delete is owner-only
+
+    expect(audit.entries.map((e) => e.action)).toEqual([
+      'member.create',
+      'member.update',
+      'member.delete',
+    ]);
+    for (const e of audit.entries) {
+      expect(e).toMatchObject({
+        actorId: 'u1',
+        actorType: 'user',
+        targetType: 'member',
+        ip: '203.0.113.9',
+      });
+      expect(e.targetId).toBe(created.id);
+    }
+    // The update diff records changed FIELD NAMES only — never personal-data values (PII-minimized).
+    expect(audit.entries[1]?.diff).toEqual({ fields: ['status'] });
+  });
+
+  it('does NOT audit reads (list/get)', async () => {
+    const created = await svc.create(staff, sample);
+    audit.entries.length = 0; // ignore the create above
+    await svc.list(staff);
+    await svc.get(staff, created.id);
+    expect(audit.entries).toHaveLength(0);
+  });
+
+  it('does not record a delete that did not happen (missing member throws before audit)', async () => {
+    await expect(svc.remove(owner, 'nope')).rejects.toBeInstanceOf(NotFoundError);
+    expect(audit.entries).toHaveLength(0);
   });
 });
