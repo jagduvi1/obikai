@@ -47,3 +47,30 @@ export interface AiPort extends Adapter<AiCapability> {
   isEnabled(): boolean;
   complete(req: AiRequest): Promise<AiResult>;
 }
+
+/**
+ * The STRUCTURAL PII gate (invariant 4). Wrap any resolved {@link AiPort} with this at the composition
+ * root: when the provider is an EXTERNAL sub-processor (`isLocal === false`), a request carrying
+ * personal data is REFUSED ({@link AiPersonalDataRefusedError}) before the provider is ever called —
+ * the guarantee can't depend on each caller remembering to check `containsPersonalData`. A local model
+ * (`isLocal === true`, e.g. Ollama) is not a sub-processor, so the port passes through unwrapped.
+ *
+ * Methods are delegated explicitly (not spread/proxied) so a class-based adapter's private state and
+ * `this` binding are preserved.
+ */
+export function withPersonalDataGate(port: AiPort, opts: { readonly isLocal: boolean }): AiPort {
+  if (opts.isLocal) return port;
+  return {
+    kind: port.kind,
+    providerId: port.providerId,
+    capabilities: port.capabilities,
+    init: () => port.init(),
+    dispose: () => port.dispose(),
+    health: () => port.health(),
+    isEnabled: () => port.isEnabled(),
+    complete: (req: AiRequest): Promise<AiResult> => {
+      if (req.containsPersonalData) return Promise.reject(new AiPersonalDataRefusedError());
+      return port.complete(req);
+    },
+  };
+}

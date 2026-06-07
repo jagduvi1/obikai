@@ -34,6 +34,12 @@ independently via [Changesets](https://github.com/changesets/changesets).
 - GDPR: every member mutation (create / update / delete) is now recorded on the tenant's audit chain
   with the acting user, target, source IP, and (for updates) the changed field NAMES only — closing
   the previously **unaudited hard-delete** of member records (audit H9).
+- GDPR: **structural external-AI PII gate** (invariant 4). `withPersonalDataGate(port, {isLocal})`
+  wraps any resolved `AiPort` so a request carrying personal data sent to an **external** AI
+  sub-processor is refused (`AiPersonalDataRefusedError`) *before* the provider is called — the
+  guarantee no longer depends on each caller checking `containsPersonalData`. A local model passes
+  through. Closes the documented regression trap (the gate was advertised but unimplemented); ready to
+  wrap the port whenever a cloud AI adapter is wired.
 - GDPR: **EU data-residency enforcement** (Arts. 44–49). In **hosted** mode the object-storage region
   (`S3_REGION`) must be an EU/EEA region — boot validation fails otherwise — so the managed service can
   never silently place member data outside the EU. An audited `ALLOW_NON_EU_RESIDENCY=true` escape
