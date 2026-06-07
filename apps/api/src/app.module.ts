@@ -10,6 +10,7 @@ import { VatModule } from './billing/vat.module.js';
 import { CapabilitiesModule } from './capabilities/capabilities.module.js';
 import { APP_CONFIG } from './config.provider.js';
 import { ConsentModule } from './consent/consent.module.js';
+import { DataRightsModule } from './data-rights/data-rights.module.js';
 import { HealthModule } from './health/health.module.js';
 import { HouseholdsModule } from './households/households.module.js';
 import { LocationsModule } from './locations/locations.module.js';
@@ -43,6 +44,7 @@ import { WaiversModule } from './waivers/waivers.module.js';
     CapabilitiesModule,
     MeModule,
     ConsentModule,
+    DataRightsModule,
     MembersModule,
     HouseholdsModule,
     LocationsModule,
