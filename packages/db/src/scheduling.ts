@@ -418,6 +418,14 @@ export function toBooking(doc: BookingDoc): Booking {
   };
 }
 
+/** Raised when a member already has a booking for an occurrence — the {occurrence, member} guard. */
+export class DuplicateBookingError extends Error {
+  constructor(occurrenceId: string, memberId: string) {
+    super(`member ${memberId} already has a booking for occurrence ${occurrenceId}`);
+    this.name = 'DuplicateBookingError';
+  }
+}
+
 export class BookingRepository {
   constructor(private readonly model: Model<BookingDoc> = BookingModel) {}
 
@@ -427,13 +435,24 @@ export class BookingRepository {
     status: BookingStatus;
     bookedAt: string;
   }): Promise<Booking> {
-    const created = await this.model.create({
-      occurrenceId: input.occurrenceId,
-      memberId: input.memberId,
-      status: input.status,
-      bookedAt: input.bookedAt,
-    });
-    return toBooking(created.toObject() as unknown as BookingDoc);
+    try {
+      const created = await this.model.create({
+        occurrenceId: input.occurrenceId,
+        memberId: input.memberId,
+        status: input.status,
+        bookedAt: input.bookedAt,
+      });
+      return toBooking(created.toObject() as unknown as BookingDoc);
+    } catch (err) {
+      // The {tenantId, occurrenceId, memberId} unique index is the hard backstop against a
+      // double-book that the service's soft pre-check can race past. Translate the raw Mongo 11000
+      // into a typed, catchable signal so the controller returns 409 (not a 500) — matching the
+      // DuplicateInvoicePeriodError / DuplicateVersionError convention elsewhere in this package.
+      if ((err as { code?: number }).code === 11000) {
+        throw new DuplicateBookingError(input.occurrenceId, input.memberId);
+      }
+      throw err;
+    }
   }
 
   async findById(id: string): Promise<Booking | null> {
@@ -462,6 +481,26 @@ export class BookingRepository {
   async setStatus(id: string, status: BookingStatus): Promise<Booking | null> {
     const doc = await this.model
       .findByIdAndUpdate(id, { status }, { new: true })
+      .lean<BookingDoc>()
+      .exec();
+    return doc ? toBooking(doc) : null;
+  }
+
+  /**
+   * Atomically promote ONE specific booking from 'waitlisted' to 'booked', but ONLY if it is still
+   * waitlisted. Returns the promoted booking, or null if it was no longer waitlisted (a concurrent
+   * cancel already claimed it). This compare-and-swap is what lets two concurrent cancels promote
+   * two DISTINCT waitlisted bookings instead of both overwriting the same one — the same
+   * claim-and-retry pattern used for rank-version minting (ADR-0023) and grant revocation (ADR-0012),
+   * which `setStatus`' unconditional update cannot provide.
+   */
+  async promoteIfWaitlisted(id: string): Promise<Booking | null> {
+    const doc = await this.model
+      .findOneAndUpdate(
+        { _id: String(id), status: 'waitlisted' },
+        { $set: { status: 'booked' } },
+        { new: true },
+      )
       .lean<BookingDoc>()
       .exec();
     return doc ? toBooking(doc) : null;

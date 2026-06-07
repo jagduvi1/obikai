@@ -52,6 +52,14 @@ class FakeBookingsStore implements BookingsStore {
     this.byId.set(id, next);
     return next;
   }
+  // Atomic CAS mirror of BookingRepository.promoteIfWaitlisted: promote ONLY if still waitlisted.
+  async promoteIfWaitlisted(id: string): Promise<Booking | null> {
+    const cur = this.byId.get(id);
+    if (!cur || cur.status !== 'waitlisted') return null;
+    const next = { ...cur, status: 'booked' as BookingStatus };
+    this.byId.set(id, next);
+    return next;
+  }
 }
 
 /** A single fixed occurrence with configurable capacity/status. */
@@ -122,6 +130,33 @@ describe('BookingsService capacity + waitlist', () => {
     const stillWaiting = await store.findById(fourth.id);
     expect(promoted?.status).toBe('booked');
     expect(stillWaiting?.status).toBe('waitlisted');
+  });
+
+  it('advances past a waitlisted candidate already claimed by a concurrent cancel (M22)', async () => {
+    // 2 booked, 2 waitlisted (m3 oldest, m4 next).
+    await svc.create(staff, { occurrenceId: 'occ1', memberId: 'm1' });
+    const second = await svc.create(staff, { occurrenceId: 'occ1', memberId: 'm2' });
+    const third = await svc.create(staff, { occurrenceId: 'occ1', memberId: 'm3' });
+    const fourth = await svc.create(staff, { occurrenceId: 'occ1', memberId: 'm4' });
+
+    // Simulate a concurrent cancel having grabbed the oldest waitlisted (m3) AFTER we list it but
+    // BEFORE we claim it: the first CAS on m3 loses (returns null). The loop must then claim m4 —
+    // not silently leave the freed seat unfilled (the old unconditional setStatus bug).
+    const realPromote = store.promoteIfWaitlisted.bind(store);
+    let lostOnce = false;
+    store.promoteIfWaitlisted = async (id: string) => {
+      if (!lostOnce && id === third.id) {
+        lostOnce = true;
+        return null; // lost the race for m3
+      }
+      return realPromote(id);
+    };
+
+    await svc.cancel(staff, second.id);
+
+    // m4 inherited the freed seat; nobody was double-promoted and no seat was lost.
+    expect((await store.findById(fourth.id))?.status).toBe('booked');
+    expect((await store.findById(third.id))?.status).toBe('waitlisted');
   });
 
   it('does not promote anyone when cancelling a waitlisted booking', async () => {

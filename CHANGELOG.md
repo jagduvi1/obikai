@@ -36,3 +36,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
   Residual on single-node Mongo: a crash between the counter increment and the claim leaves an
   unused number (an auditable gap, not a malformed invoice); full two-document atomicity needs a
   replica-set transaction (tracked separately).
+- Waitlist promotion on booking cancel is now race-safe: each waitlisted candidate is promoted with
+  an atomic compare-and-swap (`promoteIfWaitlisted`) and the cancel advances past any candidate a
+  concurrent cancel already claimed — so two concurrent cancels can no longer both promote the same
+  booking and silently lose a freed seat.
+- A same-member double-book that races past the soft pre-check now returns **409 Conflict** (typed
+  `DuplicateBookingError` from the `{occurrence, member}` unique index) instead of a raw 500.
+- Scheduling endpoints now map state conflicts to **409 Conflict** (was 400), matching the auth and
+  billing modules.

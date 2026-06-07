@@ -15,6 +15,7 @@ import {
   ClassOccurrenceRepository,
   ClassScheduleModel,
   ClassScheduleRepository,
+  DuplicateBookingError,
   ProgramModel,
   ProgramRepository,
 } from '../src/scheduling.js';
@@ -161,7 +162,7 @@ describe('ClassOccurrenceRepository.materialize', () => {
 });
 
 describe('BookingRepository', () => {
-  it('enforces one booking per member per occurrence', async () => {
+  it('enforces one booking per member per occurrence (typed DuplicateBookingError, not raw 11000)', async () => {
     await runInTenantContext(ctx('t1'), () =>
       bookings.create({
         occurrenceId: 'occ1',
@@ -170,6 +171,8 @@ describe('BookingRepository', () => {
         bookedAt: '2026-06-06T00:00:00.000Z',
       }),
     );
+    // The unique-index violation is translated to a typed, catchable error so the controller can
+    // return 409 instead of a raw Mongo 500.
     await expect(
       runInTenantContext(ctx('t1'), () =>
         bookings.create({
@@ -179,7 +182,25 @@ describe('BookingRepository', () => {
           bookedAt: '2026-06-06T01:00:00.000Z',
         }),
       ),
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(DuplicateBookingError);
+  });
+
+  it('promoteIfWaitlisted promotes only a still-waitlisted booking (atomic CAS)', async () => {
+    const wl = await runInTenantContext(ctx('t1'), () =>
+      bookings.create({
+        occurrenceId: 'occ1',
+        memberId: 'm1',
+        status: 'waitlisted',
+        bookedAt: '2026-06-06T00:00:00.000Z',
+      }),
+    );
+    // First claim wins → booked.
+    const promoted = await runInTenantContext(ctx('t1'), () => bookings.promoteIfWaitlisted(wl.id));
+    expect(promoted?.status).toBe('booked');
+    // Second claim is a no-op (no longer waitlisted) → null. This is what stops two concurrent
+    // cancels from both promoting the same booking.
+    const again = await runInTenantContext(ctx('t1'), () => bookings.promoteIfWaitlisted(wl.id));
+    expect(again).toBeNull();
   });
 
   it('counts booked seats and lists waitlist oldest-first', async () => {
