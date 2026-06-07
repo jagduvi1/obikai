@@ -23,6 +23,7 @@ import {
   BillingService,
   type BillingVatRateStore,
   ForbiddenError,
+  NotFoundError,
 } from '../src/billing.service.js';
 
 /** In-memory fakes — unit-test RBAC + money composition + idempotency without Nest or Mongo. */
@@ -141,17 +142,25 @@ class FakeInvoiceStore implements BillingInvoiceStore {
         (i.nextRetryAt === null || i.nextRetryAt <= nowIso),
     );
   }
-  async claimForIssue(id: string, issuedAt: string, dueAt: string): Promise<Invoice | null> {
+  async claimForIssueWithNumber(
+    id: string,
+    opts: { issuedAt: string; dueAt: string; number: string },
+  ): Promise<Invoice | null> {
     const cur = this.byId.get(id);
-    if (!cur || cur.status !== 'draft') return null;
-    const next = { ...cur, status: 'open', issuedAt, dueAt } as Invoice;
-    this.byId.set(id, next);
-    return next;
-  }
-  async assignNumber(id: string, number: string): Promise<Invoice | null> {
-    const cur = this.byId.get(id);
-    if (!cur || cur.number !== null) return null;
-    const next = { ...cur, number } as Invoice;
+    if (!cur || cur.status !== 'draft') return null; // atomic {status:'draft'} guard
+    // Mirror the {tenantId, number} unique index: a duplicate number within a tenant is rejected.
+    for (const other of this.byId.values()) {
+      if (other.id !== id && other.tenantId === cur.tenantId && other.number === opts.number) {
+        throw new Error(`E11000 duplicate invoice number ${opts.number}`);
+      }
+    }
+    const next = {
+      ...cur,
+      status: 'open',
+      issuedAt: opts.issuedAt,
+      dueAt: opts.dueAt,
+      number: opts.number,
+    } as Invoice;
     this.byId.set(id, next);
     return next;
   }
@@ -309,6 +318,48 @@ describe('BillingService.issueInvoiceForEnrollment', () => {
   });
 });
 
+describe('BillingService.issue (crash-safety, audit H4)', () => {
+  const draftFor = (invoices: FakeInvoiceStore) =>
+    invoices.create({
+      memberId: 'm1',
+      currency: 'SEK',
+      lines: [],
+      subtotal: money(0, 'SEK'),
+      vatTotal: money(0, 'SEK'),
+      total: money(0, 'SEK'),
+    });
+
+  it('commits status, dates AND number in one transition (never open-without-number)', async () => {
+    const { svc, invoices } = makeService();
+    const draft = await draftFor(invoices);
+    const issued = await svc.issue(owner, draft.id);
+    // The whole point of H4: an issued invoice is open AND numbered AND dated — atomically, together.
+    expect(issued.status).toBe('open');
+    expect(issued.number).toBe('OBK-2026-000001');
+    expect(issued.issuedAt).not.toBeNull();
+    expect(issued.dueAt).not.toBeNull();
+  });
+
+  it('does not burn a sequence number when re-issuing a non-draft (no gap)', async () => {
+    const { svc, invoices } = makeService();
+    const a = await draftFor(invoices);
+    expect((await svc.issue(owner, a.id)).number).toBe('OBK-2026-000001');
+    // Re-issuing the already-open invoice is rejected BEFORE allocating, so no number is consumed...
+    await expect(svc.issue(owner, a.id)).rejects.toThrow(/not a draft/);
+    // ...proven by the next genuine issue getting 000002 (not 000003 — the counter never advanced).
+    const b = await draftFor(invoices);
+    expect((await svc.issue(owner, b.id)).number).toBe('OBK-2026-000002');
+  });
+
+  it('throws NotFound for a missing invoice (without touching the counter)', async () => {
+    const { svc, invoices } = makeService();
+    await expect(svc.issue(owner, 'nope')).rejects.toBeInstanceOf(NotFoundError);
+    // The counter is untouched: the first real issue is still 000001.
+    const draft = await draftFor(invoices);
+    expect((await svc.issue(owner, draft.id)).number).toBe('OBK-2026-000001');
+  });
+});
+
 describe('BillingService.recordPaymentResult', () => {
   it('marks the invoice paid on a succeeded attempt', async () => {
     const { svc, invoices } = makeService();
@@ -393,8 +444,11 @@ describe('BillingService.billRecurringForEnrollment', () => {
       vatTotal: money(0, 'SEK'),
       total: money(0, 'SEK'),
     });
-    await invoices.claimForIssue(seeded.id, '2026-06-06T00:00:00.000Z', '2026-06-20T00:00:00.000Z');
-    await invoices.assignNumber(seeded.id, 'OBK-2026-000001');
+    await invoices.claimForIssueWithNumber(seeded.id, {
+      issuedAt: '2026-06-06T00:00:00.000Z',
+      dueAt: '2026-06-20T00:00:00.000Z',
+      number: 'OBK-2026-000001',
+    });
 
     const inv = await svc.billRecurringForEnrollment(owner, 'enr1');
     expect(inv?.id).toBe(seeded.id); // returns the existing issued invoice, not a new one

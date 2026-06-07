@@ -114,40 +114,58 @@ describe('Invoice {tenantId, number} uniqueness', () => {
     total: money(0, 'SEK'),
   });
 
+  const issueOpts = (number: string, issuedAt = '2026-01-01T00:00:00.000Z') => ({
+    issuedAt,
+    dueAt: '2026-01-15T00:00:00.000Z',
+    number,
+  });
+
   it('allows many null-numbered drafts but rejects a duplicate number within a tenant', async () => {
     // Two drafts (number: null) in the same tenant must coexist (partial/sparse index).
     await runInTenantContext(ctx('t1'), () => invoices.create(draftFields('m1')));
     const second = await runInTenantContext(ctx('t1'), () => invoices.create(draftFields('m2')));
 
-    // Assign a number to the second (the ONLY way a number is set — assignNumber, once).
-    await runInTenantContext(ctx('t1'), () => invoices.assignNumber(second.id, 'OBK-2026-000001'));
+    // Issue the second (the ONLY way a number is set — atomically with the draft→open transition).
+    await runInTenantContext(ctx('t1'), () =>
+      invoices.claimForIssueWithNumber(second.id, issueOpts('OBK-2026-000001')),
+    );
 
     // A different invoice taking the SAME number in the SAME tenant is rejected by the unique index.
     const third = await runInTenantContext(ctx('t1'), () => invoices.create(draftFields('m3')));
     await expect(
-      runInTenantContext(ctx('t1'), () => invoices.assignNumber(third.id, 'OBK-2026-000001')),
+      runInTenantContext(ctx('t1'), () =>
+        invoices.claimForIssueWithNumber(third.id, issueOpts('OBK-2026-000001')),
+      ),
     ).rejects.toThrow();
   });
 
   it('allows the same number across DIFFERENT tenants', async () => {
     const a = await runInTenantContext(ctx('t1'), () => invoices.create(draftFields('m1')));
     const b = await runInTenantContext(ctx('t2'), () => invoices.create(draftFields('m1')));
-    await runInTenantContext(ctx('t1'), () => invoices.assignNumber(a.id, 'OBK-2026-000001'));
+    await runInTenantContext(ctx('t1'), () =>
+      invoices.claimForIssueWithNumber(a.id, issueOpts('OBK-2026-000001')),
+    );
     const issuedB = await runInTenantContext(ctx('t2'), () =>
-      invoices.assignNumber(b.id, 'OBK-2026-000001'),
+      invoices.claimForIssueWithNumber(b.id, issueOpts('OBK-2026-000001')),
     );
     expect(issuedB?.number).toBe('OBK-2026-000001');
   });
 
-  it('claimForIssue is atomic and an issued invoice is immutable (review fix)', async () => {
+  it('claimForIssueWithNumber sets status+number atomically, is idempotent, and the result is immutable', async () => {
     const inv = await runInTenantContext(ctx('t1'), () => invoices.create(draftFields('m1')));
     const claimed = await runInTenantContext(ctx('t1'), () =>
-      invoices.claimForIssue(inv.id, '2026-01-01T00:00:00.000Z', '2026-01-15T00:00:00.000Z'),
+      invoices.claimForIssueWithNumber(inv.id, issueOpts('OBK-2026-000001')),
     );
     expect(claimed?.status).toBe('open');
+    // status, dates AND number are all committed in the one write — no open-without-number state.
+    expect(claimed?.number).toBe('OBK-2026-000001');
+    expect(claimed?.issuedAt).toBe('2026-01-01T00:00:00.000Z');
     // A second claim returns null — it is no longer a draft (concurrency/idempotency guard).
     const again = await runInTenantContext(ctx('t1'), () =>
-      invoices.claimForIssue(inv.id, '2026-02-01T00:00:00.000Z', '2026-02-15T00:00:00.000Z'),
+      invoices.claimForIssueWithNumber(
+        inv.id,
+        issueOpts('OBK-2026-000002', '2026-02-01T00:00:00.000Z'),
+      ),
     );
     expect(again).toBeNull();
     // Reverting an issued invoice to draft is rejected (legal immutability).

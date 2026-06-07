@@ -26,3 +26,13 @@ independently via [Changesets](https://github.com/changesets/changesets).
   `billing-tick` platform job fans out per-tenant `billing-run` + `dunning` under `runAsPlatform`.
   Self-host registers its tenant at bootstrap (ADR-0017).
 - Architecture decision records in `docs/decisions/`.
+
+### Fixed
+
+- Invoice issuing is now crash-safe: the gapless number is allocated first and committed together
+  with `status: 'open'` + `issuedAt`/`dueAt` in a single atomic write (`claimForIssueWithNumber`),
+  so a crash can never leave a persisted "open invoice without a number" (a legally-invalid issued
+  invoice). The draft is confirmed before allocating, so re-issuing a non-draft never burns a number.
+  Residual on single-node Mongo: a crash between the counter increment and the claim leaves an
+  unused number (an auditable gap, not a malformed invoice); full two-document atomicity needs a
+  replica-set transaction (tracked separately).
