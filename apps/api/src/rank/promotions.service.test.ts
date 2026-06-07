@@ -231,6 +231,15 @@ describe('PromotionsService.award', () => {
       svc.award(selfMember, { memberId: 'm1', disciplineId: 'disc1', toStepId: 'blue' }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
+
+  it('throws (not silently) if the rank-state advance no-ops, so history/position cannot diverge', async () => {
+    const { s, rankStates } = stores(120);
+    rankStates.update = async () => null; // simulate an archived/missing state losing the advance
+    const svc = new PromotionsService(s, CLOCK);
+    await expect(
+      svc.award(instructor, { memberId: 'm1', disciplineId: 'disc1', toStepId: 'blue' }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+  });
 });
 
 describe('PromotionsService.history', () => {
