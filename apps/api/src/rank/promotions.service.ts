@@ -231,11 +231,15 @@ export class PromotionsService {
       satisfiedSnapshot: entry.satisfiedSnapshot,
       overrideReason: entry.overrideReason ?? null,
     });
-    // Advance the member's position to the awarded step (the only mutation of rank state).
-    await this.stores.rankStates.update(snap.state.id, {
+    // Advance the member's position to the awarded step (the only mutation of rank state). The
+    // immutable Promotion is already written; if the advance silently no-ops (state archived/missing)
+    // the history and the current position would diverge — so fail loudly rather than swallow it.
+    // (Full atomicity needs a Mongo transaction / replica set; tracked separately.)
+    const advanced = await this.stores.rankStates.update(snap.state.id, {
       currentStepId: entry.toStepId,
       enteredCurrentStepAt: awardedAt,
     });
+    if (!advanced) throw new NotFoundError('rankState', snap.state.id);
     return promotion;
   }
 

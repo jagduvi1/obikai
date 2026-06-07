@@ -18,6 +18,8 @@ import { type Tenancy, loadConfig } from '@obikai/config';
 import {
   type TenantContext,
   TenantRegistryRepository,
+  connectMongo,
+  disconnectMongo,
   runAsPlatform,
   runInTenantContext,
 } from '@obikai/db';
@@ -165,6 +167,12 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const log = makeLogger();
 
+  // Billing/dunning/GDPR jobs use the tenant-scoped @obikai/db repositories, which need a live
+  // mongoose connection — connect BEFORE the worker starts draining jobs, or the first DB-backed job
+  // would fail with no connection. (The api connects in its own bootstrap.)
+  await connectMongo(config.mongoUri);
+  log.info('connected to MongoDB');
+
   // BullMQ requires `maxRetriesPerRequest: null` on the worker (consumer) connection — its blocking
   // commands must not be aborted by ioredis's retry cap. The producer (Queue) gets its OWN
   // connection: a Worker blocks on its connection, so sharing one with a Queue is discouraged.
@@ -218,6 +226,7 @@ async function main(): Promise<void> {
     await queue.close();
     await connection.quit();
     await producerConnection.quit();
+    await disconnectMongo();
     log.info('shutdown complete');
   };
 
