@@ -672,6 +672,9 @@ importers:
       '@obikai/domain':
         specifier: workspace:*
         version: link:../domain
+      '@obikai/gdpr':
+        specifier: workspace:*
+        version: link:../gdpr
       mongoose:
         specifier: ^8.9.5
         version: 8.24.0

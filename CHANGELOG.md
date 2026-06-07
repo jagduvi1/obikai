@@ -26,6 +26,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
   `billing-tick` platform job fans out per-tenant `billing-run` + `dunning` under `runAsPlatform`.
   Self-host registers its tenant at bootstrap (ADR-0017).
 - Architecture decision records in `docs/decisions/`.
+- GDPR remediation (begun): a per-tenant, append-only, tamper-evident audit log
+  (`AuditLogRepository` in `@obikai/db`) built on the `@obikai/gdpr` hash-chain primitives — the
+  accountability substrate (Art. 5(2)/30) every personal-data action will record to. First step of
+  wiring the previously-orphaned `@obikai/gdpr` package into the runtime (see
+  `docs/gdpr-audit-2026-06.md`, ADR-0026).
 
 ### Fixed
 
