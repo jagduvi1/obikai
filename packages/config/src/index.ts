@@ -53,6 +53,8 @@ export interface AppConfig {
       readonly forcePathStyle: boolean;
     };
     readonly fsRoot: string;
+    /** Public origin the guarded `/files` route is served from (fs storage only); null otherwise. */
+    readonly publicBaseUrl: string | null;
   };
   readonly email: {
     readonly provider: EmailProviderId;
@@ -126,6 +128,7 @@ function toAppConfig(env: RawEnv): AppConfig {
         forcePathStyle: env.S3_FORCE_PATH_STYLE,
       },
       fsRoot: env.FS_STORAGE_ROOT,
+      publicBaseUrl: env.STORAGE_PUBLIC_BASE_URL ?? null,
     },
     email: {
       provider: env.EMAIL_PROVIDER,

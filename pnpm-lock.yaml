@@ -269,6 +269,12 @@ importers:
       '@obikai/adapter-email-smtp':
         specifier: workspace:*
         version: link:../../adapters/email-smtp
+      '@obikai/adapter-storage-fs':
+        specifier: workspace:*
+        version: link:../../adapters/storage-fs
+      '@obikai/adapter-storage-s3':
+        specifier: workspace:*
+        version: link:../../adapters/storage-s3
       '@obikai/authz':
         specifier: workspace:*
         version: link:../../packages/authz
