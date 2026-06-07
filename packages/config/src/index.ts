@@ -22,6 +22,7 @@ const VIES_DEFAULT_BASE_URL =
 
 export * from './deploy.js';
 export * from './providers.js';
+export * from './residency.js';
 export { EnvSchema, type RawEnv } from './env.js';
 
 export interface AppConfig {

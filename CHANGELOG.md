@@ -34,6 +34,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 - GDPR: every member mutation (create / update / delete) is now recorded on the tenant's audit chain
   with the acting user, target, source IP, and (for updates) the changed field NAMES only — closing
   the previously **unaudited hard-delete** of member records (audit H9).
+- GDPR: **EU data-residency enforcement** (Arts. 44–49). In **hosted** mode the object-storage region
+  (`S3_REGION`) must be an EU/EEA region — boot validation fails otherwise — so the managed service can
+  never silently place member data outside the EU. An audited `ALLOW_NON_EU_RESIDENCY=true` escape
+  hatch allows an override; self-host is exempt (the operator controls physical location). A test
+  guards the default region staying EU.
 - GDPR: **PII removed from logs** (data-minimization, Art. 5(1)(c)). A registration race past the soft
   email check hit the unique index and the raw Mongo E11000 (whose message embeds the email) reached
   Nest's default 5xx logger; it is now translated to a typed `EmailAlreadyRegisteredError` → 409 (never
