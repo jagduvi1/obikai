@@ -6,7 +6,7 @@
  */
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MissingTenantContextError } from '../src/errors.js';
 import {
   BookingModel,
@@ -112,6 +112,22 @@ describe('ClassOccurrenceRepository.materialize', () => {
     expect(second).toBe(0);
     const all = await runInTenantContext(ctx('t1'), () => occurrences.list({ scheduleId: 'sch1' }));
     expect(all).toHaveLength(2);
+  });
+
+  it('issues ONE bulkWrite for the whole horizon, not N sequential upserts (M21)', async () => {
+    const spy = vi.spyOn(ClassOccurrenceModel, 'bulkWrite');
+    const rows = Array.from({ length: 5 }, (_, i) => ({
+      scheduleId: 'sch1',
+      programId: 'prog1',
+      locationId: 'loc1',
+      startsAt: `2026-06-0${i + 1}T16:00:00.000Z`,
+      endsAt: `2026-06-0${i + 1}T17:00:00.000Z`,
+      capacity: 10,
+    }));
+    const created = await runInTenantContext(ctx('t1'), () => occurrences.materialize(rows));
+    expect(created).toBe(5);
+    expect(spy).toHaveBeenCalledTimes(1); // a single round-trip regardless of horizon size
+    spy.mockRestore();
   });
 
   it('leaves a per-occurrence cancellation intact when re-materialized (override survives §7)', async () => {
