@@ -146,14 +146,15 @@ async function handleJob(job: Job<AnyJobData>, deps: JobDeps): Promise<void> {
         log.info('eligibility-recompute', { tenantId, jobId: job.id });
         return;
       case 'gdpr-export':
-        // Assemble the data-subject export driven by the ROPA/retention registry (ADR-0007). STUB.
-        log.info('gdpr-export', { tenantId, jobId: job.id });
-        return;
       case 'gdpr-erasure':
-        // Execute right-to-erasure (pseudonymize-by-reference + per-subject crypto-shred) for the
-        // subject; runs in tenant context so it cannot cross tenants (ADR-0007). STUB.
-        log.info('gdpr-erasure', { tenantId, jobId: job.id });
-        return;
+        // NOT YET IMPLEMENTED (ADR-0007; tracked in docs/gdpr-audit-2026-06.md H4/H7). These jobs are
+        // registered but their handlers are not built. We THROW rather than log-and-return so an
+        // enqueued data-subject request FAILS LOUDLY instead of reporting false success (audit H2) —
+        // a "completed" export/erasure that did nothing is worse than an error. Real implementations
+        // (ExportService / ErasureService driven by the ROPA registry) replace this in G5/G6.
+        throw new Error(
+          `${name} is not implemented yet (tenant ${tenantId}, job ${job.id ?? '?'})`,
+        );
       default: {
         // Exhaustiveness guard: a new JobName without a case here is a compile error.
         const unhandled: never = name;

@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Get,
   HttpCode,
+  Ip,
   NotFoundException,
   Param,
   Patch,
@@ -51,9 +52,9 @@ export class MembersController {
   constructor(private readonly service: MembersService) {}
 
   @Post()
-  async create(@Body() body: unknown) {
+  async create(@Body() body: unknown, @Ip() ip: string) {
     try {
-      return await this.service.create(currentActor(), memberCreateSchema.parse(body));
+      return await this.service.create(currentActor(), memberCreateSchema.parse(body), { ip });
     } catch (error) {
       translate(error);
     }
@@ -81,9 +82,9 @@ export class MembersController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: unknown) {
+  async update(@Param('id') id: string, @Body() body: unknown, @Ip() ip: string) {
     try {
-      return await this.service.update(currentActor(), id, memberUpdateSchema.parse(body));
+      return await this.service.update(currentActor(), id, memberUpdateSchema.parse(body), { ip });
     } catch (error) {
       translate(error);
     }
@@ -91,9 +92,9 @@ export class MembersController {
 
   @Delete(':id')
   @HttpCode(204)
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @Ip() ip: string) {
     try {
-      await this.service.remove(currentActor(), id);
+      await this.service.remove(currentActor(), id, { ip });
     } catch (error) {
       translate(error);
     }

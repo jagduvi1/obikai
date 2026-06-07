@@ -31,6 +31,9 @@ independently via [Changesets](https://github.com/changesets/changesets).
   accountability substrate (Art. 5(2)/30) every personal-data action will record to. First step of
   wiring the previously-orphaned `@obikai/gdpr` package into the runtime (see
   `docs/gdpr-audit-2026-06.md`, ADR-0026).
+- GDPR: every member mutation (create / update / delete) is now recorded on the tenant's audit chain
+  with the acting user, target, source IP, and (for updates) the changed field NAMES only — closing
+  the previously **unaudited hard-delete** of member records (audit H9).
 
 ### Fixed
 
