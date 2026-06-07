@@ -31,12 +31,13 @@ export async function grantPlatformAdmin(
 
     const identity = await identities.findByEmailLower('local', normalized);
     if (!identity) {
+      // Don't echo the email (operator-supplied; keep it out of logs) — they know what they passed.
       throw new Error(
-        `no local identity for <${email}> — the user must sign up / be created before being granted platform access`,
+        'no local identity for the supplied email — the user must sign up / be created before being granted platform access',
       );
     }
     await grants.grant({ userId: identity.userId, role: 'platform_admin' });
-    logger.log(`Granted platform_admin to <${email}> (user ${identity.userId}).`);
+    logger.log(`Granted platform_admin (user ${identity.userId}).`);
   } finally {
     await disconnectMongo();
   }

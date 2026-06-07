@@ -34,6 +34,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 - GDPR: every member mutation (create / update / delete) is now recorded on the tenant's audit chain
   with the acting user, target, source IP, and (for updates) the changed field NAMES only — closing
   the previously **unaudited hard-delete** of member records (audit H9).
+- GDPR: **PII removed from logs** (data-minimization, Art. 5(1)(c)). A registration race past the soft
+  email check hit the unique index and the raw Mongo E11000 (whose message embeds the email) reached
+  Nest's default 5xx logger; it is now translated to a typed `EmailAlreadyRegisteredError` → 409 (never
+  logged). Also dropped the email from the local-auth "register rejected" warn and from the
+  `create-owner` / `grant-platform-admin` CLI logs (they log the userId instead).
 - GDPR: **fail-safe tenant-isolation coverage test** (Art. 5(1)(f)/32). A test enumerates every
   registered Mongoose model and asserts each is either tenant-guarded (a query with no TenantContext
   throws) or in an explicit tenant-global allow-list — so a future PII model that forgets

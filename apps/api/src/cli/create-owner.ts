@@ -55,7 +55,7 @@ export async function createOwner(
     let userId: string;
     if (existing) {
       userId = existing.userId;
-      logger.log(`Reusing existing identity for <${owner.email}>.`);
+      logger.log(`Reusing existing owner identity (user ${userId}).`);
     } else {
       const user = await users.create({ email: owner.email, emailVerified: true });
       await identities.create({
@@ -66,7 +66,7 @@ export async function createOwner(
         emailVerified: true,
       });
       userId = user.id;
-      logger.log(`Created owner identity for <${owner.email}>.`);
+      logger.log(`Created owner identity (user ${userId}).`);
     }
 
     const context: TenantContext = {

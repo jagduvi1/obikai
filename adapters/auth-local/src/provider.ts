@@ -67,7 +67,8 @@ export class LocalAuthProvider implements AuthPort {
     const email = normaliseEmail(input.email);
     const existing = await this.#store.findByEmail(email);
     if (existing !== null) {
-      this.#ctx.logger.warn('local auth: register rejected, email already registered', { email });
+      // Do NOT log the email (PII/data-minimization) — the typed error already conveys the reason.
+      this.#ctx.logger.warn('local auth: register rejected, email already registered');
       throw new EmailAlreadyRegisteredError(email);
     }
     const passwordHash = hashPassword(input.password);
