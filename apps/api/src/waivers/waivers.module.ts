@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
+import type { StoragePort } from '@obikai/adapter-contracts';
 import { WaiverSignatureRepository, WaiverTemplateRepository } from '@obikai/db';
+import { STORAGE_PORT } from '../storage/storage.tokens.js';
 import { WaiversController } from './waivers.controller.js';
 import { WaiversService } from './waivers.service.js';
 
@@ -24,9 +26,12 @@ import { WaiversService } from './waivers.service.js';
     },
     {
       provide: WaiversService,
-      useFactory: (templates: WaiverTemplateRepository, signatures: WaiverSignatureRepository) =>
-        new WaiversService(templates, signatures),
-      inject: [WaiverTemplateRepository, WaiverSignatureRepository],
+      useFactory: (
+        templates: WaiverTemplateRepository,
+        signatures: WaiverSignatureRepository,
+        storage: StoragePort,
+      ) => new WaiversService(templates, signatures, storage),
+      inject: [WaiverTemplateRepository, WaiverSignatureRepository, STORAGE_PORT],
     },
   ],
 })

@@ -9,10 +9,12 @@ import {
   Patch,
   Post,
   Query,
+  Req,
 } from '@nestjs/common';
 import type { AuthzActor } from '@obikai/authz';
 import { getTenantContextOrThrow } from '@obikai/db';
 import { waiverSignSchema, waiverTemplateCreateSchema } from '@obikai/domain';
+import type { Request } from 'express';
 import { z } from 'zod';
 import { ForbiddenError, NotFoundError, WaiversService } from './waivers.service.js';
 
@@ -47,6 +49,17 @@ const activeQuerySchema = z
   .enum(['true', 'false'])
   .transform((v) => v === 'true')
   .optional();
+
+// Sign accepts the domain fields plus an OPTIONAL key of a previously-uploaded document.
+const signBodySchema = waiverSignSchema.extend({
+  documentStorageKey: z.string().min(1).optional(),
+});
+
+// Request a presigned upload URL for a waiver document before signing.
+const documentUploadSchema = z.object({
+  contentType: z.string().min(1).max(255),
+  ext: z.string().max(8).optional(),
+});
 
 @Controller('waivers')
 export class WaiversController {
@@ -100,9 +113,40 @@ export class WaiversController {
   }
 
   @Post('sign')
-  async sign(@Body() body: unknown) {
+  async sign(@Req() req: Request, @Body() body: unknown) {
     try {
-      return await this.service.sign(currentActor(), waiverSignSchema.parse(body));
+      const { documentStorageKey, ...input } = signBodySchema.parse(body);
+      const ctx = getTenantContextOrThrow();
+      return await this.service.sign(currentActor(), input, {
+        ip: req.ip ?? null,
+        tenantId: ctx.tenantId,
+        ...(documentStorageKey !== undefined ? { documentStorageKey } : {}),
+      });
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  /** Allocate a presigned PUT URL for a waiver document; upload to it, then `sign` with the key. */
+  @Post('documents/upload-url')
+  async createDocumentUploadUrl(@Body() body: unknown) {
+    try {
+      const input = documentUploadSchema.parse(body);
+      const ctx = getTenantContextOrThrow();
+      return await this.service.createDocumentUploadUrl(currentActor(), ctx.tenantId, {
+        contentType: input.contentType,
+        ext: input.ext ?? '',
+      });
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  /** Presigned GET URL for a signature's stored document (self / guardian / staff). */
+  @Get('signatures/:id/document-url')
+  async getDocumentUrl(@Param('id') id: string) {
+    try {
+      return await this.service.getDocumentDownloadUrl(currentActor(), id);
     } catch (error) {
       translate(error);
     }

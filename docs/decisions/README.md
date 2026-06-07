@@ -28,3 +28,4 @@ supersession in both). Keep them short; put detail in code and `docs/`.
 | [0017](0017-tenant-registry-and-scheduler.md) | Tenant registry & recurring-billing scheduler | Accepted |
 | [0018](0018-seller-billing-profile.md) | Seller billing/legal profile (tenant settings) | Accepted |
 | [0019](0019-storage-adapter-wiring.md) | Storage adapter wiring & guarded `/files` route | Accepted |
+| [0020](0020-waiver-document-storage.md) | Waiver signed-document storage | Accepted |

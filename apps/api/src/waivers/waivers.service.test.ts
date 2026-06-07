@@ -1,3 +1,9 @@
+import type {
+  PresignGetInput,
+  PresignPutInput,
+  StorageCapability,
+  StoragePort,
+} from '@obikai/adapter-contracts';
 import type { AuthzActor } from '@obikai/authz';
 import type {
   WaiverSignInput,
@@ -15,6 +21,34 @@ import {
   type WaiverTemplateUpdateInput,
   WaiversService,
 } from './waivers.service.js';
+
+/** In-memory StoragePort — echoes the key into a fake presigned URL so tests can assert on it. */
+class FakeStorage implements StoragePort {
+  readonly kind = 'storage' as const;
+  readonly providerId = 'fake';
+  readonly capabilities = new Set<StorageCapability>(['presign-put', 'presign-get', 'delete']);
+  init(): Promise<void> {
+    return Promise.resolve();
+  }
+  dispose(): Promise<void> {
+    return Promise.resolve();
+  }
+  health(): Promise<{ ok: boolean }> {
+    return Promise.resolve({ ok: true });
+  }
+  presignPut(input: PresignPutInput): Promise<{ url: string; headers?: Record<string, string> }> {
+    return Promise.resolve({
+      url: `https://storage.test/${input.key}?op=put`,
+      headers: { 'content-type': input.contentType },
+    });
+  }
+  presignGet(input: PresignGetInput): Promise<{ url: string }> {
+    return Promise.resolve({ url: `https://storage.test/${input.key}?op=get` });
+  }
+  delete(): Promise<void> {
+    return Promise.resolve();
+  }
+}
 
 /** In-memory template store — versions templates exactly like the real repo (editing bumps version). */
 class FakeTemplateStore implements WaiverTemplateStore {
@@ -126,7 +160,7 @@ describe('WaiversService', () => {
   beforeEach(() => {
     templates = new FakeTemplateStore();
     signatures = new FakeSignatureStore();
-    svc = new WaiversService(templates, signatures);
+    svc = new WaiversService(templates, signatures, new FakeStorage());
   });
 
   describe('template RBAC', () => {
@@ -263,6 +297,95 @@ describe('WaiversService', () => {
       await svc.sign(staff, signInput({ templateId: t.id, memberId: 'm1' }));
       const list = await svc.listSignatures(staff, 'm1');
       expect(list).toHaveLength(1);
+    });
+  });
+
+  describe('document storage', () => {
+    const selfMember = actor({
+      userId: 'u2',
+      memberId: 'm1',
+      roles: [{ role: 'member', locationScope: 'ALL' }],
+    });
+
+    it('allocates an upload URL keyed in the tenant namespace, defaulting the extension to pdf', async () => {
+      const out = await svc.createDocumentUploadUrl(staff, 't1', {
+        contentType: 'application/pdf',
+        ext: '',
+      });
+      expect(out.key.startsWith('waivers/t1/')).toBe(true);
+      expect(out.key.endsWith('.pdf')).toBe(true);
+      expect(out.url).toContain(out.key);
+      expect(out.headers?.['content-type']).toBe('application/pdf');
+    });
+
+    it('honours a safe extension and lets a member stage their own upload', async () => {
+      const out = await svc.createDocumentUploadUrl(selfMember, 't1', {
+        contentType: 'image/png',
+        ext: 'png',
+      });
+      expect(out.key.endsWith('.png')).toBe(true);
+    });
+
+    it('forbids an actor who can neither record waivers nor act as a member', async () => {
+      const nobody = actor({ roles: [] });
+      await expect(
+        svc.createDocumentUploadUrl(nobody, 't1', { contentType: 'application/pdf', ext: 'pdf' }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+    });
+
+    it('persists an in-namespace document key on signing', async () => {
+      const t = await svc.createTemplate(owner, sampleTemplate);
+      const sig = await svc.sign(staff, signInput({ templateId: t.id }), {
+        tenantId: 't1',
+        documentStorageKey: 'waivers/t1/doc.pdf',
+      });
+      expect(sig.documentStorageKey).toBe('waivers/t1/doc.pdf');
+    });
+
+    it('rejects a document key outside the tenant namespace (cross-tenant guard)', async () => {
+      const t = await svc.createTemplate(owner, sampleTemplate);
+      await expect(
+        svc.sign(staff, signInput({ templateId: t.id }), {
+          tenantId: 't1',
+          documentStorageKey: 'waivers/other/doc.pdf',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+      // ...and refuses when tenantId is missing entirely.
+      await expect(
+        svc.sign(staff, signInput({ templateId: t.id }), {
+          documentStorageKey: 'waivers/t1/doc.pdf',
+        }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+    });
+
+    it('returns a presigned download URL for a stored document (self / staff)', async () => {
+      const t = await svc.createTemplate(owner, sampleTemplate);
+      const sig = await svc.sign(staff, signInput({ templateId: t.id, memberId: 'm1' }), {
+        tenantId: 't1',
+        documentStorageKey: 'waivers/t1/doc.pdf',
+      });
+      const staffUrl = await svc.getDocumentDownloadUrl(staff, sig.id);
+      expect(staffUrl.url).toContain('waivers/t1/doc.pdf');
+      const selfUrl = await svc.getDocumentDownloadUrl(selfMember, sig.id);
+      expect(selfUrl.url).toContain('op=get');
+    });
+
+    it('404s a download when no document is attached, and forbids another member', async () => {
+      const t = await svc.createTemplate(owner, sampleTemplate);
+      const sig = await svc.sign(staff, signInput({ templateId: t.id, memberId: 'm1' }));
+      await expect(svc.getDocumentDownloadUrl(staff, sig.id)).rejects.toBeInstanceOf(NotFoundError);
+      const withDoc = await svc.sign(staff, signInput({ templateId: t.id, memberId: 'm1' }), {
+        tenantId: 't1',
+        documentStorageKey: 'waivers/t1/doc.pdf',
+      });
+      const other = actor({
+        userId: 'u9',
+        memberId: 'm9',
+        roles: [{ role: 'member', locationScope: 'ALL' }],
+      });
+      await expect(svc.getDocumentDownloadUrl(other, withDoc.id)).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
     });
   });
 });
