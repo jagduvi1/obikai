@@ -79,6 +79,10 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Fixed
 
+- Worker job durability: every enqueued job now **retries transient failures** (3 attempts,
+  exponential backoff) and old completed/failed jobs are **reaped** (bounded Redis memory) — a single
+  Mongo/Redis blip no longer permanently drops a tenant's billing/dunning run, and jobs don't pile up
+  on the small self-host footprint (audit B2). Handlers are idempotent, so retries are safe.
 - `/readyz` now reflects **real** readiness — it checks the live Mongo connection instead of returning
   a hardcoded all-true, so an orchestrator won't route traffic to an instance with a dead database
   (audit F1). `/healthz` stays dependency-free for liveness. (Redis/migrations/email checks are added
