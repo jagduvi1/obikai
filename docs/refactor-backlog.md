@@ -118,8 +118,12 @@ return O(total-history) rows/payload.
 - **B7 — Payments wiring (audit H1):** the manual/stub payment adapters and the webhook ingestion path
   are built but unwired (no `PaymentsPort` consumer). This is a feature, not a refactor; sequence with
   the PSP selection (a human-owned decision per CLAUDE.md).
-- **B8 — `@obikai/gdpr` wiring (audit M9):** the 532-LOC GDPR package has zero importers. GDPR is a core
-  invariant; the upcoming **GDPR audit** should drive how/where it is wired (export/erasure jobs in the
-  worker are currently stubs).
+- **B8 — `@obikai/gdpr` wiring (audit M9): ✅ DONE.** The GDPR audit (`docs/gdpr-audit-2026-06.md`) ran
+  and the package is now wired end-to-end across PRs #53–#62: per-tenant audit log, consent, ROPA
+  registry, export, erasure, tenant-guard coverage, PII-in-logs, EU-residency, and the external-AI PII
+  gate. **Remaining GDPR items** (see the audit doc's remediation-status note): waiver-blob envelope
+  encryption / crypto-shred (H5 — needs the waiver upload routed through the API, an owner decision);
+  retention-sweep job (M-retention — latent); guardian-mediated rights for minors (M-guardian, Art. 8 —
+  a feature); storage tenant-prefix facade and out-of-band audit head-anchoring (pre-GA).
 - **B9 — `as never` type hole in `PromotionsService` (audit M8):** branded-id casts (`as never`) hide a
   type hole through the rank service layer. Low risk; tighten when touching that layer.

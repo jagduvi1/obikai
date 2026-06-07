@@ -1,5 +1,19 @@
 # Obikai GDPR Compliance Audit — 2026-06
 
+> **Remediation status (2026-06).** The launch-blocking findings have been actioned. Shipped: the
+> per-tenant tamper-evident audit log + member-mutation auditing (H9/H2, #53/#54), self-service
+> **consent** (H8, #55), the executable **ROPA registry** (#56), data-subject **export** (H7, #57),
+> right-to-**erasure** (H4/H6, #58), a fail-safe tenant-isolation coverage test (#59), **PII-in-logs**
+> fixes (M-mongo-leak, #60), **EU data-residency** enforcement (M-residency, #61), and the structural
+> **external-AI PII gate** (M-ai-gate, #62). The `@obikai/gdpr` package is now wired (H1 resolved) and
+> the worker no longer fakes success.
+>
+> **Still open** (tracked in `docs/refactor-backlog.md`): waiver-blob **envelope encryption /
+> crypto-shred** (H5 — backup-proofing; needs the waiver upload routed through the API, a decision the
+> owner has not yet made); **retention-sweep** job (M-retention — latent: nothing is within years of
+> its retention bound yet); **guardian-mediated** rights for minors (M-guardian — Art. 8, a feature);
+> storage tenant-prefix facade and out-of-band audit head-anchoring (pre-GA).
+
 **Scope:** GDPR posture of the Obikai dojo-management SaaS against CLAUDE.md invariant 6 ("EU-first
 compliance is core, not later"). Findings are read-only, independently verified (multi-agent: 10
 dimension finders → adversarial per-finding verification → synthesis; 44 confirmed findings), and
