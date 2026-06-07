@@ -318,6 +318,9 @@ importers:
       '@obikai/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@obikai/gdpr':
+        specifier: workspace:*
+        version: link:../../packages/gdpr
       '@obikai/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n

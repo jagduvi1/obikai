@@ -18,6 +18,7 @@ export * from './tenant.js';
 export * from './platform-grant.js';
 export * from './platform-audit.js';
 export * from './audit-log.js';
+export * from './consent.js';
 export * from './billing.js';
 export * from './billing-profile.js';
 export * from './scheduling.js';
