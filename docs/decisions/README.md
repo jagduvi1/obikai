@@ -32,3 +32,4 @@ supersession in both). Keep them short; put detail in code and `docs/`.
 | [0021](0021-platform-authorization.md) | Platform (cross-tenant) authorization model | Accepted |
 | [0022](0022-platform-http-plane.md) | Platform HTTP plane (`/platform/*`) | Accepted |
 | [0023](0023-platform-audit-log.md) | Platform audit log (append-only, hash-chained) | Accepted |
+| [0024](0024-platform-admin-ui.md) | Platform-admin UI (`web-platform`) | Accepted |
