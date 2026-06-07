@@ -21,6 +21,7 @@ export * from './audit-log.js';
 export * from './consent.js';
 export * from './ropa.js';
 export * from './export-service.js';
+export * from './erasure-service.js';
 export * from './billing.js';
 export * from './billing-profile.js';
 export * from './scheduling.js';
