@@ -36,6 +36,10 @@ const en = {
     verifying: 'Confirming your email…',
     verifyDone: 'Your email is confirmed. Thank you!',
     verifyError: 'This confirmation link is invalid or has expired.',
+    inviteTitle: 'Set up your account',
+    inviteIntro: 'Choose a password to finish setting up your member account.',
+    acceptSubmit: 'Create my account',
+    inviteError: 'This invite is invalid or has expired. Ask your dojo for a new one.',
   },
   progress: {
     title: 'My progress',
@@ -91,6 +95,10 @@ const sv = {
     verifying: 'Bekräftar din e-postadress…',
     verifyDone: 'Din e-postadress är bekräftad. Tack!',
     verifyError: 'Bekräftelselänken är ogiltig eller har gått ut.',
+    inviteTitle: 'Skapa ditt konto',
+    inviteIntro: 'Välj ett lösenord för att slutföra registreringen av ditt medlemskonto.',
+    acceptSubmit: 'Skapa mitt konto',
+    inviteError: 'Inbjudan är ogiltig eller har gått ut. Be din klubb om en ny.',
   },
 };
 const nb = {

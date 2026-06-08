@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '../auth/auth-context';
+import { AcceptInvitePage } from '../pages/AcceptInvitePage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MyInvoicesPage } from '../pages/MyInvoicesPage';
@@ -24,10 +25,11 @@ export function App() {
         path="/login"
         element={status === 'authenticated' ? <Navigate to="/progress" replace /> : <LoginPage />}
       />
-      {/* Public, unauthenticated account-recovery routes (reached from emailed links). */}
+      {/* Public, unauthenticated account routes (reached from emailed links). */}
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
+      <Route path="/accept-invite" element={<AcceptInvitePage />} />
       <Route
         path="/progress"
         element={

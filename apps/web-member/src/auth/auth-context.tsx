@@ -1,4 +1,10 @@
-import { login as apiLogin, logout as apiLogout, refresh, setOnAuthLost } from '@obikai/api-client';
+import {
+  acceptInvite as apiAcceptInvite,
+  login as apiLogin,
+  logout as apiLogout,
+  refresh,
+  setOnAuthLost,
+} from '@obikai/api-client';
 import {
   type ReactNode,
   createContext,
@@ -18,6 +24,8 @@ import {
 interface AuthState {
   status: 'loading' | 'authenticated' | 'anonymous';
   login: (email: string, password: string) => Promise<void>;
+  /** Accept a member invite with the emailed token + a chosen password; auto-signs-in on success. */
+  acceptInvite: (token: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -46,12 +54,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('authenticated');
   }, []);
 
+  const acceptInvite = useCallback(async (token: string, password: string) => {
+    await apiAcceptInvite(token, password);
+    setStatus('authenticated');
+  }, []);
+
   const logout = useCallback(async () => {
     await apiLogout();
     setStatus('anonymous');
   }, []);
 
-  const value = useMemo<AuthState>(() => ({ status, login, logout }), [status, login, logout]);
+  const value = useMemo<AuthState>(
+    () => ({ status, login, acceptInvite, logout }),
+    [status, login, acceptInvite, logout],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

@@ -3,6 +3,7 @@
  * Framework-free; the base URL is injected via `configureApiBase` so there is no bundler coupling.
  */
 export {
+  acceptInvite,
   api,
   ApiError,
   changePassword,

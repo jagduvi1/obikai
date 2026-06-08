@@ -224,6 +224,11 @@ const en = {
     save: 'Save changes',
     saved: 'Profile saved.',
     saveError: 'Could not save the profile. Check the fields and try again.',
+    invite: 'Invite to portal',
+    inviteSent: 'Invite email sent.',
+    inviteError: 'Could not send the invite.',
+    hasAccount: 'Has a portal account',
+    inviteNoEmail: 'Add an email to invite this member.',
     statusValue: {
       lead: 'Lead',
       trial: 'Trial',
@@ -287,6 +292,11 @@ const sv = {
     save: 'Spara ändringar',
     saved: 'Profilen sparad.',
     saveError: 'Kunde inte spara profilen. Kontrollera fälten och försök igen.',
+    invite: 'Bjud in till portalen',
+    inviteSent: 'Inbjudningsmejl skickat.',
+    inviteError: 'Kunde inte skicka inbjudan.',
+    hasAccount: 'Har ett portalkonto',
+    inviteNoEmail: 'Lägg till en e-postadress för att bjuda in medlemmen.',
     statusValue: {
       lead: 'Lead',
       trial: 'Prova-på',
