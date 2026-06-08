@@ -98,7 +98,13 @@ docker compose run --rm --no-deps --entrypoint sh backup \
 
 > Redis holds only the BullMQ job queue (regenerated), so backing up `mongo-data` is what matters;
 > `redis-data` is optional.
-- **Updates.** Pull new images (`docker-compose.prod.yml` references `ghcr.io/...`) and re-`up`. Schema
-  changes are managed as forward-only migrations in `packages/db/migrations` (via `migrate-mongo`); an
-  automatic boot-time runner is on the roadmap, so for now apply pending migrations as part of an
-  upgrade.
+- **Updates.** Pull new images (`docker-compose.prod.yml` references `ghcr.io/...`) and re-`up`. Then
+  apply any pending database migrations — forward-only `migrate-mongo` migrations that ship in the api
+  image:
+
+  ```sh
+  docker compose exec api node dist/cli/migrate.js
+  ```
+
+  It is idempotent (a `changelog` collection records what is applied; a `changelog_lock` stops two
+  runners racing), so it is safe to run on every upgrade.
