@@ -18,7 +18,9 @@
     "dev": "node --watch dist/main.js",
     "migrate": "node dist/cli/migrate.js",
     "typecheck": "tsc -b --pretty",
-    "test": "vitest run"
+    "test": "vitest run && vitest run --config vitest.int.config.ts",
+    "test:unit": "vitest run",
+    "test:int": "vitest run --config vitest.int.config.ts"
   },
   "dependencies": {
     "@obikai/adapter-contracts": "workspace:*",
@@ -50,12 +52,15 @@
   },
   "devDependencies": {
     "@nestjs/testing": "^10.4.15",
+    "@swc/core": "^1.13.5",
     "@types/express": "^4.17.21",
     "@types/migrate-mongo": "^10.0.6",
     "@types/node": "^22.10.2",
     "@types/supertest": "^6.0.2",
+    "mongodb-memory-server": "^10.1.2",
     "supertest": "^7.0.0",
     "typescript": "catalog:",
+    "unplugin-swc": "^1.5.1",
     "vite": "catalog:",
     "vitest": "catalog:"
   }
