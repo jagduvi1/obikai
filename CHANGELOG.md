@@ -7,6 +7,21 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ## [Unreleased]
 
+### Added — Member CRM & segmentation (§4.1)
+
+- **Member tags + dynamic segments (ADR-0030).** Members now carry dojo-defined `tags: string[]`
+  (normalized by `memberTagsSchema`: trim, drop blanks, dedupe, capped) on top of lifecycle `status`.
+  A small `MemberSegment` discriminated union (`all` | `status` | `tag`) is the canonical audience
+  definition, with a pure `memberMatchesSegment` predicate **mirrored** by indexed DB queries
+  (`{tenantId, tags}` multikey) so a large tenant resolves a segment without an in-memory scan. This is
+  the targeting primitive that communications (§4.8) and reporting cohorts (§4.9) build on. A
+  rule-based segment engine is a deliberate later enhancement (same union, future `kind: 'rule'`).
+- **Member search + tag API.** New `GET /members/search?q=` (name/email/phone, tenant-scoped,
+  case-insensitive, capped — for kiosk roster-add + comms recipient pickers; declared before `:id` so
+  it isn't captured as a member id), `GET /members?tag=` filter, and `PUT /members/:id/tags` (authorized
+  + audited as a member update). The admin members UI gains a tag editor (comma-separated, accessible)
+  and a tag column + filter; i18n in en/sv. No data migration (pre-prod; `tags` defaults to `[]`).
+
 ### Added — Phase 0 (Foundations)
 
 - **Upgrade NestJS 10 → 11 + Express 4 → 5 (`@obikai/api`).** Bumped `@nestjs/core`, `@nestjs/common`,

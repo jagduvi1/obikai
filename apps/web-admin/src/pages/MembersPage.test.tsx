@@ -16,8 +16,22 @@ afterEach(() => vi.clearAllMocks());
 
 function renderPage() {
   mocks.listMembers.mockResolvedValue([
-    { id: 'm1', firstName: 'Ada', lastName: 'Lovelace', email: 'ada@x.io', status: 'active' },
-    { id: 'm2', firstName: 'Kanō', lastName: 'Jigorō', email: null, status: 'lead' },
+    {
+      id: 'm1',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@x.io',
+      status: 'active',
+      tags: ['competitor'],
+    },
+    {
+      id: 'm2',
+      firstName: 'Kanō',
+      lastName: 'Jigorō',
+      email: null,
+      status: 'lead',
+      tags: ['kids'],
+    },
   ] as Member[]);
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(

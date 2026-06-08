@@ -10,9 +10,11 @@ export function MembersPage() {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const [tagFilter, setTagFilter] = useState('');
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['members'],
-    queryFn: () => listMembers(),
+    queryKey: ['members', { tag: tagFilter }],
+    queryFn: () => listMembers(tagFilter ? { tag: tagFilter } : {}),
   });
 
   const create = useMutation({
@@ -41,6 +43,36 @@ export function MembersPage() {
       )}
       <output className="status">{create.isSuccess ? t('memberForm.created') : ''}</output>
 
+      <form
+        className="filter-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setTagFilter(tagInput.trim());
+        }}
+      >
+        <span className="field">
+          <label htmlFor="member-tag-filter">{t('members.filterByTag')}</label>
+          <input
+            id="member-tag-filter"
+            value={tagInput}
+            placeholder={t('members.filterByTagPlaceholder')}
+            onChange={(e) => setTagInput(e.target.value)}
+          />
+        </span>
+        <button type="submit">{t('members.filterByTag')}</button>
+        {tagFilter && (
+          <button
+            type="button"
+            onClick={() => {
+              setTagInput('');
+              setTagFilter('');
+            }}
+          >
+            {t('members.clearFilter')}
+          </button>
+        )}
+      </form>
+
       {isLoading && <p>{t('members.loading')}</p>}
       {isError && (
         <p role="alert" className="form-error">
@@ -55,6 +87,7 @@ export function MembersPage() {
               <th scope="col">{t('members.name')}</th>
               <th scope="col">{t('members.email')}</th>
               <th scope="col">{t('members.status')}</th>
+              <th scope="col">{t('members.tags')}</th>
             </tr>
           </thead>
           <tbody>
@@ -67,6 +100,7 @@ export function MembersPage() {
                 </td>
                 <td>{m.email ?? '—'}</td>
                 <td>{m.status}</td>
+                <td>{m.tags.length > 0 ? m.tags.join(', ') : '—'}</td>
               </tr>
             ))}
           </tbody>

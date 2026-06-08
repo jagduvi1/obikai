@@ -125,4 +125,57 @@ describe('MemberRepository', () => {
     const gone = await runInTenantContext(ctx('t1'), () => repo.findById(m.id));
     expect(gone).toBeNull();
   });
+
+  it('searches by name/email/phone, tenant-scoped and case-insensitive', async () => {
+    await runInTenantContext(ctx('t1'), async () => {
+      await repo.create({
+        firstName: 'Aiko',
+        lastName: 'Tanaka',
+        status: 'active',
+        email: 'aiko@dojo.test',
+      });
+      await repo.create({
+        firstName: 'Bjorn',
+        lastName: 'Larsen',
+        status: 'trial',
+        phone: '555-22',
+      });
+    });
+    // Other tenant has a same-name member that must NOT leak into t1's search.
+    await runInTenantContext(ctx('t2'), () =>
+      repo.create({ firstName: 'Aiko', lastName: 'Other', status: 'active' }),
+    );
+
+    const byName = await runInTenantContext(ctx('t1'), () => repo.search('AIKO'));
+    expect(byName.map((m) => m.lastName)).toEqual(['Tanaka']);
+    const byPhone = await runInTenantContext(ctx('t1'), () => repo.search('555-22'));
+    expect(byPhone.map((m) => m.firstName)).toEqual(['Bjorn']);
+    // Empty query never returns "everyone".
+    expect(await runInTenantContext(ctx('t1'), () => repo.search('  '))).toEqual([]);
+  });
+
+  it('filters by tag (list + listByTags) within the tenant', async () => {
+    const a = await runInTenantContext(ctx('t1'), () =>
+      repo.create({
+        firstName: 'Comp',
+        lastName: 'Etitor',
+        status: 'active',
+        tags: ['competitor', 'kids'],
+      }),
+    );
+    await runInTenantContext(ctx('t1'), () =>
+      repo.create({ firstName: 'No', lastName: 'Tags', status: 'active' }),
+    );
+
+    const byList = await runInTenantContext(ctx('t1'), () => repo.list({ tag: 'competitor' }));
+    expect(byList.map((m) => m.id)).toEqual([a.id]);
+
+    const both = await runInTenantContext(ctx('t1'), () =>
+      repo.listByTags(['competitor', 'kids'], 'all'),
+    );
+    expect(both.map((m) => m.id)).toEqual([a.id]);
+
+    // Empty tag list resolves to nobody (a segment send must be explicit).
+    expect(await runInTenantContext(ctx('t1'), () => repo.listByTags([]))).toEqual([]);
+  });
 });
