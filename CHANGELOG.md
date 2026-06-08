@@ -9,6 +9,13 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Database migration runner** (audit G1). A `migrate-mongo`-backed CLI (`apps/api/src/cli/migrate.ts`)
+  that ships in the api image and applies forward-only migrations from `@obikai/db`'s `migrations/` dir,
+  resolved at runtime so it works in dev and the deployed image. Run with
+  `docker compose exec api node dist/cli/migrate.js`; idempotent (a `changelog` collection tracks applied
+  files, a `changelog_lock` stops concurrent runners). Verified end-to-end with Docker — apply +
+  idempotency + changelog against an authenticated mongo, *and* path resolution inside the built api
+  image. License gate stays green with the new dep.
 - **Mongo backups for self-host** (audit G3). An opt-in `backup` compose profile dumps the whole
   database (gzipped, timestamped) to a `mongo-backups` volume, authenticating with `MONGO_URI`:
   `docker compose --profile backup run --rm backup`. `docs/self-host.md` documents scheduling,
