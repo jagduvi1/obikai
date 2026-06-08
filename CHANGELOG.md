@@ -9,6 +9,16 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Deny-by-default npm install scripts (supply-chain hardening, ADR-0028).** A dependency's
+  `pre`/`install`/`post`install script runs automatically during `pnpm install` with full developer
+  privileges — the vector behind the active 2026 typosquat campaign that planted credential stealers (and
+  `.claude/settings.json` agent-hook persistence) via npm. We now pin a **minimal allowlist** in the root
+  `package.json` (`pnpm.onlyBuiltDependencies`: `@biomejs/biome`, `@swc/core`, `esbuild`, `unrs-resolver`
+  — the only four deps whose native build step our toolchain needs); pnpm blocks lifecycle scripts for
+  **every other** dependency. Verified on a clean reinstall: `@nestjs/core`, `mongodb-memory-server`, and
+  `msgpackr-extract` scripts are skipped with the full suite still green (`mongodb-memory-server` still
+  downloads its binary lazily; BullMQ/`msgpackr` use the JS fallback). Mirrors the ADR-0008 license
+  deny-by-default posture.
 - **Worker integration tests (I3 — BullMQ over real Redis).** Drives the actual producer → Redis →
   `Worker` → `handleJob` dispatch loop (`apps/worker/test/worker-jobs.int.test.ts`), not the
   framework-free unit fakes: a tenant-scoped job runs to completion, a not-yet-implemented GDPR job

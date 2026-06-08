@@ -32,10 +32,11 @@
     "typescript": "catalog:"
   },
   "pnpm": {
-    "comment": "overrides: security pins for transitive deps (Dependabot/Trivy); drop once upstreams ship fixes",
+    "comment": "overrides = security pins for transitive deps (Dependabot/Trivy), drop once upstreams ship fixes. onlyBuiltDependencies = deny-by-default install-script allowlist (ADR-0028): ONLY these may run pre/install/postinstall; every other dependency's lifecycle scripts are blocked, neutralising the npm-install backdoor vector. Keep minimal — add a package ONLY if a clean install fails without its native build step.",
     "overrides": {
       "handlebars@<4.7.9": "^4.7.9",
       "multer@<2.1.1": "^2.1.1"
-    }
+    },
+    "onlyBuiltDependencies": ["@biomejs/biome", "@swc/core", "esbuild", "unrs-resolver"]
   }
 }
