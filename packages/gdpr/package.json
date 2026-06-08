@@ -20,7 +20,7 @@
   "dependencies": {
     "@obikai/adapter-contracts": "workspace:*",
     "@obikai/domain": "workspace:*",
-    "@noble/hashes": "^1.6.1",
+    "@noble/hashes": "^2.2.0",
     "zod": "catalog:"
   },
   "devDependencies": {
