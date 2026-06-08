@@ -34,11 +34,14 @@ export type JobName = (typeof JOB_NAMES)[number];
  * are deliberately a separate vocabulary so a platform job can never be mistaken for, or routed
  * through, the tenant-scoped path that demands a `tenantId`.
  */
-export const PLATFORM_JOB_NAMES = ['billing-tick'] as const;
+export const PLATFORM_JOB_NAMES = ['billing-tick', 'reminders-tick'] as const;
 export type PlatformJobName = (typeof PLATFORM_JOB_NAMES)[number];
 
 /** The daily recurring fan-out that enqueues per-tenant billing-run + dunning (ADR-0017). */
 export const BILLING_TICK: PlatformJobName = 'billing-tick';
+
+/** The hourly recurring fan-out that enqueues a per-tenant `reminders` sweep (ADR-0017). */
+export const REMINDERS_TICK: PlatformJobName = 'reminders-tick';
 
 /** Every job name the worker may receive (tenant-scoped + platform). */
 export type AnyJobName = JobName | PlatformJobName;

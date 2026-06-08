@@ -29,7 +29,13 @@ independently via [Changesets](https://github.com/changesets/changesets).
   ladder emails the member through the shared `@obikai/notifications` service over the default SMTP
   `EmailPort` (built once at worker boot, disposed on shutdown). Best-effort — a mail failure is logged
   and counted (`noticesFailed`) but never rolls back the advance nor aborts the sweep, and the worker
-  runs notice-free when no email provider is configured (audit C2/C3).
+  runs notice-free when no email provider is configured (audit C1).
+- The worker's `reminders` job is now **implemented** (was a stub): an hourly `reminders-tick` platform
+  job fans out a per-tenant sweep that emails each booked member of every class starting within the
+  24h lead window an upcoming-class reminder (rendered in the schedule's timezone). Each booking is
+  **atomically claimed** (`Booking.reminderSentAt`, null → now) before its reminder is sent, so a
+  re-delivered job or overlapping tick reminds **at most once** — it spams nobody. The tick is only
+  registered when email is configured (no needless churn on a no-email self-host) (audit C2).
 - Architecture decision records in `docs/decisions/`.
 - GDPR remediation (begun): a per-tenant, append-only, tamper-evident audit log
   (`AuditLogRepository` in `@obikai/db`) built on the `@obikai/gdpr` hash-chain primitives — the
