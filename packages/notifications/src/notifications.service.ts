@@ -65,6 +65,13 @@ export interface EmailVerificationMessage {
   readonly expiresInHours: number;
 }
 
+/** Inputs for a member-invite message. `acceptUrl` is the deep link (null ⇒ show the raw token). */
+export interface MemberInviteMessage {
+  readonly acceptUrl: string | null;
+  readonly token: string;
+  readonly expiresInHours: number;
+}
+
 /** Common envelope fields the caller supplies for every message. */
 export interface NotificationContext {
   /** The recipient's display name, interpolated into the greeting. */
@@ -275,6 +282,38 @@ export class NotificationsService {
       ctx.dojoName,
     );
     return this.dispatch(to, rendered, { kind: 'email-verification' });
+  }
+
+  /**
+   * Send a member-invite email (onboarding). The dojo invites a member to set up a portal login; the
+   * action line is the deep link to the accept page (or the raw token when no public app URL is set).
+   */
+  async sendMemberInvite(
+    to: EmailRecipient,
+    locale: Locale,
+    message: MemberInviteMessage,
+    ctx: NotificationContext,
+  ): Promise<{ providerMessageId: string }> {
+    const catalog = this.catalogFor(locale);
+    const heading = t(catalog, 'email.invite.heading', { dojo: ctx.dojoName });
+    const body = t(catalog, 'email.invite.body', {
+      name: ctx.name,
+      dojo: ctx.dojoName,
+      hours: message.expiresInHours,
+    });
+    const action =
+      message.acceptUrl !== null
+        ? t(catalog, 'email.invite.action', { url: message.acceptUrl })
+        : t(catalog, 'email.invite.actionCode', { token: message.token });
+    const rendered = this.compose(
+      catalog,
+      'email.invite.subject',
+      { dojo: ctx.dojoName },
+      heading,
+      [body, action],
+      ctx.dojoName,
+    );
+    return this.dispatch(to, rendered, { kind: 'member-invite' });
   }
 
   /** Send a waiver-signature request (scope §4.10, §5). */

@@ -9,6 +9,17 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Member invite/onboarding backend** — staff can invite a member to set up a portal login.
+  `POST /members/:id/invite` (staff, `member:update`) mints a single-use 7-day token for a member that
+  has an email and no account, and emails the accept link; **public** `POST /invites/accept` (excluded
+  from the tenancy middleware — the tenant is resolved from the *trusted* token, never the request)
+  creates the tenant-global account, grants a `member` Membership, atomically links the member
+  (`linkUserId` CAS), marks the email verified (the link proves ownership), records the onboarding on
+  the tenant audit chain, and auto-logs-in. scrypt runs only after a valid token is consumed (no DoS
+  amplification); a replayed/expired token and an already-taken email are handled (400/409). The flow
+  was adversarially reviewed (hijack/escalation, races/orphans, enumeration/DoS). `email.invite.*`
+  en/sv copy + `NotificationsService.sendMemberInvite`. The admin Invite button + member accept page
+  build on this next.
 - **Member-invite foundation** (onboarding, first step). A tenant-global, single-use `MemberInviteToken`
   collection that *carries* its `tenantId` + `memberId` + email so the (future) public accept endpoint
   can resolve the tenant from the trusted token without a tenant context; only `sha256(token)` is stored,
