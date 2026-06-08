@@ -1,5 +1,6 @@
 import { type FormEvent, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/auth-context';
 
 /** Accessible sign-in form: labelled inputs, an aria-live error region, and a busy state. */
@@ -60,6 +61,9 @@ export function LoginPage() {
         <button type="submit" disabled={busy}>
           {t('login.submit')}
         </button>
+        <p className="auth-aside">
+          <Link to="/forgot-password">{t('login.forgot')}</Link>
+        </p>
       </form>
     </main>
   );

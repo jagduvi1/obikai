@@ -152,3 +152,38 @@ export async function logout(): Promise<void> {
     accessToken = null;
   }
 }
+
+// ── Account lifecycle (E1/E2/E3) ─────────────────────────────────────────────--
+
+/** Request a password-reset email. Always resolves (the API returns 204 whether or not the email
+ *  exists) — the caller shows the same "check your inbox" message regardless (no enumeration). */
+export async function requestPasswordReset(email: string): Promise<void> {
+  await api.post('/auth/password-reset/request', { email });
+}
+
+/** Complete a password reset with the emailed token + a new password. Throws ApiError(400) on a
+ *  bad/expired token or a weak password. */
+export async function confirmPasswordReset(token: string, password: string): Promise<void> {
+  await api.post('/auth/password-reset/confirm', { token, password });
+}
+
+/** (Re)send an email-verification link. Always resolves (204 regardless of existence). */
+export async function requestEmailVerification(email: string): Promise<void> {
+  await api.post('/auth/verify-email/request', { email });
+}
+
+/** Confirm an email address with the emailed token. Throws ApiError(400) on a bad/expired token. */
+export async function confirmEmailVerification(token: string): Promise<void> {
+  await api.post('/auth/verify-email/confirm', { token });
+}
+
+/** Change the authenticated account's password. Proves the current one, then the API revokes all
+ *  sessions and issues a fresh one — we adopt the returned access token so the caller stays signed in. */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<LoginResult> {
+  const result = await api.post<LoginResult>('/auth/password', { currentPassword, newPassword });
+  accessToken = result.accessToken;
+  return result;
+}

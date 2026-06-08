@@ -9,6 +9,13 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Account-recovery screens** in the admin SPA — closing the loop on the E1/E2/E3 backend so the
+  emailed links work end-to-end. Public routes `/forgot-password`, `/reset-password?token=…`,
+  `/verify-email?token=…` plus a change-password card in Settings; a "Forgot your password?" link on
+  sign-in. Accessible (labelled inputs, `output`/`alert` live regions), i18n (en + sv), client-side
+  password-match/length checks, and no-enumeration messaging on the forgot flow. New
+  `@obikai/api-client` methods (`requestPasswordReset`, `confirmPasswordReset`,
+  `requestEmailVerification`, `confirmEmailVerification`, `changePassword`).
 - **Email verification** (account lifecycle E2). A verification email (single-use, 24h token) is sent
   on registration and on demand via `POST /auth/verify-email/request` (always 204 — no enumeration);
   `POST /auth/verify-email/confirm` consumes the token and flips `emailVerified` on both the User and

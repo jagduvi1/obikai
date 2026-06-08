@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBillingProfile, saveBillingProfile } from '../api/settings';
+import { ChangePasswordCard } from '../components/ChangePasswordCard';
 
 type FormState = {
   legalName: string;
@@ -173,6 +174,9 @@ export function SettingsPage() {
       </form>
       {save.isError && <p className="form-error">{t('settings.saveError')}</p>}
       <output className="status">{save.isSuccess ? t('settings.saved') : ''}</output>
+
+      <hr />
+      <ChangePasswordCard />
     </section>
   );
 }

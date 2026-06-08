@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '../auth/auth-context';
 import { ClassesPage } from '../pages/ClassesPage';
 import { DisciplinesPage } from '../pages/DisciplinesPage';
+import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { LocationsPage } from '../pages/LocationsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MemberDetailPage } from '../pages/MemberDetailPage';
@@ -10,7 +11,9 @@ import { MembersPage } from '../pages/MembersPage';
 import { OccurrenceDetailPage } from '../pages/OccurrenceDetailPage';
 import { OccurrencesPage } from '../pages/OccurrencesPage';
 import { PlansPage } from '../pages/PlansPage';
+import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SettingsPage } from '../pages/SettingsPage';
+import { VerifyEmailPage } from '../pages/VerifyEmailPage';
 import { Layout } from './Layout';
 
 /** Gate that waits for the silent-refresh check, then admits or bounces to /login. */
@@ -29,6 +32,10 @@ export function App() {
         path="/login"
         element={status === 'authenticated' ? <Navigate to="/members" replace /> : <LoginPage />}
       />
+      {/* Public, unauthenticated account-recovery routes (reached from emailed links). */}
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/verify-email" element={<VerifyEmailPage />} />
       <Route
         path="/members"
         element={
