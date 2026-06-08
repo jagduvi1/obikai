@@ -14,6 +14,7 @@ import type {
   TrackId,
   VersionId,
 } from './ids.js';
+import { type LocalizedString, localizedStringSchema } from './locale.js';
 import type { Instant } from './result.js';
 
 /**
@@ -285,8 +286,9 @@ export type ValidationResult =
 export interface Discipline {
   readonly id: DisciplineId;
   readonly tenantId: TenantId;
-  readonly name: string;
-  readonly description: string | null;
+  /** Translatable display name (i18n H4, ADR-0029) — resolved per viewer locale in the SPA. */
+  readonly name: LocalizedString;
+  readonly description: LocalizedString | null;
   readonly presentation: PresentationStyle;
   readonly active: boolean;
   readonly createdAt: string;
@@ -348,8 +350,9 @@ export interface CurriculumItem {
   readonly disciplineId: DisciplineId;
   /** The engine-facing item id used inside a ProgressionSystemVersion's curricula. */
   readonly itemKey: string;
-  readonly label: string;
-  readonly description: string | null;
+  /** Translatable label/description (i18n H4, ADR-0029) — resolved per viewer locale in the SPA. */
+  readonly label: LocalizedString;
+  readonly description: LocalizedString | null;
   readonly mediaRef: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -391,8 +394,8 @@ export interface Promotion {
 const presentationEnum = z.enum(['belt', 'sash', 'armband', 'level', 'tier', 'none']);
 
 export const disciplineCreateSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().nullable().optional(),
+  name: localizedStringSchema,
+  description: localizedStringSchema.nullable().optional(),
   presentation: presentationEnum.default('belt'),
   active: z.boolean().default(true),
 });
@@ -420,8 +423,8 @@ export type GradingResultCreateInput = z.infer<typeof gradingResultCreateSchema>
 export const curriculumItemCreateSchema = z.object({
   disciplineId: z.string().min(1),
   itemKey: z.string().min(1),
-  label: z.string().min(1),
-  description: z.string().nullable().optional(),
+  label: localizedStringSchema,
+  description: localizedStringSchema.nullable().optional(),
   mediaRef: z.string().min(1).nullable().optional(),
 });
 export type CurriculumItemCreateInput = z.infer<typeof curriculumItemCreateSchema>;

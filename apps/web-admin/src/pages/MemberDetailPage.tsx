@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, type Locale, resolveLocalized } from '@obikai/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -55,8 +56,15 @@ export function MemberDetailPage() {
 
   const invite = useMutation({ mutationFn: () => inviteMember(id) });
 
-  const nameOf = (disciplineId: string) =>
-    disciplines.data?.find((d) => d.id === disciplineId)?.name ?? disciplineId;
+  // Discipline names are translatable (H4) — resolve to the viewer's locale.
+  const viewer = (i18n.resolvedLanguage ?? i18n.language) as Locale;
+  const nameOf = (disciplineId: string) => {
+    const d = disciplines.data?.find((x) => x.id === disciplineId);
+    return d
+      ? (resolveLocalized(d.name, { requested: viewer, defaultLocale: DEFAULT_LOCALE }) ??
+          disciplineId)
+      : disciplineId;
+  };
   const enrolledIds = new Set((rankStates.data ?? []).map((s) => s.disciplineId));
   const enrollable = (disciplines.data ?? []).filter((d) => !enrolledIds.has(d.id));
 
@@ -137,7 +145,7 @@ export function MemberDetailPage() {
             <option value="">{t('rank.selectDiscipline')}</option>
             {enrollable.map((d) => (
               <option key={d.id} value={d.id}>
-                {d.name}
+                {nameOf(d.id)}
               </option>
             ))}
           </select>

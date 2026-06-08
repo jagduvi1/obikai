@@ -121,17 +121,17 @@ describe('CurriculumService items', () => {
     const item = await svc.createItem(instructor, {
       disciplineId: 'disc1',
       itemKey: 'armbar',
-      label: 'Armbar',
+      label: { en: 'Armbar' },
     });
     expect(item.itemKey).toBe('armbar');
     expect(await svc.listItems(instructor, { disciplineId: 'disc1' })).toHaveLength(1);
-    const updated = await svc.updateItem(instructor, item.id, { label: 'Juji-gatame' });
-    expect(updated.label).toBe('Juji-gatame');
+    const updated = await svc.updateItem(instructor, item.id, { label: { en: 'Juji-gatame' } });
+    expect(updated.label.en).toBe('Juji-gatame');
   });
 
   it('updateItem throws NotFound for a missing item', async () => {
     const { svc } = make();
-    await expect(svc.updateItem(instructor, 'nope', { label: 'x' })).rejects.toBeInstanceOf(
+    await expect(svc.updateItem(instructor, 'nope', { label: { en: 'x' } })).rejects.toBeInstanceOf(
       NotFoundError,
     );
   });
@@ -139,7 +139,7 @@ describe('CurriculumService items', () => {
   it('denies a member from authoring', async () => {
     const { svc } = make();
     await expect(
-      svc.createItem(selfMember, { disciplineId: 'd', itemKey: 'k', label: 'L' }),
+      svc.createItem(selfMember, { disciplineId: 'd', itemKey: 'k', label: { en: 'L' } }),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

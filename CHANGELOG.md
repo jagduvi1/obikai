@@ -9,6 +9,14 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Translatable rank/curriculum content (i18n H4, ADR-0029).** Dojo-authored display content is now
+  `LocalizedString`: `Discipline.name`/`description` and `CurriculumItem.label`/`description`. These are
+  app-layer entities, fully decoupled from the immutable rank `versionId` (the engine's versioned config
+  is pure structure — no human strings), so **no engine/versioning change and no `versionId` migration**.
+  The API returns the raw `LocalizedString`; the SPAs resolve it to the viewer's locale via
+  `resolveLocalized` (admin disciplines/classes/member-detail, member progress). The admin disciplines
+  form authors a **name per locale**. A forward-only `migrate-mongo` migration wraps any existing string
+  as `{ en: value }`. Untranslated content falls back gracefully (requested → tenant default → en).
 - **Upgrade `@noble/hashes` 1 → 2 (rank-engine + gdpr), byte-identically.** v2 reorganised its API:
   `sha256` moved to `@noble/hashes/sha2.js` (subpaths now require the `.js` extension) and no longer
   accepts a string (the implicit UTF-8 encode was removed — we now `utf8ToBytes(...)` explicitly, which

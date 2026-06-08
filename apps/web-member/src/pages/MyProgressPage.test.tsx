@@ -7,7 +7,7 @@ import { MyProgressPage } from './MyProgressPage';
 vi.mock('../api/member-data', () => ({
   getMe: vi.fn().mockResolvedValue({ userId: 'u1', memberId: 'm1', roles: [] }),
   myRankStates: vi.fn().mockResolvedValue([{ id: 'rs1', disciplineId: 'd1' } as MemberRankState]),
-  myDisciplines: vi.fn().mockResolvedValue([{ id: 'd1', name: 'BJJ' } as Discipline]),
+  myDisciplines: vi.fn().mockResolvedValue([{ id: 'd1', name: { en: 'BJJ' } } as Discipline]),
   myEligibility: vi.fn().mockResolvedValue({
     systemVersionId: 'v1',
     evaluatedAt: { epochMs: 0 },

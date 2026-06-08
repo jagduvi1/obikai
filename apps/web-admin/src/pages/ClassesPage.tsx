@@ -1,3 +1,9 @@
+import {
+  DEFAULT_LOCALE,
+  type Locale,
+  type LocalizedString,
+  resolveLocalized,
+} from '@obikai/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +28,11 @@ const MATERIALIZE_HORIZON_DAYS = 28;
  * live on their own page.
  */
 export function ClassesPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // Discipline names are translatable (H4) — resolve to the viewer's locale.
+  const viewer = (i18n.resolvedLanguage ?? i18n.language) as Locale;
+  const resolveName = (v: LocalizedString) =>
+    resolveLocalized(v, { requested: viewer, defaultLocale: DEFAULT_LOCALE }) ?? '';
   const qc = useQueryClient();
 
   const disciplines = useQuery({
@@ -166,7 +176,7 @@ export function ClassesPage() {
               <option value="">{t('classes.none')}</option>
               {(disciplines.data ?? []).map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.name}
+                  {resolveName(d.name)}
                 </option>
               ))}
             </select>
@@ -210,8 +220,9 @@ export function ClassesPage() {
                   <td>{p.name}</td>
                   <td>
                     {p.disciplineId
-                      ? ((disciplines.data ?? []).find((d) => d.id === p.disciplineId)?.name ??
-                        p.disciplineId)
+                      ? resolveName(
+                          (disciplines.data ?? []).find((d) => d.id === p.disciplineId)?.name ?? {},
+                        ) || p.disciplineId
                       : '—'}
                   </td>
                   <td>{p.active ? t('common.yes') : t('common.no')}</td>

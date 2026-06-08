@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, type Locale, resolveLocalized } from '@obikai/domain';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,7 +12,8 @@ import { MyEligibility } from '../components/MyEligibility';
 
 /** "My progress": the member's own rank eligibility per discipline + their promotion history. */
 export function MyProgressPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const viewer = (i18n.resolvedLanguage ?? i18n.language) as Locale;
   const me = useQuery({ queryKey: ['me'], queryFn: getMe });
   const memberId = me.data?.memberId ?? null;
 
@@ -21,7 +23,13 @@ export function MyProgressPage() {
     enabled: !!memberId,
   });
   const disciplines = useQuery({ queryKey: ['disciplines'], queryFn: myDisciplines });
-  const nameOf = (id: string) => disciplines.data?.find((d) => d.id === id)?.name ?? id;
+  // Discipline names are translatable (H4) — resolve to the viewer's locale, fall back to the id.
+  const nameOf = (id: string) => {
+    const d = disciplines.data?.find((x) => x.id === id);
+    return d
+      ? (resolveLocalized(d.name, { requested: viewer, defaultLocale: DEFAULT_LOCALE }) ?? id)
+      : id;
+  };
 
   return (
     <section aria-labelledby="progress-heading">

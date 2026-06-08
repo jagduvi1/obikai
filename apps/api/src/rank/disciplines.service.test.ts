@@ -69,8 +69,8 @@ const member = actor({ roles: [{ role: 'member', locationScope: 'ALL' }] });
 describe('DisciplinesService', () => {
   it('owner creates, lists, gets, and updates', async () => {
     const svc = new DisciplinesService(new FakeStore());
-    const d = await svc.create(owner, { name: 'BJJ', presentation: 'belt', active: true });
-    expect(d.name).toBe('BJJ');
+    const d = await svc.create(owner, { name: { en: 'BJJ' }, presentation: 'belt', active: true });
+    expect(d.name.en).toBe('BJJ');
     expect(await svc.get(owner, d.id)).toEqual(d);
     const updated = await svc.update(owner, d.id, { active: false });
     expect(updated.active).toBe(false);
@@ -80,11 +80,11 @@ describe('DisciplinesService', () => {
   it('instructor may read/list but NOT create or update', async () => {
     const store = new FakeStore();
     const svc = new DisciplinesService(store);
-    const d = await svc.create(owner, { name: 'Judo', presentation: 'belt', active: true });
-    expect((await svc.list(instructor)).map((x) => x.name)).toEqual(['Judo']);
+    const d = await svc.create(owner, { name: { en: 'Judo' }, presentation: 'belt', active: true });
+    expect((await svc.list(instructor)).map((x) => x.name.en)).toEqual(['Judo']);
     expect(await svc.get(instructor, d.id)).toBeTruthy();
     await expect(
-      svc.create(instructor, { name: 'X', presentation: 'belt', active: true }),
+      svc.create(instructor, { name: { en: 'X' }, presentation: 'belt', active: true }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     await expect(svc.update(instructor, d.id, { active: false })).rejects.toBeInstanceOf(
       ForbiddenError,
@@ -94,13 +94,13 @@ describe('DisciplinesService', () => {
   it('a member may read/list disciplines (shared reference) but not create or update', async () => {
     const store = new FakeStore();
     const svc = new DisciplinesService(store);
-    const d = await svc.create(owner, { name: 'BJJ', presentation: 'belt', active: true });
+    const d = await svc.create(owner, { name: { en: 'BJJ' }, presentation: 'belt', active: true });
     // Members can see the dojo's disciplines (reference data), like classes/announcements.
     expect(await svc.list(member)).toHaveLength(1);
     expect(await svc.get(member, d.id)).toBeTruthy();
     // But never author them.
     await expect(
-      svc.create(member, { name: 'X', presentation: 'belt', active: true }),
+      svc.create(member, { name: { en: 'X' }, presentation: 'belt', active: true }),
     ).rejects.toBeInstanceOf(ForbiddenError);
     await expect(svc.update(member, d.id, { active: false })).rejects.toBeInstanceOf(
       ForbiddenError,
