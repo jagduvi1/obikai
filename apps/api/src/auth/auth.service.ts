@@ -46,6 +46,16 @@ export interface PasswordResetRequest {
   readonly expiresAt: string;
 }
 
+/**
+ * Fast one-way hash for STORING/looking-up a high-entropy bearer token (the password-reset token is a
+ * 256-bit `randomBytes` value). It is deliberately NOT a slow KDF: a memory-hard KDF exists to make
+ * per-guess cost prohibitive for LOW-entropy human passwords, and buys nothing against a 2^256 keyspace
+ * — while adding CPU to an unauthenticated endpoint (a DoS amplifier). The actual user password is
+ * slow-hashed (scrypt/argon2id) inside the auth-local adapter via `auth.setPassword`, which is the
+ * correct home for the KDF. This mirrors the refresh-token hashing in token.service.ts. CodeQL's
+ * `js/insufficient-password-hash` here is a name-driven false positive (see ADR-0027); the value is a
+ * token, never a password.
+ */
 function sha256Hex(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
