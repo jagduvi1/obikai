@@ -1,8 +1,8 @@
 /**
- * Queue + job-name vocabulary for the Obikai background worker (ADR-0001 dedicated worker;
- * runs in-process in self-host when `runWorkerInProcess` is set). Declared ONCE here and
- * imported by both the producer (api) and the consumer (worker) so a typo in a job name is a
- * compile error rather than a silently dropped job.
+ * Queue + job-name vocabulary for the Obikai background worker (ADR-0001 dedicated worker — runs as
+ * its own process/container; an in-process self-host mode is reserved but not yet implemented).
+ * Declared ONCE here and imported by both the producer (api) and the consumer (worker) so a typo in
+ * a job name is a compile error rather than a silently dropped job.
  *
  * Every job MUST carry `tenantId` in its payload — the processor opens an explicit tenant
  * context via `runInTenantContext` (ADR-0004/0006/0007); ambient/"all tenants" access is never

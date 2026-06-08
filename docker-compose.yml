@@ -12,9 +12,9 @@
 #
 # Container names are prefixed `obikai-` (Glosan convention). Every long-running
 # service: restart unless-stopped, a healthcheck, a memory limit, runs non-root,
-# named volumes for state. Note: in self-host single-box mode RUN_WORKER_IN_PROCESS
-# defaults true, so the `worker` service is optional — start it only when you scale
-# jobs out of the api process.
+# named volumes for state. The `worker` service processes ALL scheduled/background jobs
+# (recurring billing, dunning, reminders) and is REQUIRED — `docker compose up` starts it
+# alongside the api. (Hosting the worker inside the api process is not yet implemented.)
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:

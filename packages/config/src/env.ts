@@ -40,7 +40,10 @@ export const EnvSchema = z
 
     MONGO_URI: z.string().min(1),
     REDIS_URL: z.string().min(1),
-    RUN_WORKER_IN_PROCESS: boolish.default(true),
+    // The background worker runs as its OWN process/container (started by `docker compose up`).
+    // Hosting it inside the api process is not yet implemented, so this defaults false; do not rely
+    // on it to run jobs in the api. (Reserved for a future in-process self-host mode — ADR-0017.)
+    RUN_WORKER_IN_PROCESS: boolish.default(false),
 
     AUTH_JWT_SECRET: z
       .string()
