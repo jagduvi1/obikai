@@ -27,7 +27,7 @@
     "@typescript-eslint/parser": "^8.18.0",
     "eslint": "^9.17.0",
     "eslint-import-resolver-typescript": "^3.7.0",
-    "eslint-plugin-boundaries": "^5.0.1",
+    "eslint-plugin-boundaries": "^6.0.2",
     "turbo": "^2.3.3",
     "typescript": "catalog:"
   },
