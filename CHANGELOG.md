@@ -9,6 +9,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Waivers admin UI** — the waiver-templates backend (versioned templates, signatures) had no UI. A
+  Waivers page (+ nav item) lists templates with their version/status, creates a new one (title +
+  markdown body + "guardian must sign for minors"), and activates/deactivates a template. Editing the
+  text mints a new version server-side; existing signatures stay pinned. New `@obikai/api-client`-backed
+  waivers binding; i18n. The member-facing signing flow is the follow-up.
 - **Member invite/onboarding UI** — completes onboarding end-to-end. An "Invite to portal" button on
   the admin member detail page (shown when the member has an email and no account; "Has a portal
   account" once linked) and a public `/accept-invite?token=…` page in the member portal where the

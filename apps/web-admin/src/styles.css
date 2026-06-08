@@ -350,6 +350,12 @@ progress {
   flex-wrap: wrap;
   margin: 0.5rem 0;
 }
+/* A checkbox with its label inline (e.g. "A guardian must sign for minors"). */
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 .field-row {
   display: flex;
   gap: 0.75rem;
