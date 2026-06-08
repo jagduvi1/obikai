@@ -7,6 +7,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SessionModel, UserModel } from '../src/auth.js';
+import { ConsentModel } from '../src/consent.js';
 import { buildExportBundle } from '../src/export-service.js';
 import { MemberModel } from '../src/member.js';
 import { buildRopaRegistry } from '../src/ropa.js';
@@ -37,7 +38,7 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const c of ['members', 'bookings', 'users', 'sessions']) {
+  for (const c of ['members', 'bookings', 'users', 'sessions', 'consents']) {
     await mongoose.connection.collection(c).deleteMany({});
   }
 });
@@ -74,6 +75,19 @@ describe('buildExportBundle', () => {
       ip: '203.0.113.5',
       userAgent: 'Mozilla/5.0',
     });
+    await runInTenantContext(ctx('t1'), () =>
+      ConsentModel.create({
+        subjectId: userId,
+        purpose: 'marketing-email',
+        lawfulBasis: 'consent',
+        status: 'granted',
+        policyVersion: '2026-06-01',
+        grantedAt: new Date('2026-06-06'),
+        withdrawnAt: null,
+        source: 'self-service',
+        evidence: { ip: '203.0.113.5' },
+      }),
+    );
 
     const bundle = await runInTenantContext(ctx('t1'), () =>
       buildExportBundle(registry, { tenantId: 't1', memberId, userId, now: 1_700_000_000_000 }),
@@ -90,6 +104,12 @@ describe('buildExportBundle', () => {
     expect(byModel.get('session')?.records[0]).toMatchObject({
       ip: '203.0.113.5',
       userAgent: 'Mozilla/5.0',
+    });
+    // Consent history (Art. 15) — the subject's own consent + evidence is included.
+    expect(byModel.get('consent')?.records[0]).toMatchObject({
+      purpose: 'marketing-email',
+      status: 'granted',
+      policyVersion: '2026-06-01',
     });
     // Secrets are never exported.
     expect(JSON.stringify(bundle)).not.toContain('secret-hash');
