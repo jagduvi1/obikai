@@ -25,6 +25,7 @@ import { GradingEventsModule } from './rank/grading-events.module.js';
 import { MemberRankStatesModule } from './rank/member-rank-states.module.js';
 import { PromotionsModule } from './rank/promotions.module.js';
 import { RankSystemsModule } from './rank/rank-systems.module.js';
+import { ReportingModule } from './reporting/reporting.module.js';
 import { SchedulingModule } from './scheduling/scheduling.module.js';
 import { BillingProfileModule } from './settings/billing-profile.module.js';
 import { StorageModule } from './storage/storage.module.js';
@@ -48,6 +49,7 @@ import { WaiversModule } from './waivers/waivers.module.js';
     DataRightsModule,
     MembersModule,
     MessagesModule,
+    ReportingModule,
     HouseholdsModule,
     LocationsModule,
     VatRatesModule,
