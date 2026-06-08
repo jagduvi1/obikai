@@ -9,6 +9,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Swedish UI: admin complete (i18n H1, part 2).** The admin console is now fully Swedish — every
+  namespace (members, disciplines, classes/programs/schedules, schedule/occurrences, locations, plans,
+  waivers, billing settings, member invoices, and rank/grading). With member + platform (part 1), all
+  three SPAs are **100% Swedish**, each enforced by a completeness test that fails CI on any untranslated
+  key. nb/da/fi remain English-fallback stubs pending a native-speaker pass.
 - **Swedish UI: member + platform complete (i18n H1, part 1).** The member PWA and the platform console
   are now fully translated to Swedish (every UI key — progress, invoices, tenants, tenant, audit, status,
   nav, auth). A per-app **completeness test** asserts the `sv` bundle covers every English key, so a
