@@ -253,4 +253,38 @@ describe('BookingRepository', () => {
     );
     expect(waitlist.map((b) => b.memberId)).toEqual(['m2', 'm3']);
   });
+
+  it('a new booking starts with reminderSentAt null', async () => {
+    const b = await runInTenantContext(ctx('t1'), () =>
+      bookings.create({
+        occurrenceId: 'occ1',
+        memberId: 'm1',
+        status: 'booked',
+        bookedAt: '2026-06-06T00:00:00.000Z',
+      }),
+    );
+    expect(b.reminderSentAt).toBeNull();
+  });
+
+  it('claimForReminder stamps reminderSentAt once (atomic CAS) — the second claim returns null', async () => {
+    const b = await runInTenantContext(ctx('t1'), () =>
+      bookings.create({
+        occurrenceId: 'occ1',
+        memberId: 'm1',
+        status: 'booked',
+        bookedAt: '2026-06-06T00:00:00.000Z',
+      }),
+    );
+    // First claim wins → stamped with the supplied instant.
+    const claimed = await runInTenantContext(ctx('t1'), () =>
+      bookings.claimForReminder(b.id, '2026-06-06T09:00:00.000Z'),
+    );
+    expect(claimed?.reminderSentAt).toBe('2026-06-06T09:00:00.000Z');
+    // Second claim is a no-op (already stamped) → null. This is what stops a re-delivered/overlapping
+    // reminders sweep from double-sending.
+    const again = await runInTenantContext(ctx('t1'), () =>
+      bookings.claimForReminder(b.id, '2026-06-06T10:00:00.000Z'),
+    );
+    expect(again).toBeNull();
+  });
 });

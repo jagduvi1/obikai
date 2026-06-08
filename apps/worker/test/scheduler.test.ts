@@ -5,6 +5,7 @@ import {
   type JobLog,
   type TenantSource,
   runBillingTick,
+  runRemindersTick,
 } from '../src/scheduler.js';
 
 /** Records every enqueue so we can assert the fan-out shape (N tenants → 2N tenant-scoped jobs). */
@@ -68,6 +69,39 @@ describe('runBillingTick', () => {
     // t2 fails on its first enqueue (billing-run); t1 and t3 each produce their 2 jobs.
     expect(r).toEqual({ tenants: 3, enqueued: 4, failed: 1 });
     expect(calls.map((c) => c.tenantId)).toEqual(['t1', 't1', 't3', 't3']);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]?.meta?.tenantId).toBe('t2');
+  });
+});
+
+describe('runRemindersTick', () => {
+  it('fans out exactly one reminders job per active tenant', async () => {
+    const { enqueuer, calls } = makeEnqueuer();
+    const { log } = makeLog();
+    const r = await runRemindersTick(source(['t1', 't2']), enqueuer, log);
+
+    expect(r).toEqual({ tenants: 2, enqueued: 2, failed: 0 });
+    expect(calls).toEqual([
+      { name: 'reminders', tenantId: 't1' },
+      { name: 'reminders', tenantId: 't2' },
+    ]);
+  });
+
+  it('does nothing when there are no active tenants', async () => {
+    const { enqueuer, calls } = makeEnqueuer();
+    const { log } = makeLog();
+    const r = await runRemindersTick(source([]), enqueuer, log);
+    expect(r).toEqual({ tenants: 0, enqueued: 0, failed: 0 });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('isolates a failing tenant: logs it and keeps fanning out the rest', async () => {
+    const { enqueuer, calls } = makeEnqueuer('t2');
+    const { log, lines } = makeLog();
+    const r = await runRemindersTick(source(['t1', 't2', 't3']), enqueuer, log);
+
+    expect(r).toEqual({ tenants: 3, enqueued: 2, failed: 1 });
+    expect(calls.map((c) => c.tenantId)).toEqual(['t1', 't3']);
     expect(lines).toHaveLength(1);
     expect(lines[0]?.meta?.tenantId).toBe('t2');
   });

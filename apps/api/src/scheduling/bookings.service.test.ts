@@ -24,6 +24,7 @@ class FakeBookingsStore implements BookingsStore {
       memberId: input.memberId as Booking['memberId'],
       status: input.status,
       bookedAt: input.bookedAt,
+      reminderSentAt: null,
       createdAt: now,
       updatedAt: now,
     };

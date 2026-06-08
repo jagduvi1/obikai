@@ -385,6 +385,7 @@ export interface BookingDoc extends TenantScoped {
   memberId: string;
   status: BookingStatus;
   bookedAt: string;
+  reminderSentAt: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -395,6 +396,7 @@ const bookingSchema = new Schema<BookingDoc>(
     memberId: { type: String, required: true },
     status: { type: String, required: true, default: 'booked' },
     bookedAt: { type: String, required: true },
+    reminderSentAt: { type: String, default: null },
   },
   { timestamps: true },
 );
@@ -417,6 +419,7 @@ export function toBooking(doc: BookingDoc): Booking {
     memberId: doc.memberId as Booking['memberId'],
     status: doc.status,
     bookedAt: doc.bookedAt,
+    reminderSentAt: doc.reminderSentAt ?? null,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };
@@ -503,6 +506,26 @@ export class BookingRepository {
       .findOneAndUpdate(
         { _id: String(id), status: 'waitlisted' },
         { $set: { status: 'booked' } },
+        { new: true },
+      )
+      .lean<BookingDoc>()
+      .exec();
+    return doc ? toBooking(doc) : null;
+  }
+
+  /**
+   * Atomically CLAIM this booking for a class reminder by stamping `reminderSentAt` from null → `now`,
+   * but only if it has not already been claimed. Returns the claimed booking, or null if a concurrent
+   * (or re-delivered) reminders sweep already claimed it. The worker claims BEFORE sending, so a
+   * retried/re-ticked job sends a reminder at most once — it never spams; at worst it misses one if the
+   * send fails after the claim (an acceptable trade for a reminder). Same compare-and-swap as
+   * `promoteIfWaitlisted`.
+   */
+  async claimForReminder(id: string, now: string): Promise<Booking | null> {
+    const doc = await this.model
+      .findOneAndUpdate(
+        { _id: String(id), reminderSentAt: null },
+        { $set: { reminderSentAt: now } },
         { new: true },
       )
       .lean<BookingDoc>()

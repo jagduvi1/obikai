@@ -14,8 +14,20 @@
  */
 import { type SmtpConfig, SmtpEmailProvider } from '@obikai/adapter-email-smtp';
 import type { AppConfig } from '@obikai/config';
-import { MemberRepository, TenantRegistryRepository } from '@obikai/db';
-import { DEFAULT_LOCALE, type Invoice, type Locale } from '@obikai/domain';
+import {
+  ClassScheduleRepository,
+  LocationRepository,
+  MemberRepository,
+  ProgramRepository,
+  TenantRegistryRepository,
+} from '@obikai/db';
+import {
+  type Booking,
+  type ClassOccurrence,
+  DEFAULT_LOCALE,
+  type Invoice,
+  type Locale,
+} from '@obikai/domain';
 import { EMAIL_CATALOGS, NotificationsService } from '@obikai/notifications';
 
 type Log = (msg: string, meta?: Record<string, unknown>) => void;
@@ -28,6 +40,12 @@ export interface WorkerNotifier {
    * Resolves quietly (logs) when the member has no email on file — there is simply no one to notify.
    */
   dunningNotice(tenantId: string, invoice: Invoice): Promise<void>;
+  /**
+   * Email the booked member their upcoming-class reminder. Runs inside the occurrence's already-open
+   * tenant context, so the program/location/schedule/member lookups are tenant-scoped. Returns false
+   * when the member has no email on file (nothing was sent); true when a reminder was dispatched.
+   */
+  classReminder(tenantId: string, occurrence: ClassOccurrence, booking: Booking): Promise<boolean>;
   /** Close the underlying SMTP transport. */
   dispose(): Promise<void>;
 }
@@ -65,6 +83,9 @@ export async function buildWorkerNotifier(
   const notifications = new NotificationsService(provider, EMAIL_CATALOGS);
   const members = new MemberRepository();
   const tenants = new TenantRegistryRepository();
+  const programs = new ProgramRepository();
+  const locations = new LocationRepository();
+  const schedules = new ClassScheduleRepository();
 
   return {
     async dunningNotice(tenantId: string, invoice: Invoice): Promise<void> {
@@ -94,6 +115,48 @@ export async function buildWorkerNotifier(
         { name, dojoName, tenantDefaultLocale: locale },
       );
     },
+
+    async classReminder(
+      tenantId: string,
+      occurrence: ClassOccurrence,
+      booking: Booking,
+    ): Promise<boolean> {
+      const member = await members.findById(booking.memberId);
+      if (!member?.email) {
+        log('reminders: member has no email; skipped', {
+          occurrenceId: occurrence.id,
+          memberId: booking.memberId,
+        });
+        return false;
+      }
+      // Resolve the occurrence's display context once. The schedule supplies the dojo-local timezone
+      // so the class time renders in the member's expected wall-clock, not UTC.
+      const [program, location, schedule, tenant] = await Promise.all([
+        programs.findById(occurrence.programId),
+        locations.findById(occurrence.locationId),
+        schedules.findById(occurrence.scheduleId),
+        tenants.findBySlug(tenantId),
+      ]);
+      const name = `${member.firstName} ${member.lastName}`.trim() || member.email;
+      const locale: Locale = DEFAULT_LOCALE; // TODO: per-tenant default locale once modelled.
+      await notifications.sendClassReminder(
+        { email: member.email, name },
+        locale,
+        {
+          programName: program?.name ?? 'class',
+          locationName: location?.name ?? '',
+          startsAt: occurrence.startsAt,
+        },
+        {
+          name,
+          dojoName: tenant?.name ?? tenantId,
+          tenantDefaultLocale: locale,
+          ...(schedule?.timezone ? { timeZone: schedule.timezone } : {}),
+        },
+      );
+      return true;
+    },
+
     async dispose(): Promise<void> {
       await provider.dispose();
     },

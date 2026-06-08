@@ -23,7 +23,7 @@ import {
   runAsPlatform,
   runInTenantContext,
 } from '@obikai/db';
-import type { Invoice } from '@obikai/domain';
+import type { Booking, ClassOccurrence, Invoice } from '@obikai/domain';
 import { type ConnectionOptions, type Job, Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { makeBillingDeps, runBillingForTenant, runDunningForTenant } from './billing-jobs.js';
@@ -34,8 +34,19 @@ import {
   type BaseJobData,
   JOBS_QUEUE,
   type JobName,
+  REMINDERS_TICK,
 } from './queues.js';
-import { BILLING_TICK_CRON, runBillingTick } from './scheduler.js';
+import { makeReminderDeps, runRemindersForTenant } from './reminders-jobs.js';
+import {
+  BILLING_TICK_CRON,
+  REMINDERS_TICK_CRON,
+  runBillingTick,
+  runRemindersTick,
+} from './scheduler.js';
+
+/** How far ahead a class reminder reaches: members booked into a class starting within this window
+ *  get reminded (once). 24h is the default lead; the hourly tick catches short-notice bookings. */
+const REMINDER_LEAD_MS = 24 * 60 * 60 * 1_000;
 
 /**
  * Minimal structured logger. We avoid `console.log` (lint-forbidden) and depend on no logging
@@ -98,6 +109,21 @@ async function handleJob(job: Job<AnyJobData>, deps: JobDeps): Promise<void> {
     return;
   }
 
+  if (job.name === REMINDERS_TICK) {
+    await runAsPlatform(async () => {
+      const registry = new TenantRegistryRepository();
+      const tickLog = (msg: string, meta?: Record<string, unknown>): void =>
+        log.error(msg, { ...meta, jobId: job.id });
+      const result = await runRemindersTick(
+        { listActiveSlugs: async () => (await registry.listActive()).map((tenant) => tenant.slug) },
+        { enqueue },
+        tickLog,
+      );
+      log.info('reminders-tick', { jobId: job.id, ...result });
+    });
+    return;
+  }
+
   // ── Tenant-scoped jobs — require a tenantId, run in tenant context ────────────────────────────
   const { tenantId } = job.data as BaseJobData;
   if (!tenantId) {
@@ -144,10 +170,29 @@ async function handleJob(job: Job<AnyJobData>, deps: JobDeps): Promise<void> {
         log.info('dunning', { tenantId, jobId: job.id, ...result });
         return;
       }
-      case 'reminders':
-        // Send class/payment/grading reminders via the configured email/sms adapters. STUB.
-        log.info('reminders', { tenantId, jobId: job.id });
+      case 'reminders': {
+        // Email each booked member of every class starting within the lead window, once (the booking
+        // is claimed before its reminder is sent — at-most-once). No-op when mail isn't configured.
+        if (!notifier) {
+          log.info('reminders skipped: no notifier', { tenantId, jobId: job.id });
+          return;
+        }
+        const { occurrences, roster } = makeReminderDeps();
+        const sender = {
+          classReminder: (occ: ClassOccurrence, bk: Booking): Promise<boolean> =>
+            notifier.classReminder(tenantId, occ, bk),
+        };
+        const result = await runRemindersForTenant(
+          occurrences,
+          roster,
+          sender,
+          now,
+          REMINDER_LEAD_MS,
+          jobLog,
+        );
+        log.info('reminders', { tenantId, jobId: job.id, ...result });
         return;
+      }
       case 'eligibility-recompute':
         // Re-run the pure rank engine to refresh members' "ready/close/not-yet" eligibility after
         // attendance/curriculum changes (ADR-0005). STUB.
@@ -247,8 +292,29 @@ async function main(): Promise<void> {
     },
   );
 
+  // Register the hourly reminders-tick ONLY when mail is configured — without a notifier the per-tenant
+  // sweeps would fan out hourly only to no-op, needless Redis churn on a no-email self-host (ADR-0017).
+  if (notifier) {
+    await queue.upsertJobScheduler(
+      REMINDERS_TICK,
+      { pattern: REMINDERS_TICK_CRON },
+      {
+        name: REMINDERS_TICK,
+        opts: {
+          attempts: 2,
+          backoff: { type: 'exponential', delay: 5_000 },
+          removeOnComplete: { age: 24 * 3_600, count: 100 },
+          removeOnFail: { age: 14 * 24 * 3_600 },
+        },
+      },
+    );
+  }
+
   log.info('worker started', { queue: JOBS_QUEUE, deployMode: config.deployMode });
   log.info('scheduler registered', { job: BILLING_TICK, cron: BILLING_TICK_CRON });
+  if (notifier) {
+    log.info('scheduler registered', { job: REMINDERS_TICK, cron: REMINDERS_TICK_CRON });
+  }
 
   // Graceful shutdown: stop accepting new jobs, let in-flight jobs finish, close the connections.
   let shuttingDown = false;

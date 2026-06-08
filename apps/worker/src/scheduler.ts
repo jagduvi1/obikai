@@ -12,8 +12,13 @@ import type { BaseJobData, JobName } from './queues.js';
  * TenantRegistryRepository (under runAsPlatform) and a BullMQ-backed enqueuer.
  */
 
-/** Default cron for the daily fan-out: 02:00 every day (server-local to the worker's TZ). */
+/** Default cron for the daily billing fan-out: 02:00 every day (server-local to the worker's TZ). */
 export const BILLING_TICK_CRON = '0 2 * * *';
+
+/** Default cron for the reminders fan-out: top of every hour. Frequent enough that a class booked at
+ *  short notice still falls inside the next sweep's lead window; the per-booking claim keeps it
+ *  at-most-once regardless of how often the tick runs. */
+export const REMINDERS_TICK_CRON = '0 * * * *';
 
 /** Source of the active tenants to fan out to (backed by TenantRegistryRepository.listActive). */
 export interface TenantSource {
@@ -59,6 +64,38 @@ export async function runBillingTick(
     } catch (err) {
       failed++;
       log('billing-tick: tenant fan-out failed', { tenantId: slug, error: errMsg(err) });
+    }
+  }
+  return { tenants: slugs.length, enqueued, failed };
+}
+
+export interface RemindersTickResult {
+  tenants: number;
+  enqueued: number;
+  failed: number;
+}
+
+/**
+ * Fan out the hourly class-reminder work: for every active tenant, enqueue one tenant-scoped
+ * `reminders` sweep. Per-tenant isolation — a failed enqueue for one tenant is logged and skipped,
+ * never aborting the whole fan-out. The sweep is idempotent (each booking is claimed before its
+ * reminder is sent), so a re-delivered tick never double-reminds.
+ */
+export async function runRemindersTick(
+  tenants: TenantSource,
+  enqueuer: JobEnqueuer,
+  log: JobLog,
+): Promise<RemindersTickResult> {
+  const slugs = await tenants.listActiveSlugs();
+  let enqueued = 0;
+  let failed = 0;
+  for (const slug of slugs) {
+    try {
+      await enqueuer.enqueue('reminders', { tenantId: slug });
+      enqueued += 1;
+    } catch (err) {
+      failed++;
+      log('reminders-tick: tenant fan-out failed', { tenantId: slug, error: errMsg(err) });
     }
   }
   return { tenants: slugs.length, enqueued, failed };

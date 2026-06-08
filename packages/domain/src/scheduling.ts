@@ -80,6 +80,12 @@ export interface Booking {
   readonly memberId: MemberId;
   readonly status: BookingStatus;
   readonly bookedAt: string;
+  /**
+   * When the class reminder for this booking was sent (ISO-8601), or null if not yet. The worker's
+   * reminders sweep atomically claims a booking by stamping this from null → now BEFORE sending, so a
+   * re-delivered/re-ticked job sends at most once (it spams nobody; an occasional miss is acceptable).
+   */
+  readonly reminderSentAt: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
