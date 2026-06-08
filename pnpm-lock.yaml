@@ -553,6 +553,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@obikai/adapter-email-smtp':
+        specifier: workspace:*
+        version: link:../../adapters/email-smtp
       '@obikai/authz':
         specifier: workspace:*
         version: link:../../packages/authz
@@ -568,6 +571,9 @@ importers:
       '@obikai/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@obikai/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
       bullmq:
         specifier: ^5.34.10
         version: 5.78.0

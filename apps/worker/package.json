@@ -19,11 +19,13 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@obikai/adapter-email-smtp": "workspace:*",
     "@obikai/authz": "workspace:*",
     "@obikai/billing": "workspace:*",
     "@obikai/config": "workspace:*",
     "@obikai/db": "workspace:*",
     "@obikai/domain": "workspace:*",
+    "@obikai/notifications": "workspace:*",
     "bullmq": "^5.34.10",
     "ioredis": "^5.4.2"
   },

@@ -25,6 +25,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
   platform-marker-guarded enumeration) and a worker recurring-billing scheduler: a daily
   `billing-tick` platform job fans out per-tenant `billing-run` + `dunning` under `runAsPlatform`.
   Self-host registers its tenant at bootstrap (ADR-0017).
+- The worker's `dunning` job now **sends** the overdue-invoice notice: each invoice advanced along the
+  ladder emails the member through the shared `@obikai/notifications` service over the default SMTP
+  `EmailPort` (built once at worker boot, disposed on shutdown). Best-effort — a mail failure is logged
+  and counted (`noticesFailed`) but never rolls back the advance nor aborts the sweep, and the worker
+  runs notice-free when no email provider is configured (audit C2/C3).
 - Architecture decision records in `docs/decisions/`.
 - GDPR remediation (begun): a per-tenant, append-only, tamper-evident audit log
   (`AuditLogRepository` in `@obikai/db`) built on the `@obikai/gdpr` hash-chain primitives — the

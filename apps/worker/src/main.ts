@@ -23,9 +23,11 @@ import {
   runAsPlatform,
   runInTenantContext,
 } from '@obikai/db';
+import type { Invoice } from '@obikai/domain';
 import { type ConnectionOptions, type Job, Queue, Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import { makeBillingDeps, runBillingForTenant, runDunningForTenant } from './billing-jobs.js';
+import { type WorkerNotifier, buildWorkerNotifier } from './notifications-jobs.js';
 import {
   type AnyJobData,
   BILLING_TICK,
@@ -61,12 +63,14 @@ function makeLogger(): Logger {
   };
 }
 
-/** What each job handler needs from the runtime: a logger, the tenancy axis, and (for the platform
- *  fan-out) the capability to enqueue tenant-scoped follow-up jobs onto the shared queue. */
+/** What each job handler needs from the runtime: a logger, the tenancy axis, the capability to
+ *  enqueue tenant-scoped follow-up jobs (platform fan-out), and the optional notifier for the jobs
+ *  that send mail (null when email is not configured). */
 interface JobDeps {
   readonly log: Logger;
   readonly tenancy: Tenancy;
   readonly enqueue: (name: JobName, data: BaseJobData) => Promise<void>;
+  readonly notifier: WorkerNotifier | null;
 }
 
 /**
@@ -76,7 +80,7 @@ interface JobDeps {
  * branches are documented STUBs where noted; real logic lands behind this seam (ADR-0001/0004).
  */
 async function handleJob(job: Job<AnyJobData>, deps: JobDeps): Promise<void> {
-  const { log, tenancy, enqueue } = deps;
+  const { log, tenancy, enqueue, notifier } = deps;
 
   // ── Platform (cross-tenant) jobs — explicit marker, no tenantId (ADR-0004/0017) ──────────────
   if (job.name === BILLING_TICK) {
@@ -130,9 +134,13 @@ async function handleJob(job: Job<AnyJobData>, deps: JobDeps): Promise<void> {
       }
       case 'dunning': {
         // Advance overdue OPEN invoices one step along the dunning ladder; the final rung freezes
-        // the linked enrollment. No-op outside each invoice's retry window (idempotent).
+        // the linked enrollment. No-op outside each invoice's retry window (idempotent). When mail is
+        // configured, email the member each notice — best-effort, never aborting the advance.
         const { billing, invoices } = makeBillingDeps(now);
-        const result = await runDunningForTenant(billing, invoices, now, jobLog);
+        const onAdvanced = notifier
+          ? (inv: Invoice): Promise<void> => notifier.dunningNotice(tenantId, inv)
+          : undefined;
+        const result = await runDunningForTenant(billing, invoices, now, jobLog, onAdvanced);
         log.info('dunning', { tenantId, jobId: job.id, ...result });
         return;
       }
@@ -174,6 +182,11 @@ async function main(): Promise<void> {
   await connectMongo(config.mongoUri);
   log.info('connected to MongoDB');
 
+  // Build the transactional-email notifier once (opens the SMTP transport). Null when email is not
+  // configured (non-smtp provider) — the jobs then run without sending notices (ADR-0003).
+  const notifier = await buildWorkerNotifier(config, (msg, meta) => log.info(msg, meta));
+  if (notifier) log.info('notifier ready', { provider: config.email.provider });
+
   // BullMQ requires `maxRetriesPerRequest: null` on the worker (consumer) connection — its blocking
   // commands must not be aborted by ioredis's retry cap. The producer (Queue) gets its OWN
   // connection: a Worker blocks on its connection, so sharing one with a Queue is discouraged.
@@ -201,7 +214,7 @@ async function main(): Promise<void> {
 
   const worker = new Worker<AnyJobData>(
     JOBS_QUEUE,
-    (job) => handleJob(job, { log, tenancy: config.tenancy, enqueue }),
+    (job) => handleJob(job, { log, tenancy: config.tenancy, enqueue, notifier }),
     {
       // The IORedis instance is a valid BullMQ connection at runtime; cast over the dual-ioredis
       // type identity (bullmq bundles its own ioredis types).
@@ -247,6 +260,7 @@ async function main(): Promise<void> {
     await queue.close();
     await connection.quit();
     await producerConnection.quit();
+    if (notifier) await notifier.dispose();
     await disconnectMongo();
     log.info('shutdown complete');
   };
