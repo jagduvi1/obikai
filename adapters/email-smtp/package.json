@@ -20,12 +20,12 @@
   "dependencies": {
     "@obikai/adapter-contracts": "workspace:*",
     "@obikai/domain": "workspace:*",
-    "nodemailer": "^7.0.13",
+    "nodemailer": "^8.0.10",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "@types/nodemailer": "^7.0.11",
+    "@types/nodemailer": "^8.0.0",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
