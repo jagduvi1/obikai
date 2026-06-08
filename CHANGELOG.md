@@ -9,6 +9,20 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **API integration tests (I1 HTTP/controller + I2 two-tenant isolation).** First tests that boot the
+  **real NestJS app** (full DI graph) over an ephemeral in-memory MongoDB and drive it over HTTP with
+  supertest — covering the controller → service → repository → Mongo wiring the unit (service-with-fakes)
+  tests can't reach. **I1** (`apps/api/test/http-smoke.int.test.ts`): liveness, the real `/auth/login`
+  flow (success + bad-credentials 401), and a member create→list round-trip. **I2**
+  (`apps/api/test/tenant-isolation.int.test.ts`): proves the structural multi-tenancy invariant (ADR-0004)
+  end-to-end — tenant resolved from the `Host` header (never the token), data scoped per tenant with no
+  cross-boundary leakage, the **same** access token granting authority in its own tenant and a 403 in
+  another, cross-tenant id reads 404, apex host 404, anonymous 403. Because Nest constructor DI needs
+  `design:paramtypes` metadata that vitest's esbuild transform strips, the integration suite runs under
+  its **own vitest config** (`vitest.int.config.ts`) using `unplugin-swc` (decorator metadata), while the
+  unit suite keeps the esbuild transform unchanged (`vitest.config.ts` excludes `*.int.test.ts`). New api
+  devDeps: `unplugin-swc`, `@swc/core`, `mongodb-memory-server` (MIT/Apache-2.0, dev-only). Run with
+  `pnpm --filter @obikai/api test` (unit + integration) or `test:int`.
 - **Member waiver-signing (member portal).** Members can now read and sign waivers digitally from the
   member app (`/waivers`) — completing the waivers loop (admin authoring already shipped). A new
   self-accessible endpoint `GET /waivers/status?memberId=` returns each **active** template plus whether
