@@ -58,6 +58,13 @@ export interface PasswordResetMessage {
   readonly expiresInHours: number;
 }
 
+/** Inputs for an email-verification message. `verifyUrl` is the deep link (null ⇒ show the raw token). */
+export interface EmailVerificationMessage {
+  readonly verifyUrl: string | null;
+  readonly token: string;
+  readonly expiresInHours: number;
+}
+
 /** Common envelope fields the caller supplies for every message. */
 export interface NotificationContext {
   /** The recipient's display name, interpolated into the greeting. */
@@ -236,6 +243,38 @@ export class NotificationsService {
       ctx.dojoName,
     );
     return this.dispatch(to, rendered, { kind: 'password-reset' });
+  }
+
+  /**
+   * Send an email-verification message (account lifecycle E2). Account-level, so `ctx.dojoName` carries
+   * the PLATFORM/app name. The action line is the deep link when a public app URL is configured, else
+   * the raw token as a fallback.
+   */
+  async sendEmailVerification(
+    to: EmailRecipient,
+    locale: Locale,
+    message: EmailVerificationMessage,
+    ctx: NotificationContext,
+  ): Promise<{ providerMessageId: string }> {
+    const catalog = this.catalogFor(locale);
+    const heading = t(catalog, 'email.verify.heading');
+    const body = t(catalog, 'email.verify.body', {
+      name: ctx.name,
+      hours: message.expiresInHours,
+    });
+    const action =
+      message.verifyUrl !== null
+        ? t(catalog, 'email.verify.action', { url: message.verifyUrl })
+        : t(catalog, 'email.verify.actionCode', { token: message.token });
+    const rendered = this.compose(
+      catalog,
+      'email.verify.subject',
+      { dojo: ctx.dojoName },
+      heading,
+      [body, action],
+      ctx.dojoName,
+    );
+    return this.dispatch(to, rendered, { kind: 'email-verification' });
   }
 
   /** Send a waiver-signature request (scope §4.10, §5). */

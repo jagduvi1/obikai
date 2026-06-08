@@ -25,6 +25,14 @@ export class InvalidResetTokenError extends Error {
   }
 }
 
+/** Raised when an email-verification token is unknown, already used, or expired (generic 400). */
+export class InvalidVerificationTokenError extends Error {
+  constructor() {
+    super('invalid or expired email verification token');
+    this.name = 'InvalidVerificationTokenError';
+  }
+}
+
 /** Tenant-global account lookup by email — backed by the db IdentityRepository (local provider). */
 export interface IdentityLookup {
   findByEmail(email: string): Promise<{ userId: string; email: string } | null>;
@@ -52,6 +60,26 @@ export interface PasswordResetRequest {
   readonly expiresAt: string;
 }
 
+/** Persistence for single-use, time-boxed email-verification tokens — backed by the db repository. */
+export interface EmailVerificationStore {
+  create(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void>;
+  consumeIfValid(tokenHash: string, now: Date): Promise<{ userId: string } | null>;
+  deleteByUserId(userId: string): Promise<void>;
+}
+
+/** Flips a user's `emailVerified` flag across the account plane (User + local Identity). */
+export interface EmailVerifier {
+  markVerified(userId: string): Promise<void>;
+}
+
+/** The raw verification token + addressing the caller needs to email a verification link. */
+export interface EmailVerificationRequest {
+  readonly userId: string;
+  readonly email: string;
+  readonly token: string;
+  readonly expiresAt: string;
+}
+
 /**
  * Fast one-way hash for STORING/looking-up a high-entropy bearer token (the password-reset token is a
  * 256-bit `randomBytes` value). It is deliberately NOT a slow KDF: a memory-hard KDF exists to make
@@ -66,16 +94,47 @@ function sha256Hex(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
+/** Everything AuthService needs, named — the constructor list had grown unwieldy as account lifecycle
+ *  expanded (reset, change, verification). Optional fields carry sensible defaults. */
+export interface AuthServiceDeps {
+  readonly auth: AuthPort;
+  readonly tokens: TokenService;
+  readonly identities: IdentityLookup;
+  readonly users: UserLookup;
+  readonly resetTokens: PasswordResetStore;
+  readonly verifyTokens: EmailVerificationStore;
+  readonly emailVerifier: EmailVerifier;
+  /** Password-reset token lifetime (default 1h). */
+  readonly resetTtlSeconds?: number;
+  /** Email-verification token lifetime (default 24h — a slower, less time-critical flow). */
+  readonly verifyTtlSeconds?: number;
+  readonly now?: () => Date;
+}
+
 export class AuthService {
-  constructor(
-    private readonly auth: AuthPort,
-    private readonly tokens: TokenService,
-    private readonly identities: IdentityLookup,
-    private readonly resetTokens: PasswordResetStore,
-    private readonly users: UserLookup,
-    private readonly resetTtlSeconds: number = 3_600,
-    private readonly now: () => Date = () => new Date(),
-  ) {}
+  private readonly auth: AuthPort;
+  private readonly tokens: TokenService;
+  private readonly identities: IdentityLookup;
+  private readonly users: UserLookup;
+  private readonly resetTokens: PasswordResetStore;
+  private readonly verifyTokens: EmailVerificationStore;
+  private readonly emailVerifier: EmailVerifier;
+  private readonly resetTtlSeconds: number;
+  private readonly verifyTtlSeconds: number;
+  private readonly now: () => Date;
+
+  constructor(deps: AuthServiceDeps) {
+    this.auth = deps.auth;
+    this.tokens = deps.tokens;
+    this.identities = deps.identities;
+    this.users = deps.users;
+    this.resetTokens = deps.resetTokens;
+    this.verifyTokens = deps.verifyTokens;
+    this.emailVerifier = deps.emailVerifier;
+    this.resetTtlSeconds = deps.resetTtlSeconds ?? 3_600;
+    this.verifyTtlSeconds = deps.verifyTtlSeconds ?? 86_400;
+    this.now = deps.now ?? (() => new Date());
+  }
 
   async register(input: RegisterInput, meta: SessionMeta = {}): Promise<IssuedTokens> {
     await this.auth.registerPassword({ email: input.email, password: input.password });
@@ -178,5 +237,43 @@ export class AuthService {
     if (!updated) throw new InvalidCredentialsError();
     await this.tokens.revokeAllSessions(userId);
     return this.tokens.startSession(userId, meta);
+  }
+
+  /**
+   * Begin email verification (E2). Returns the raw token + canonical email when an account exists, or
+   * null when it does NOT — so the standalone resend endpoint reveals nothing about which emails are
+   * registered (same no-enumeration stance as reset). Any prior unused verification token is replaced.
+   * Sent on registration and on demand. The raw token is returned (only its sha256 is stored).
+   */
+  async requestEmailVerification(email: string): Promise<EmailVerificationRequest | null> {
+    const normalized = email.trim().toLowerCase();
+    const identity = await this.identities.findByEmail(normalized);
+    if (!identity) return null;
+    await this.verifyTokens.deleteByUserId(identity.userId);
+    const token = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(this.now().getTime() + this.verifyTtlSeconds * 1_000);
+    await this.verifyTokens.create({
+      userId: identity.userId,
+      tokenHash: sha256Hex(token),
+      expiresAt,
+    });
+    return {
+      userId: identity.userId,
+      email: identity.email,
+      token,
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  /**
+   * Complete email verification: atomically consume the (single-use, unexpired) token and flip the
+   * account's `emailVerified` flag (User + local Identity). Idempotent at the flag level — re-marking an
+   * already-verified account is harmless — but the token itself is single-use. Throws
+   * InvalidVerificationTokenError if the token is unknown/used/expired.
+   */
+  async confirmEmailVerification(token: string): Promise<void> {
+    const consumed = await this.verifyTokens.consumeIfValid(sha256Hex(token), this.now());
+    if (!consumed) throw new InvalidVerificationTokenError();
+    await this.emailVerifier.markVerified(consumed.userId);
   }
 }

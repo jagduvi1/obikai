@@ -21,5 +21,10 @@
   "email.passwordReset.body": "Hej {name}, vi har tagit emot en begäran om att återställa ditt lösenord. Länken är giltig i {hours} timmar. Om du inte begärde detta kan du ignorera detta e-postmeddelande — ditt lösenord förblir oförändrat.",
   "email.passwordReset.action": "Återställ ditt lösenord: {url}",
   "email.passwordReset.actionCode": "Använd denna kod för att återställa ditt lösenord: {token}",
+  "email.verify.subject": "Bekräfta din e-postadress — {dojo}",
+  "email.verify.heading": "Bekräfta din e-postadress",
+  "email.verify.body": "Hej {name}, bekräfta denna e-postadress för att slutföra registreringen av ditt konto. Länken är giltig i {hours} timmar.",
+  "email.verify.action": "Bekräfta din e-postadress: {url}",
+  "email.verify.actionCode": "Använd denna kod för att bekräfta din e-postadress: {token}",
   "email.signature": "— Teamet på {dojo}"
 }

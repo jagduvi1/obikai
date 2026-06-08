@@ -39,6 +39,12 @@ const en: Catalog = {
     "Hi {name}, we received a request to reset your password. This link is valid for {hours} hours. If you didn't request this, you can safely ignore this email — your password stays unchanged.",
   'email.passwordReset.action': 'Reset your password: {url}',
   'email.passwordReset.actionCode': 'Use this code to reset your password: {token}',
+  'email.verify.subject': 'Confirm your email — {dojo}',
+  'email.verify.heading': 'Confirm your email address',
+  'email.verify.body':
+    'Hi {name}, please confirm this email address to finish setting up your account. This link is valid for {hours} hours.',
+  'email.verify.action': 'Confirm your email: {url}',
+  'email.verify.actionCode': 'Use this code to confirm your email: {token}',
   'email.signature': '— The team at {dojo}',
 };
 
@@ -70,6 +76,12 @@ const sv: Catalog = {
     'Hej {name}, vi har tagit emot en begäran om att återställa ditt lösenord. Länken är giltig i {hours} timmar. Om du inte begärde detta kan du ignorera detta e-postmeddelande — ditt lösenord förblir oförändrat.',
   'email.passwordReset.action': 'Återställ ditt lösenord: {url}',
   'email.passwordReset.actionCode': 'Använd denna kod för att återställa ditt lösenord: {token}',
+  'email.verify.subject': 'Bekräfta din e-postadress — {dojo}',
+  'email.verify.heading': 'Bekräfta din e-postadress',
+  'email.verify.body':
+    'Hej {name}, bekräfta denna e-postadress för att slutföra registreringen av ditt konto. Länken är giltig i {hours} timmar.',
+  'email.verify.action': 'Bekräfta din e-postadress: {url}',
+  'email.verify.actionCode': 'Använd denna kod för att bekräfta din e-postadress: {token}',
   'email.signature': '— Teamet på {dojo}',
 };
 

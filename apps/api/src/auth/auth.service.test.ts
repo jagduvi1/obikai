@@ -11,6 +11,7 @@ import {
   type IdentityLookup,
   InvalidCredentialsError,
   InvalidResetTokenError,
+  InvalidVerificationTokenError,
   type PasswordResetStore,
   type UserLookup,
 } from './auth.service.js';
@@ -137,6 +138,8 @@ describe('AuthService', () => {
   let svc: AuthService;
   let auth: FakeAuth;
   let resetTokens: MemResetTokens;
+  let verifyTokens: MemResetTokens;
+  let verified: Set<string>;
   beforeEach(() => {
     const tokens = new TokenService(
       { jwtSecret: 'test-secret-which-is-long-enough-32', accessTtl: '15m', refreshTtl: '7d' },
@@ -144,9 +147,24 @@ describe('AuthService', () => {
     );
     auth = new FakeAuth();
     resetTokens = new MemResetTokens();
+    verifyTokens = new MemResetTokens(); // same single-use-token contract as the reset store
+    verified = new Set<string>();
     const identities: IdentityLookup = { findByEmail: async (e) => auth.lookupByEmail(e) };
     const users: UserLookup = { findById: async (id) => auth.lookupById(id) };
-    svc = new AuthService(auth, tokens, identities, resetTokens, users);
+    const emailVerifier = {
+      markVerified: async (id: string): Promise<void> => {
+        verified.add(id);
+      },
+    };
+    svc = new AuthService({
+      auth,
+      tokens,
+      identities,
+      users,
+      resetTokens,
+      verifyTokens,
+      emailVerifier,
+    });
   });
 
   it('registers then issues a working session', async () => {
@@ -261,5 +279,45 @@ describe('AuthService', () => {
     expect(
       (await svc.login({ email: 'a@example.com', password: 'original-password' })).accessToken,
     ).toBeTruthy();
+  });
+
+  it('requestEmailVerification returns a token for a known account and null for an unknown one', async () => {
+    await svc.register({ email: 'a@example.com', password: 'original-password' });
+    const req = await svc.requestEmailVerification('A@Example.com'); // case-insensitive
+    expect(req?.email).toBe('a@example.com');
+    expect(req?.token).toBeTruthy();
+    expect(await svc.requestEmailVerification('nobody@example.com')).toBeNull();
+  });
+
+  it('confirmEmailVerification marks the account verified and is single-use', async () => {
+    await svc.register({ email: 'a@example.com', password: 'original-password' });
+    const userId = auth.lookupByEmail('a@example.com')!.userId;
+    const req = await svc.requestEmailVerification('a@example.com');
+
+    expect(verified.has(userId)).toBe(false);
+    await svc.confirmEmailVerification(req!.token);
+    expect(verified.has(userId)).toBe(true);
+
+    // The token is single-use: replaying it fails.
+    await expect(svc.confirmEmailVerification(req!.token)).rejects.toBeInstanceOf(
+      InvalidVerificationTokenError,
+    );
+  });
+
+  it('confirmEmailVerification rejects an unknown token', async () => {
+    await expect(svc.confirmEmailVerification('not-a-real-token')).rejects.toBeInstanceOf(
+      InvalidVerificationTokenError,
+    );
+  });
+
+  it('issuing a new verification token invalidates the previous one', async () => {
+    await svc.register({ email: 'a@example.com', password: 'original-password' });
+    const first = await svc.requestEmailVerification('a@example.com');
+    const second = await svc.requestEmailVerification('a@example.com');
+    expect(first?.token).not.toBe(second?.token);
+    await expect(svc.confirmEmailVerification(first!.token)).rejects.toBeInstanceOf(
+      InvalidVerificationTokenError,
+    );
+    await svc.confirmEmailVerification(second!.token); // newest works
   });
 });

@@ -8,6 +8,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
+  EmailVerificationTokenRepository,
   IdentityModel,
   IdentityRepository,
   MembershipModel,
@@ -35,6 +36,7 @@ const users = new UserRepository();
 const identities = new IdentityRepository();
 const memberships = new MembershipRepository();
 const resetTokens = new PasswordResetTokenRepository();
+const verifyTokens = new EmailVerificationTokenRepository();
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
@@ -52,6 +54,7 @@ beforeEach(async () => {
   await mongoose.connection.collection('identities').deleteMany({});
   await mongoose.connection.collection('memberships').deleteMany({});
   await mongoose.connection.collection('passwordresettokens').deleteMany({});
+  await mongoose.connection.collection('emailverificationtokens').deleteMany({});
 });
 
 describe('guard exemption is deliberate (ADR-0004/0012)', () => {
@@ -101,6 +104,28 @@ describe('tenant-global identity (no guard)', () => {
     // Unknown user → no match.
     expect(await identities.updatePasswordHashByUserId('nope', 'x')).toBe(false);
   });
+
+  it('markEmailVerified flips the flag on the User and the local Identity', async () => {
+    const user = await users.create({ email: 'verify@example.com', emailVerified: false });
+    await identities.create({
+      userId: user.id,
+      provider: 'local',
+      email: 'verify@example.com',
+      passwordHash: 'h',
+      emailVerified: false,
+    });
+    expect(await users.markEmailVerified(user.id)).toBe(true);
+    expect(await identities.markEmailVerifiedByUserId(user.id)).toBe(true);
+
+    expect((await users.findById(user.id))?.emailVerified).toBe(true);
+    expect((await identities.findByEmailLower('local', 'verify@example.com'))?.emailVerified).toBe(
+      true,
+    );
+    // Unknown user → no match (valid-but-nonexistent id; the real caller always passes a real userId).
+    const ghostId = '0123456789abcdef01234567';
+    expect(await users.markEmailVerified(ghostId)).toBe(false);
+    expect(await identities.markEmailVerifiedByUserId(ghostId)).toBe(false);
+  });
 });
 
 describe('PasswordResetTokenRepository (tenant-global, single-use)', () => {
@@ -130,6 +155,30 @@ describe('PasswordResetTokenRepository (tenant-global, single-use)', () => {
     await resetTokens.create({ userId: 'u1', tokenHash: 'hash-c', expiresAt: EXPIRED_AT });
     await resetTokens.deleteByUserId('u1');
     expect(await resetTokens.consumeIfValid('hash-c', LATER)).toBeNull();
+  });
+});
+
+describe('EmailVerificationTokenRepository (tenant-global, single-use)', () => {
+  const NOW = new Date('2026-06-06T00:00:00.000Z');
+  const LATER = new Date('2026-06-06T06:00:00.000Z'); // within the 24h window
+  const EXPIRES_AT = new Date('2026-06-07T00:00:00.000Z');
+
+  it('consumes a valid token exactly once and returns the owner', async () => {
+    await verifyTokens.create({ userId: 'u1', tokenHash: 'v-a', expiresAt: EXPIRES_AT });
+    expect(await verifyTokens.consumeIfValid('v-a', LATER)).toEqual({ userId: 'u1' });
+    expect(await verifyTokens.consumeIfValid('v-a', LATER)).toBeNull(); // single-use
+  });
+
+  it('rejects an expired token and an unknown token', async () => {
+    await verifyTokens.create({ userId: 'u1', tokenHash: 'v-b', expiresAt: NOW });
+    expect(await verifyTokens.consumeIfValid('v-b', LATER)).toBeNull(); // expired
+    expect(await verifyTokens.consumeIfValid('missing', NOW)).toBeNull(); // unknown
+  });
+
+  it('deleteByUserId invalidates outstanding tokens', async () => {
+    await verifyTokens.create({ userId: 'u1', tokenHash: 'v-c', expiresAt: EXPIRES_AT });
+    await verifyTokens.deleteByUserId('u1');
+    expect(await verifyTokens.consumeIfValid('v-c', LATER)).toBeNull();
   });
 });
 
