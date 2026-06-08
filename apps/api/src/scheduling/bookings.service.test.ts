@@ -46,6 +46,12 @@ class FakeBookingsStore implements BookingsStore {
   async countByOccurrence(occurrenceId: string, status: BookingStatus): Promise<number> {
     return (await this.listByOccurrence(occurrenceId, { status })).length;
   }
+  async listByMember(memberId: string, opts: { status?: BookingStatus } = {}): Promise<Booking[]> {
+    return [...this.byId.values()]
+      .filter((b) => b.memberId === memberId)
+      .filter((b) => (opts.status ? b.status === opts.status : true))
+      .sort((a, b) => b.bookedAt.localeCompare(a.bookedAt));
+  }
   async setStatus(id: string, status: BookingStatus): Promise<Booking | null> {
     const cur = this.byId.get(id);
     if (!cur) return null;
@@ -222,5 +228,20 @@ describe('BookingsService RBAC + self-access', () => {
     await expect(
       cancelledSvc.create(staff, { occurrenceId: 'occ1', memberId: 'm1' }),
     ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it('lets a member list their OWN bookings, staff list anyone, others forbidden', async () => {
+    await svc.create(bareMember, { occurrenceId: 'occ1', memberId: 'm9' });
+    await svc.create(staff, { occurrenceId: 'occ1', memberId: 'm2' });
+
+    const mine = await svc.listByMember(bareMember, 'm9');
+    expect(mine.map((b) => b.memberId)).toEqual(['m9']);
+
+    // Staff may list any member's bookings.
+    const theirs = await svc.listByMember(staff, 'm2');
+    expect(theirs.map((b) => b.memberId)).toEqual(['m2']);
+
+    // A member cannot list another member's bookings.
+    await expect(svc.listByMember(bareMember, 'm2')).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

@@ -1,11 +1,14 @@
 import { api } from '@obikai/api-client';
 import type {
+  Booking,
+  ClassOccurrence,
   CurriculumCompletion,
   Discipline,
   EligibilityResult,
   Invoice,
   MemberRankState,
   MemberWaiverStatus,
+  Program,
   Promotion,
   RoleAssignment,
   WaiverSignInput,
@@ -62,4 +65,32 @@ export function myWaiverStatus(memberId: string): Promise<MemberWaiverStatus[]> 
 /** Record a digital acknowledgement — the member signs their own waiver (no uploaded document). */
 export function signWaiver(input: WaiverSignInput): Promise<WaiverSignature> {
   return api.post<WaiverSignature>('/waivers/sign', input);
+}
+
+// ── Class schedule + booking (§4.3/§4.6) ─────────────────────────────────────
+
+/** The dojo's class programs (names for the schedule); members may read tenant-wide (RBAC 'class'). */
+export function listPrograms(): Promise<Program[]> {
+  return api.get<Program[]>('/programs');
+}
+
+/** Upcoming class occurrences in a window (ISO datetimes). Members may read (RBAC 'class'). */
+export function listOccurrences(from: string, to: string): Promise<ClassOccurrence[]> {
+  const params = new URLSearchParams({ from, to });
+  return api.get<ClassOccurrence[]>(`/occurrences?${params.toString()}`);
+}
+
+/** The member's own bookings ("my classes"), via self-access (GET /bookings?memberId=own). */
+export function myBookings(memberId: string): Promise<Booking[]> {
+  return api.get<Booking[]>(`/bookings?memberId=${encodeURIComponent(memberId)}`);
+}
+
+/** Book the member onto an occurrence (capacity → 'booked', else 'waitlisted'). */
+export function bookOccurrence(occurrenceId: string, memberId: string): Promise<Booking> {
+  return api.post<Booking>('/bookings', { occurrenceId, memberId });
+}
+
+/** Cancel a booking (frees a seat → promotes the oldest waitlisted). Resolves on 204. */
+export function cancelBooking(bookingId: string): Promise<void> {
+  return api.del<void>(`/bookings/${encodeURIComponent(bookingId)}`);
 }

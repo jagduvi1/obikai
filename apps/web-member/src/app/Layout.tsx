@@ -17,6 +17,7 @@ export function Layout({ children }: { children: ReactNode }) {
         <span className="app-title">{t('app.title')}</span>
         <nav aria-label={t('app.title')} className="app-nav">
           <NavLink to="/progress">{t('nav.progress')}</NavLink>
+          <NavLink to="/schedule">{t('nav.schedule')}</NavLink>
           <NavLink to="/invoices">{t('nav.invoices')}</NavLink>
           <NavLink to="/waivers">{t('nav.waivers')}</NavLink>
         </nav>
