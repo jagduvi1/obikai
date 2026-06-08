@@ -115,6 +115,23 @@ export class ConsentRepository implements ConsentRepositoryPort {
   }
 
   /**
+   * The subject's CURRENT status for a purpose — the most-recently-inserted record's `status`, or
+   * null if none. Served by the `{tenantId, subjectId, purpose, createdAt:-1}` index.
+   */
+  async currentStatus(
+    _tenantId: TenantId,
+    subjectId: UserId,
+    purpose: string,
+  ): Promise<ConsentStatus | null> {
+    const doc = await this.model
+      .findOne({ subjectId: String(subjectId), purpose })
+      .sort({ createdAt: -1 })
+      .lean<ConsentDoc>()
+      .exec();
+    return doc ? doc.status : null;
+  }
+
+  /**
    * Withdraw consent for a purpose: if the subject's CURRENT record for that purpose is `granted`,
    * append a `withdrawn` record (carrying the original grant's evidence + `withdrawnAt = at`) and
    * return it. Returns null if there is no active grant to withdraw (already withdrawn / never

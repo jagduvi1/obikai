@@ -8,6 +8,7 @@ import { LocationsPage } from '../pages/LocationsPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MemberDetailPage } from '../pages/MemberDetailPage';
 import { MembersPage } from '../pages/MembersPage';
+import { MessagesPage } from '../pages/MessagesPage';
 import { OccurrenceDetailPage } from '../pages/OccurrenceDetailPage';
 import { OccurrencesPage } from '../pages/OccurrencesPage';
 import { PlansPage } from '../pages/PlansPage';
@@ -74,6 +75,14 @@ export function App() {
         element={
           <RequireAuth>
             <WaiversPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <RequireAuth>
+            <MessagesPage />
           </RequireAuth>
         }
       />

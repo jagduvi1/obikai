@@ -98,6 +98,29 @@ describe('ConsentRepository', () => {
     expect(list.map((c) => c.status)).toEqual(['granted', 'withdrawn']);
   });
 
+  it('currentStatus reflects the latest record (null → granted → withdrawn)', async () => {
+    await runInTenantContext(ctx('t1'), async () => {
+      // Never recorded → null (the marketing gate treats this as "no consent").
+      expect(
+        await consents.currentStatus('t1' as never, 'u-sub' as never, 'marketing_email'),
+      ).toBeNull();
+    });
+    await grant('t1', 'u-sub', 'marketing_email');
+    await runInTenantContext(ctx('t1'), async () => {
+      expect(await consents.currentStatus('t1' as never, 'u-sub' as never, 'marketing_email')).toBe(
+        'granted',
+      );
+    });
+    await runInTenantContext(ctx('t1'), () =>
+      consents.withdraw('t1' as never, 'u-sub' as never, 'marketing_email', new Date()),
+    );
+    await runInTenantContext(ctx('t1'), async () => {
+      expect(await consents.currentStatus('t1' as never, 'u-sub' as never, 'marketing_email')).toBe(
+        'withdrawn',
+      );
+    });
+  });
+
   it('returns null when withdrawing a purpose with no active grant', async () => {
     const none = await runInTenantContext(ctx('t1'), () =>
       consents.withdraw('t1' as never, 'u-sub' as never, 'never-granted', new Date()),

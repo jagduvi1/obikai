@@ -7,6 +7,21 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ## [Unreleased]
 
+### Added — Communication & messaging (§4.8)
+
+- **Segment broadcast with a consent split (ADR-0031).** Staff can email a member **segment** (all /
+  by status / by tag — reusing the Phase A `MemberSegment`) from a new admin "Messages" page. A
+  broadcast's **`category`** drives the lawful basis: `transactional` operational messages send to the
+  segment without a marketing-consent check (contract / legitimate interest), while `marketing` sends
+  are **gated per recipient** on an active `marketing_email` consent grant (members without a login —
+  hence no consent record — are skipped, never sent silently). Every recipient attempt is an immutable
+  **`MessageLog`** row (`sent` / `failed` / `skipped_no_contact` / `skipped_no_consent`) — a per-member
+  history + a per-broadcast delivery report — and the run is appended to the GDPR audit log. New:
+  `NotificationsService.sendBroadcast` (free-text subject/body, HTML-escaped), `ConsentRepository.
+  currentStatus`, `MessageLogRepository`, and `POST /messages` + `GET /messages/:id` +
+  `GET /messages?memberId`. The send is **synchronous, concurrency-bounded, and recipient-capped**
+  (≤250 → 422, never a silent truncation); async worker fan-out for large tenants is a noted follow-up.
+
 ### Added — Member-facing experience (§4.6)
 
 - **Profile self-service (`/me/profile`).** Members can view and edit their own contact + emergency-contact

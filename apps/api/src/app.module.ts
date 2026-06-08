@@ -16,6 +16,7 @@ import { HouseholdsModule } from './households/households.module.js';
 import { LocationsModule } from './locations/locations.module.js';
 import { MeModule } from './me/me.module.js';
 import { MembersModule } from './members/members.module.js';
+import { MessagesModule } from './messages/messages.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { PlatformModule } from './platform/platform.module.js';
 import { CurriculumModule } from './rank/curriculum.module.js';
@@ -46,6 +47,7 @@ import { WaiversModule } from './waivers/waivers.module.js';
     ConsentModule,
     DataRightsModule,
     MembersModule,
+    MessagesModule,
     HouseholdsModule,
     LocationsModule,
     VatRatesModule,
