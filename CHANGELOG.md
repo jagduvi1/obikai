@@ -9,6 +9,13 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Upgrade `@noble/hashes` 1 → 2 (rank-engine + gdpr), byte-identically.** v2 reorganised its API:
+  `sha256` moved to `@noble/hashes/sha2.js` (subpaths now require the `.js` extension) and no longer
+  accepts a string (the implicit UTF-8 encode was removed — we now `utf8ToBytes(...)` explicitly, which
+  is the same encoding). Because these primitives produce the rank-system `versionId` (ADR-0005) and the
+  GDPR audit hash-chain, the digest **must not change**: new byte-stability tests pin the exact sha256
+  hex for fixed inputs (captured under v1) so the upgrade is proven byte-compatible — existing version
+  ids and audit chains still verify. (Closes Dependabot's held `@noble/hashes` bump.)
 - **GDPR data export now includes consent records (Art. 15).** The data-subject export already covered
   member-keyed PII (via the ROPA registry) plus the tenant-global login account + sessions; it now also
   includes the subject's full **consent history + Art. 7 evidence** (keyed by the account `userId`,

@@ -1,5 +1,5 @@
-import { sha256 } from '@noble/hashes/sha256';
-import { bytesToHex } from '@noble/hashes/utils';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 
 /**
  * Canonical serialization for content hashing (ADR-0005). The versionId is a hash over this, so
@@ -28,6 +28,7 @@ export function stableStringify(value: unknown): string {
 }
 
 export function contentHash(value: unknown): string {
-  // @noble/hashes UTF-8-encodes string input internally — keeps this isomorphic (no TextEncoder/node).
-  return bytesToHex(sha256(SCHEME_PREFIX + stableStringify(value)));
+  // @noble/hashes v2 takes bytes only (v1's implicit string→UTF-8 encode was removed); utf8ToBytes is
+  // the same isomorphic UTF-8 encoding, so the digest is byte-identical to the v1 output.
+  return bytesToHex(sha256(utf8ToBytes(SCHEME_PREFIX + stableStringify(value))));
 }

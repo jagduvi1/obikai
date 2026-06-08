@@ -1,5 +1,5 @@
-import { sha256 } from '@noble/hashes/sha256';
-import { bytesToHex } from '@noble/hashes/utils';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, utf8ToBytes } from '@noble/hashes/utils.js';
 import type { TenantId, UserId } from '@obikai/domain';
 
 /**
@@ -81,7 +81,8 @@ export function hashChainEntry(prev: AuditLogEntry | null, entry: AuditLogEntryI
   // The entry already carries prevHash; fold prevHash in again explicitly so a genesis-vs-link
   // mismatch (entry.prevHash disagreeing with the actual predecessor) changes the digest.
   const payload = canonicalJSON(entry) + (prevHash ?? '');
-  return bytesToHex(sha256(SCHEME_PREFIX + payload));
+  // v2 takes bytes only (no implicit string encode); utf8ToBytes is byte-identical to v1's behaviour.
+  return bytesToHex(sha256(utf8ToBytes(SCHEME_PREFIX + payload)));
 }
 
 /**

@@ -50,6 +50,28 @@ describe('audit hash chain', () => {
     expect(verifyChain(chain)).toEqual({ valid: true });
   });
 
+  /**
+   * Byte-stability guard (audit chain). The exact digest must NEVER change — an existing tenant's
+   * append-only audit log would stop verifying. This pins the genesis hash for a fixed entry so a
+   * dependency change (e.g. the @noble/hashes v1→v2 upgrade) that altered the output would fail CI. Do
+   * NOT update this snapshot to make CI pass; a change means the upgrade is not byte-compatible.
+   */
+  it('hashChainEntry is byte-stable for a fixed genesis entry', () => {
+    const hash = hashChainEntry(null, {
+      tenantId,
+      ts: 1,
+      actorId,
+      actorType: 'user',
+      action: 'member.create',
+      targetType: 'member',
+      targetId: 'm1',
+      prevHash: null,
+    });
+    expect(hash).toMatchInlineSnapshot(
+      `"ec272427990e80d57229cd0e8948f35294239b10e349a030c9e644a0a3b71dd4"`,
+    );
+  });
+
   it('is deterministic: rebuilding produces identical hashes', () => {
     expect(buildChain().map((e) => e.hash)).toEqual(buildChain().map((e) => e.hash));
   });
