@@ -9,6 +9,9 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Account-recovery screens** in the member portal — the same forgot/reset/verify public routes and
+  "Forgot your password?" link as the admin SPA, so a locked-out member can recover their account
+  (en + sv, accessible). The in-portal change-password awaits a member account page.
 - **Account-recovery screens** in the admin SPA — closing the loop on the E1/E2/E3 backend so the
   emailed links work end-to-end. Public routes `/forgot-password`, `/reset-password?token=…`,
   `/verify-email?token=…` plus a change-password card in Settings; a "Forgot your password?" link on
