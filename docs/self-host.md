@@ -69,5 +69,7 @@ docker compose exec api node dist/cli/create-owner.js
   .createUser(...)`) and restart with auth, or migrate to a fresh authenticated volume.
 - **Backups.** Back up the `mongo-data` (and `redis-data`) volumes regularly; `mongodump` against the
   authenticated URI is the simplest dump. (A first-class backup job is on the roadmap.)
-- **Updates.** Pull new images (`docker-compose.prod.yml` references `ghcr.io/...`) and re-`up`; database
-  migrations run on boot.
+- **Updates.** Pull new images (`docker-compose.prod.yml` references `ghcr.io/...`) and re-`up`. Schema
+  changes are managed as forward-only migrations in `packages/db/migrations` (via `migrate-mongo`); an
+  automatic boot-time runner is on the roadmap, so for now apply pending migrations as part of an
+  upgrade.
