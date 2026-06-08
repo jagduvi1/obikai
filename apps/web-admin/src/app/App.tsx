@@ -14,6 +14,7 @@ import { PlansPage } from '../pages/PlansPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { VerifyEmailPage } from '../pages/VerifyEmailPage';
+import { WaiversPage } from '../pages/WaiversPage';
 import { Layout } from './Layout';
 
 /** Gate that waits for the silent-refresh check, then admits or bounces to /login. */
@@ -65,6 +66,14 @@ export function App() {
         element={
           <RequireAuth>
             <PlansPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/waivers"
+        element={
+          <RequireAuth>
+            <WaiversPage />
           </RequireAuth>
         }
       />
