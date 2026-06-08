@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { StoragePort } from '@obikai/adapter-contracts';
 import { type AuthzActor, can } from '@obikai/authz';
 import type {
+  MemberWaiverStatus,
   WaiverSignInput,
   WaiverSignature,
   WaiverTemplate,
@@ -196,6 +197,34 @@ export class WaiversService {
     if (!isSelf && !can(actor, { resource: 'waiver', action: 'list' }))
       throw new ForbiddenError('list', 'waiver');
     return this.signatures.listByMember(memberId);
+  }
+
+  /**
+   * The member-portal view: each ACTIVE template plus whether `memberId` has signed its CURRENT
+   * version. This is what lets a member discover what they still need to sign WITHOUT the staff
+   * `waiver:list` grant — visible to the covered member (self), their guardian (member-update grant),
+   * or staff (`waiver:list`). A signature pinned to an older version counts as unsigned, so a revised
+   * waiver re-prompts the member.
+   */
+  async listForMember(actor: AuthzActor, memberId: string): Promise<MemberWaiverStatus[]> {
+    const isSelf = actor.memberId !== undefined && actor.memberId === memberId;
+    const canSelfOrGuardian =
+      isSelf || can(actor, { resource: 'member', action: 'update', ownerMemberId: memberId });
+    if (!canSelfOrGuardian && !can(actor, { resource: 'waiver', action: 'list' }))
+      throw new ForbiddenError('list', 'waiver');
+
+    const [templates, signatures] = await Promise.all([
+      this.templates.list({ active: true }),
+      this.signatures.listByMember(memberId),
+    ]);
+    return templates.map((template) => {
+      // Match only the template's CURRENT version; pick the most recent matching signature.
+      const signature =
+        signatures
+          .filter((s) => s.templateId === template.id && s.templateVersion === template.version)
+          .sort((a, b) => b.signedAt.localeCompare(a.signedAt))[0] ?? null;
+      return { template, signed: signature !== null, signature };
+    });
   }
 
   /**

@@ -9,6 +9,16 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Member waiver-signing (member portal).** Members can now read and sign waivers digitally from the
+  member app (`/waivers`) — completing the waivers loop (admin authoring already shipped). A new
+  self-accessible endpoint `GET /waivers/status?memberId=` returns each **active** template plus whether
+  the member has signed its **current version**, computed server-side (`WaiversService.listForMember`) so
+  a member never needs the staff `waiver:list` grant and never sees inactive/old templates. Signing is a
+  **digital acknowledgement** (typed full name + explicit "I have read and agree" → immutable, dated
+  signature via the existing `POST /waivers/sign` self-access path; no document upload). A waiver revised
+  to a new version re-prompts the member to re-sign. Guardian-for-minor portal signing remains future
+  work; staff can still record those via the API. New `MemberWaiverStatus` read-model in `@obikai/domain`;
+  sv translations seeded for the new strings.
 - **Database migration runner** (audit G1). A `migrate-mongo`-backed CLI (`apps/api/src/cli/migrate.ts`)
   that ships in the api image and applies forward-only migrations from `@obikai/db`'s `migrations/` dir,
   resolved at runtime so it works in dev and the deployed image. Run with
