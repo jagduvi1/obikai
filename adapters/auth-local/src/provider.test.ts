@@ -30,6 +30,16 @@ class MemoryStore implements IdentityStore {
     this.#byEmail.set(stored.email, stored);
     return stored;
   }
+
+  async updatePasswordHash(subject: string, passwordHash: string): Promise<boolean> {
+    for (const [email, cred] of this.#byEmail) {
+      if (cred.subject === subject) {
+        this.#byEmail.set(email, { ...cred, passwordHash });
+        return true;
+      }
+    }
+    return false;
+  }
 }
 
 const noopLogger: Logger = {
@@ -113,6 +123,32 @@ describe('LocalAuthProvider', () => {
     await expect(
       provider.registerPassword({ email: 'DUP@dojo.example', password: 'pw2' }),
     ).rejects.toBeInstanceOf(EmailAlreadyRegisteredError);
+  });
+
+  it('setPassword replaces the hash so the old password fails and the new one verifies', async () => {
+    const registered = await provider.registerPassword({
+      email: 'reset@dojo.example',
+      password: 'old-password',
+    });
+    const updated = await provider.setPassword({
+      subject: registered.subject,
+      password: 'brand-new-password',
+    });
+    expect(updated).toBe(true);
+    // Old password no longer works …
+    expect(
+      await provider.verifyPassword({ email: 'reset@dojo.example', password: 'old-password' }),
+    ).toBeNull();
+    // … the new one does.
+    const verified = await provider.verifyPassword({
+      email: 'reset@dojo.example',
+      password: 'brand-new-password',
+    });
+    expect(verified?.subject).toBe(registered.subject);
+  });
+
+  it('setPassword returns false for an unknown subject (no credential to update)', async () => {
+    expect(await provider.setPassword({ subject: 'ghost', password: 'x' })).toBe(false);
   });
 });
 

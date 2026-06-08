@@ -37,6 +37,13 @@ export const EnvSchema = z
     BASE_DOMAIN: z.string().min(1).default('localhost'),
     SELF_HOST_TENANT_SLUG: z.string().min(1).optional(),
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
+    // Product/platform display name used in account-level emails (e.g. password reset) where there is
+    // no single dojo. Public, non-secret.
+    APP_NAME: z.string().min(1).default('Obikai'),
+    // Externally-reachable origin of the member/admin SPA, used to build deep links in account emails
+    // (e.g. the password-reset link `${APP_PUBLIC_URL}/reset-password?token=…`). When unset, emails
+    // fall back to showing the raw token.
+    APP_PUBLIC_URL: z.string().url().optional(),
 
     MONGO_URI: z.string().min(1),
     REDIS_URL: z.string().min(1),

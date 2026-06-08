@@ -16,5 +16,10 @@
   "email.reminder.subject": "Påminnelse: {program} kl. {time}",
   "email.reminder.heading": "Din klass börjar snart",
   "email.reminder.body": "Hej {name}, detta är en påminnelse om att {program} börjar kl. {time} på {location}. Vi ses på mattan!",
+  "email.passwordReset.subject": "Återställ ditt lösenord — {dojo}",
+  "email.passwordReset.heading": "Begäran om lösenordsåterställning",
+  "email.passwordReset.body": "Hej {name}, vi har tagit emot en begäran om att återställa ditt lösenord. Länken är giltig i {hours} timmar. Om du inte begärde detta kan du ignorera detta e-postmeddelande — ditt lösenord förblir oförändrat.",
+  "email.passwordReset.action": "Återställ ditt lösenord: {url}",
+  "email.passwordReset.actionCode": "Använd denna kod för att återställa ditt lösenord: {token}",
   "email.signature": "— Teamet på {dojo}"
 }

@@ -50,6 +50,14 @@ export interface ClassReminder {
   readonly startsAt: string;
 }
 
+/** Inputs for a password-reset email. `resetUrl` is the deep link to the reset page (null when no
+ *  public app URL is configured — the raw `token` is shown instead). `expiresInHours` is for the copy. */
+export interface PasswordResetMessage {
+  readonly resetUrl: string | null;
+  readonly token: string;
+  readonly expiresInHours: number;
+}
+
 /** Common envelope fields the caller supplies for every message. */
 export interface NotificationContext {
   /** The recipient's display name, interpolated into the greeting. */
@@ -196,6 +204,38 @@ export class NotificationsService {
       invoice: notice.invoiceNumber,
       stage: String(notice.dunningStage),
     });
+  }
+
+  /**
+   * Send a password-reset email (account lifecycle E1). Account-level, so `ctx.dojoName` carries the
+   * PLATFORM/app name (the account is tenant-global). The action line is the deep link when a public
+   * app URL is configured, else the raw token as a fallback.
+   */
+  async sendPasswordReset(
+    to: EmailRecipient,
+    locale: Locale,
+    message: PasswordResetMessage,
+    ctx: NotificationContext,
+  ): Promise<{ providerMessageId: string }> {
+    const catalog = this.catalogFor(locale);
+    const heading = t(catalog, 'email.passwordReset.heading');
+    const body = t(catalog, 'email.passwordReset.body', {
+      name: ctx.name,
+      hours: message.expiresInHours,
+    });
+    const action =
+      message.resetUrl !== null
+        ? t(catalog, 'email.passwordReset.action', { url: message.resetUrl })
+        : t(catalog, 'email.passwordReset.actionCode', { token: message.token });
+    const rendered = this.compose(
+      catalog,
+      'email.passwordReset.subject',
+      { dojo: ctx.dojoName },
+      heading,
+      [body, action],
+      ctx.dojoName,
+    );
+    return this.dispatch(to, rendered, { kind: 'password-reset' });
   }
 
   /** Send a waiver-signature request (scope §4.10, §5). */

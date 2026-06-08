@@ -9,6 +9,15 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Password reset** (account lifecycle E1). `POST /auth/password-reset/request` always returns 204
+  whether or not the email exists (no account-enumeration oracle) and, when it does, emails a
+  single-use, time-boxed (1h) reset link via `@obikai/notifications`; `POST /auth/password-reset/confirm`
+  consumes the token (atomic, single-use), sets the new password, and **revokes ALL of the user's
+  sessions** so any session minted under the old credential dies. New primitives: `AuthPort.setPassword`
+  (subject-keyed) on the local adapter, `IdentityRepository.updatePasswordHashByUserId`, a
+  tenant-global single-use `PasswordResetToken` collection (sha256-hashed tokens, TTL-reaped), and
+  `TokenService.revokeAllSessions`. Reset tokens are purged on GDPR erasure. New config `APP_NAME`
+  (account-email branding) + `APP_PUBLIC_URL` (reset deep link; raw token emailed when unset).
 - TypeScript monorepo (pnpm workspaces + Turborepo) with enforced import boundaries.
 - Pluggable adapter contracts (payments, email, SMS, storage, auth, AI) with self-hostable
   default implementations (SMTP, S3/MinIO + local filesystem, manual/stub payments, local

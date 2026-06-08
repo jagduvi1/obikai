@@ -71,4 +71,8 @@ export class DbIdentityStore implements IdentityStore {
       emailVerified: credential.emailVerified,
     };
   }
+
+  async updatePasswordHash(subject: string, passwordHash: string): Promise<boolean> {
+    return this.identities.updatePasswordHashByUserId(subject, passwordHash, 'local');
+  }
 }

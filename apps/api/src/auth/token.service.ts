@@ -51,6 +51,8 @@ export interface SessionStore {
   /** Atomically retire a session iff still active; returns true if this call won (compare-and-swap). */
   revokeIfActive(id: string): Promise<boolean>;
   revokeFamily(family: string): Promise<void>;
+  /** Retire EVERY active session for a user (logout-everywhere) — used on password reset/change. */
+  revokeAllForUser(userId: string): Promise<void>;
 }
 
 export interface TokenConfig {
@@ -156,6 +158,12 @@ export class TokenService {
   async revoke(refreshToken: string): Promise<void> {
     const session = await this.#sessions.findByRefreshHash(sha256Hex(refreshToken));
     if (session) await this.#sessions.revokeFamily(session.family);
+  }
+
+  /** Revoke ALL of a user's sessions (logout-everywhere) — called after a password reset or change so
+   *  a leaked/old credential's live sessions cannot outlive the credential it authenticated with. */
+  async revokeAllSessions(userId: string): Promise<void> {
+    await this.#sessions.revokeAllForUser(userId);
   }
 
   async #mint(userId: string, family: string, meta: SessionMeta): Promise<IssuedTokens> {

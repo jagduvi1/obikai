@@ -12,6 +12,8 @@ import {
   IdentityRepository,
   MembershipModel,
   MembershipRepository,
+  PasswordResetTokenModel,
+  PasswordResetTokenRepository,
   UserModel,
   UserRepository,
 } from '../src/auth.js';
@@ -32,6 +34,7 @@ let mongod: MongoMemoryServer;
 const users = new UserRepository();
 const identities = new IdentityRepository();
 const memberships = new MembershipRepository();
+const resetTokens = new PasswordResetTokenRepository();
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
@@ -48,6 +51,7 @@ beforeEach(async () => {
   await mongoose.connection.collection('users').deleteMany({});
   await mongoose.connection.collection('identities').deleteMany({});
   await mongoose.connection.collection('memberships').deleteMany({});
+  await mongoose.connection.collection('passwordresettokens').deleteMany({});
 });
 
 describe('guard exemption is deliberate (ADR-0004/0012)', () => {
@@ -79,6 +83,53 @@ describe('tenant-global identity (no guard)', () => {
     });
     const rec = await identities.findByEmailLower('local', 'a@example.com');
     expect(rec?.userId).toBe(user.id);
+  });
+
+  it('updatePasswordHashByUserId replaces the hash and reports whether it matched', async () => {
+    const user = await users.create({ email: 'reset@example.com' });
+    await identities.create({
+      userId: user.id,
+      provider: 'local',
+      email: 'reset@example.com',
+      passwordHash: 'old-hash',
+      emailVerified: false,
+    });
+    const matched = await identities.updatePasswordHashByUserId(user.id, 'new-hash');
+    expect(matched).toBe(true);
+    const rec = await identities.findByEmailLower('local', 'reset@example.com');
+    expect(rec?.passwordHash).toBe('new-hash');
+    // Unknown user → no match.
+    expect(await identities.updatePasswordHashByUserId('nope', 'x')).toBe(false);
+  });
+});
+
+describe('PasswordResetTokenRepository (tenant-global, single-use)', () => {
+  const NOW = new Date('2026-06-06T00:00:00.000Z');
+  const LATER = new Date('2026-06-06T00:30:00.000Z'); // within the 1h window
+  const EXPIRED_AT = new Date('2026-06-06T01:00:00.000Z');
+
+  it('consumes a valid token exactly once (single-use CAS) and returns the owner', async () => {
+    await resetTokens.create({ userId: 'u1', tokenHash: 'hash-a', expiresAt: EXPIRED_AT });
+    const first = await resetTokens.consumeIfValid('hash-a', LATER);
+    expect(first).toEqual({ userId: 'u1' });
+    // Replaying the now-used token fails.
+    expect(await resetTokens.consumeIfValid('hash-a', LATER)).toBeNull();
+  });
+
+  it('rejects an expired token', async () => {
+    await resetTokens.create({ userId: 'u1', tokenHash: 'hash-b', expiresAt: NOW });
+    // now (LATER) is past expiry → null, and the token is left unused (not consumed).
+    expect(await resetTokens.consumeIfValid('hash-b', LATER)).toBeNull();
+  });
+
+  it('rejects an unknown token', async () => {
+    expect(await resetTokens.consumeIfValid('does-not-exist', NOW)).toBeNull();
+  });
+
+  it('deleteByUserId invalidates a user’s outstanding tokens', async () => {
+    await resetTokens.create({ userId: 'u1', tokenHash: 'hash-c', expiresAt: EXPIRED_AT });
+    await resetTokens.deleteByUserId('u1');
+    expect(await resetTokens.consumeIfValid('hash-c', LATER)).toBeNull();
   });
 });
 

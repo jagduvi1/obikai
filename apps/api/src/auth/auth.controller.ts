@@ -12,11 +12,18 @@ import {
 } from '@nestjs/common';
 import { EmailAlreadyRegisteredError } from '@obikai/adapter-auth-local';
 import type { AppConfig } from '@obikai/config';
-import { loginInputSchema, registerInputSchema } from '@obikai/domain';
+import {
+  DEFAULT_LOCALE,
+  loginInputSchema,
+  passwordResetConfirmSchema,
+  passwordResetRequestSchema,
+  registerInputSchema,
+} from '@obikai/domain';
+import { NotificationsService } from '@obikai/notifications';
 import type { CookieOptions, Request, Response } from 'express';
 import { z } from 'zod';
 import { APP_CONFIG } from '../config.provider.js';
-import { AuthService, InvalidCredentialsError } from './auth.service.js';
+import { AuthService, InvalidCredentialsError, InvalidResetTokenError } from './auth.service.js';
 import type { IssuedTokens, SessionMeta } from './token.service.js';
 
 /** httpOnly cookie name carrying the refresh token for browser clients. */
@@ -31,14 +38,19 @@ const REFRESH_COOKIE = 'obikai_rt';
 @Controller('auth')
 export class AuthController {
   readonly #secure: boolean;
+  readonly #appName: string;
+  readonly #appPublicUrl: string | null;
 
   constructor(
     private readonly service: AuthService,
     @Inject(APP_CONFIG) config: AppConfig,
+    private readonly notifications: NotificationsService,
   ) {
     // Secure cookie everywhere except local dev. Derived from config, NOT per-request req.secure,
     // which is fragile behind a TLS-terminating proxy if trust-proxy is misconfigured (ADR-0012).
     this.#secure = config.baseDomain !== 'localhost' && config.baseDomain !== '127.0.0.1';
+    this.#appName = config.appName;
+    this.#appPublicUrl = config.appPublicUrl;
   }
 
   /** One source of truth for the refresh-cookie attributes, used by both set and clear. */
@@ -107,6 +119,56 @@ export class AuthController {
     res.clearCookie(REFRESH_COOKIE, this.#cookieOptions());
   }
 
+  /**
+   * Begin a password reset. ALWAYS returns 204, whether or not the email is registered, so the
+   * endpoint is not an account-enumeration oracle. When the account exists, a reset email is sent
+   * best-effort (a mail failure is swallowed — it must not change the response or 500 the caller).
+   */
+  @Post('password-reset/request')
+  @HttpCode(204)
+  async requestPasswordReset(@Body() body: unknown): Promise<void> {
+    let email: string;
+    try {
+      ({ email } = passwordResetRequestSchema.parse(body));
+    } catch (error) {
+      throw translate(error);
+    }
+    const request = await this.service.requestPasswordReset(email);
+    if (!request) return; // unknown account — identical 204, no email
+    const resetUrl =
+      this.#appPublicUrl !== null
+        ? `${this.#appPublicUrl}/reset-password?token=${encodeURIComponent(request.token)}`
+        : null;
+    const expiresInHours = Math.max(
+      1,
+      Math.round((new Date(request.expiresAt).getTime() - Date.now()) / 3_600_000),
+    );
+    try {
+      await this.notifications.sendPasswordReset(
+        { email: request.email },
+        DEFAULT_LOCALE,
+        { resetUrl, token: request.token, expiresInHours },
+        { name: request.email, dojoName: this.#appName, tenantDefaultLocale: DEFAULT_LOCALE },
+      );
+    } catch {
+      // Swallow: delivery problems must not reveal account existence nor fail the request. The
+      // adapter logs its own errors; the user can simply request another link.
+    }
+  }
+
+  /** Complete a password reset with the emailed token + new password. Generic 400 on a bad/expired
+   *  token (no oracle for which it was). On success the user's sessions are all revoked (in the service). */
+  @Post('password-reset/confirm')
+  @HttpCode(204)
+  async confirmPasswordReset(@Body() body: unknown): Promise<void> {
+    try {
+      const { token, password } = passwordResetConfirmSchema.parse(body);
+      await this.service.confirmPasswordReset(token, password);
+    } catch (error) {
+      throw translate(error);
+    }
+  }
+
   /** Set the refresh cookie and return only the access token to the body. */
   private respond(
     res: Response,
@@ -147,6 +209,8 @@ function parseCookie(header: string | undefined, name: string): string | null {
 
 function translate(error: unknown): Error {
   if (error instanceof InvalidCredentialsError) return new UnauthorizedException(error.message);
+  if (error instanceof InvalidResetTokenError)
+    return new BadRequestException('invalid or expired reset token');
   if (error instanceof EmailAlreadyRegisteredError)
     return new ConflictException('email already registered');
   if (error instanceof z.ZodError) return new BadRequestException(error.issues);

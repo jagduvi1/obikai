@@ -31,6 +31,10 @@ export interface AppConfig {
   readonly baseDomain: string;
   readonly selfHostTenantSlug: string | null;
   readonly trustProxyHops: number;
+  /** Product/platform display name for account-level emails (no single dojo). */
+  readonly appName: string;
+  /** Public origin of the member/admin SPA, for deep links in account emails; null when unset. */
+  readonly appPublicUrl: string | null;
   readonly mongoUri: string;
   readonly redisUrl: string;
   readonly runWorkerInProcess: boolean;
@@ -108,6 +112,8 @@ function toAppConfig(env: RawEnv): AppConfig {
     baseDomain: env.BASE_DOMAIN,
     selfHostTenantSlug: env.SELF_HOST_TENANT_SLUG ?? null,
     trustProxyHops: env.TRUST_PROXY_HOPS,
+    appName: env.APP_NAME,
+    appPublicUrl: env.APP_PUBLIC_URL ?? null,
     mongoUri: env.MONGO_URI,
     redisUrl: env.REDIS_URL,
     runWorkerInProcess: env.RUN_WORKER_IN_PROCESS,
