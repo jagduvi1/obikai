@@ -11,6 +11,7 @@ import {
   UserModel,
 } from './auth.js';
 import { EnrollmentModel } from './billing.js';
+import { ConsentModel } from './consent.js';
 import { MemberModel } from './member.js';
 import {
   CurriculumCompletionModel,
@@ -32,7 +33,8 @@ import { WaiverSignatureModel } from './waiver.js';
  * opaque `memberId`, not raw PII. Footprint records are hard-deleted; bookkeeping/immutable history is
  * retained (now de-identified) with any free-text PII scrubbed; waiver document blobs are deleted from
  * object storage and the denormalized columns anonymized. The tenant-global account is anonymized and
- * its credentials + sessions deleted so it can never log in again.
+ * its credentials + sessions deleted so it can never log in again, and the subject's consent records
+ * (Art. 7 evidence) are hard-deleted.
  *
  * Runs inside the caller's `runInTenantContext`, so guarded models are tenant-scoped; the tenant-global
  * identity collections (User/Identity/Session) are queried by the opaque, globally-unique `userId`.
@@ -182,6 +184,18 @@ export async function eraseMemberSubject(input: EraseSubjectInput): Promise<Eras
       model: 'email_verification_token',
       strategy: 'hard_delete',
       affected: evt.deletedCount ?? 0,
+      retained: 0,
+    });
+
+    // Consent records (Art. 7 evidence: purpose + ip/userAgent/note) are the subject's own PII and are
+    // keyed by the account `userId`. Hard-delete them — once the subject is erased there is no
+    // processing left to demonstrate a lawful basis for. They are tenant-SCOPED (tenantGuard), so this
+    // runs under the caller's tenant context and never crosses tenants (ADR-0007).
+    const cons = await ConsentModel.deleteMany({ subjectId: uid }).exec();
+    perModel.push({
+      model: 'consent',
+      strategy: 'hard_delete',
+      affected: cons.deletedCount ?? 0,
       retained: 0,
     });
   }
