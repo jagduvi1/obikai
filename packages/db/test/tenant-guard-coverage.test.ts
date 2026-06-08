@@ -27,6 +27,7 @@ const TENANT_GLOBAL = new Set([
   'Session',
   'PasswordResetToken',
   'EmailVerificationToken',
+  'MemberInviteToken',
   'Tenant',
   'PlatformGrant',
   'PlatformAudit',

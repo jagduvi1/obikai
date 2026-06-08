@@ -11,6 +11,7 @@ import {
   EmailVerificationTokenRepository,
   IdentityModel,
   IdentityRepository,
+  MemberInviteTokenRepository,
   MembershipModel,
   MembershipRepository,
   PasswordResetTokenModel,
@@ -37,6 +38,7 @@ const identities = new IdentityRepository();
 const memberships = new MembershipRepository();
 const resetTokens = new PasswordResetTokenRepository();
 const verifyTokens = new EmailVerificationTokenRepository();
+const inviteTokens = new MemberInviteTokenRepository();
 
 beforeAll(async () => {
   mongod = await MongoMemoryServer.create();
@@ -55,6 +57,7 @@ beforeEach(async () => {
   await mongoose.connection.collection('memberships').deleteMany({});
   await mongoose.connection.collection('passwordresettokens').deleteMany({});
   await mongoose.connection.collection('emailverificationtokens').deleteMany({});
+  await mongoose.connection.collection('memberinvitetokens').deleteMany({});
 });
 
 describe('guard exemption is deliberate (ADR-0004/0012)', () => {
@@ -179,6 +182,53 @@ describe('EmailVerificationTokenRepository (tenant-global, single-use)', () => {
     await verifyTokens.create({ userId: 'u1', tokenHash: 'v-c', expiresAt: EXPIRES_AT });
     await verifyTokens.deleteByUserId('u1');
     expect(await verifyTokens.consumeIfValid('v-c', LATER)).toBeNull();
+  });
+});
+
+describe('MemberInviteTokenRepository (tenant-global lookup; carries its tenant; single-use)', () => {
+  const NOW = new Date('2026-06-06T00:00:00.000Z');
+  const LATER = new Date('2026-06-08T00:00:00.000Z'); // within the 7-day invite window
+  const EXPIRES_AT = new Date('2026-06-13T00:00:00.000Z');
+
+  it('consumes a valid invite once and returns the carried tenant/member/email', async () => {
+    await inviteTokens.create({
+      tenantId: 't1',
+      memberId: 'm1',
+      email: 'mei@example.com',
+      tokenHash: 'i-a',
+      expiresAt: EXPIRES_AT,
+    });
+    // No tenant context needed (the public accept endpoint has none) — the row carries its tenant.
+    expect(await inviteTokens.consumeIfValid('i-a', LATER)).toEqual({
+      tenantId: 't1',
+      memberId: 'm1',
+      email: 'mei@example.com',
+    });
+    expect(await inviteTokens.consumeIfValid('i-a', LATER)).toBeNull(); // single-use
+  });
+
+  it('rejects an expired invite and an unknown invite', async () => {
+    await inviteTokens.create({
+      tenantId: 't1',
+      memberId: 'm1',
+      email: 'mei@example.com',
+      tokenHash: 'i-b',
+      expiresAt: NOW,
+    });
+    expect(await inviteTokens.consumeIfValid('i-b', LATER)).toBeNull(); // expired
+    expect(await inviteTokens.consumeIfValid('missing', NOW)).toBeNull(); // unknown
+  });
+
+  it('deleteByMemberId invalidates a member’s outstanding invites', async () => {
+    await inviteTokens.create({
+      tenantId: 't1',
+      memberId: 'm1',
+      email: 'mei@example.com',
+      tokenHash: 'i-c',
+      expiresAt: EXPIRES_AT,
+    });
+    await inviteTokens.deleteByMemberId('m1');
+    expect(await inviteTokens.consumeIfValid('i-c', LATER)).toBeNull();
   });
 });
 

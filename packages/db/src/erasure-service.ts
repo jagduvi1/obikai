@@ -4,6 +4,7 @@ import { AttendanceModel } from './attendance.js';
 import {
   EmailVerificationTokenModel,
   IdentityModel,
+  MemberInviteTokenModel,
   MembershipModel,
   PasswordResetTokenModel,
   SessionModel,
@@ -64,6 +65,7 @@ const HARD_DELETE_MODELS: ReadonlyArray<readonly [string, DeletableModel]> = [
   ['memberRankState', MemberRankStateModel as unknown as DeletableModel],
   ['curriculumCompletion', CurriculumCompletionModel as unknown as DeletableModel],
   ['membership', MembershipModel as unknown as DeletableModel],
+  ['memberInviteToken', MemberInviteTokenModel as unknown as DeletableModel],
 ];
 
 export async function eraseMemberSubject(input: EraseSubjectInput): Promise<ErasureResult> {
