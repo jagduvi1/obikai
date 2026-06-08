@@ -112,3 +112,19 @@ export type MemberCreateInput = z.infer<typeof memberCreateSchema>;
 /** Validated input to update a member — every field optional (partial patch). */
 export const memberUpdateSchema = memberCreateSchema.partial();
 export type MemberUpdateInput = z.infer<typeof memberUpdateSchema>;
+
+/**
+ * Fields a member may edit about THEMSELVES (member-app profile self-service). Deliberately a SUBSET
+ * of the member record: contact + emergency contact only. Lifecycle `status`, `tags`, `notes`,
+ * `householdId`, and `joinDate` are staff-managed and are NOT self-editable — so a member cannot, e.g.,
+ * self-promote their status or drop their own segment tags via the profile form.
+ */
+export const memberProfileUpdateSchema = z.object({
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  email: z.string().email().nullable().optional(),
+  phone: z.string().min(1).nullable().optional(),
+  dateOfBirth: isoDate.nullable().optional(),
+  emergencyContact: emergencyContactSchema.nullable().optional(),
+});
+export type MemberProfileUpdateInput = z.infer<typeof memberProfileUpdateSchema>;

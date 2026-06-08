@@ -9,6 +9,14 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Member-facing experience (§4.6)
 
+- **Profile self-service (`/me/profile`).** Members can view and edit their own contact + emergency-contact
+  details from the member app (new "My profile" page + nav, en/sv, accessible form). The update path is
+  **deliberately restricted**: a new `memberProfileUpdateSchema` exposes only the safe fields (name,
+  email, phone, date of birth, emergency contact) and `MembersService.updateOwnProfile` targets the
+  actor's OWN `memberId` — so a member cannot edit anyone else, nor self-set staff-managed fields. This
+  closes a latent gap: `can()` grants a member broad `update` on their own record, so the staff
+  `PATCH /members/:id` would otherwise have let a member self-change their `status` or drop their own
+  segment `tags`. Edits are audited as a member mutation (PII-minimized diff). Wired via the `/me` module.
 - **Member self check-in (§4.4 differentiator).** A member can tap "Check in" on a class they booked
   that is happening now; it records an immutable `method:'self'` attendance row that feeds the rank
   engine's "classes since last promotion" exactly like an instructor-marked check-in. A new

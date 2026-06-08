@@ -21,6 +21,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/attendance">{t('nav.attendance')}</NavLink>
           <NavLink to="/invoices">{t('nav.invoices')}</NavLink>
           <NavLink to="/waivers">{t('nav.waivers')}</NavLink>
+          <NavLink to="/profile">{t('nav.profile')}</NavLink>
         </nav>
         <LanguageSwitcher />
         <button type="button" className="link-button" onClick={() => void logout()}>

@@ -3,6 +3,7 @@ import type { AuditAppendInput } from '@obikai/db';
 import type {
   Member,
   MemberCreateInput,
+  MemberProfileUpdateInput,
   MemberStatus,
   MemberUpdateInput,
   UserId,
@@ -129,6 +130,33 @@ export class MembersService {
     if (!updated) throw new NotFoundError('member', id);
     // PII-minimized diff: record WHICH fields changed, never the personal-data values themselves.
     await this.recordMutation(actor, 'member.update', id, meta, { fields: Object.keys(patch) });
+    return updated;
+  }
+
+  /** The logged-in member's OWN record (member-app profile). Requires the actor to be a member. */
+  async getOwnProfile(actor: AuthzActor): Promise<Member> {
+    if (actor.memberId === undefined) throw new ForbiddenError('read', 'member');
+    const me = await this.store.findById(actor.memberId);
+    if (!me) throw new NotFoundError('member', actor.memberId);
+    return me;
+  }
+
+  /**
+   * Member self-service profile update — restricted to the safe `MemberProfileUpdateInput` fields
+   * (contact + emergency contact). It targets `actor.memberId`, so a member can only edit THEIR OWN
+   * record, and the narrow schema means staff-managed fields (status/tags/notes) can't be self-set.
+   */
+  async updateOwnProfile(
+    actor: AuthzActor,
+    patch: MemberProfileUpdateInput,
+    meta: AuditMeta = {},
+  ): Promise<Member> {
+    if (actor.memberId === undefined) throw new ForbiddenError('update', 'member');
+    const updated = await this.store.update(actor.memberId, patch);
+    if (!updated) throw new NotFoundError('member', actor.memberId);
+    await this.recordMutation(actor, 'member.update', actor.memberId, meta, {
+      fields: Object.keys(patch),
+    });
     return updated;
   }
 

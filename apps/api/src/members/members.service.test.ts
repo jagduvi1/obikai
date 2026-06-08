@@ -193,4 +193,27 @@ describe('MembersService RBAC', () => {
     const tagged = await svc.list(staff, { tag: 'competitor' });
     expect(tagged.map((m) => m.id)).toEqual([a.id]);
   });
+
+  it('lets a member read + update their OWN profile (restricted fields)', async () => {
+    const created = await svc.create(staff, sample);
+    const self = actor({
+      userId: 'u2',
+      memberId: created.id,
+      roles: [{ role: 'member', locationScope: 'ALL' }],
+    });
+    const got = await svc.getOwnProfile(self);
+    expect(got.id).toBe(created.id);
+
+    const updated = await svc.updateOwnProfile(self, { phone: '555-9' });
+    expect(updated.phone).toBe('555-9');
+    // The update is audited against the member's OWN id.
+    expect(audit.entries.at(-1)).toMatchObject({ action: 'member.update', targetId: created.id });
+  });
+
+  it('forbids own-profile self-service for a non-member actor', async () => {
+    await expect(svc.getOwnProfile(staff)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(svc.updateOwnProfile(staff, { phone: '1' })).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+  });
 });
