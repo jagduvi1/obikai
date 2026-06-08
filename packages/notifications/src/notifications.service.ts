@@ -143,6 +143,27 @@ export class NotificationsService {
     return this.email.send(message);
   }
 
+  /**
+   * Send an admin-authored broadcast email (scope §4.8). Unlike the transactional methods, the subject
+   * and body are FREE TEXT supplied by the dojo (not i18n catalog keys), so they are rendered directly:
+   * the body is split into paragraphs and HTML-escaped (no markup injection). Consent gating + the
+   * recipient set are the caller's responsibility (the broadcast pipeline) — this is transport only.
+   */
+  async sendBroadcast(
+    to: EmailRecipient,
+    subject: string,
+    body: string,
+    tags: Readonly<Record<string, string>> = { kind: 'broadcast' },
+  ): Promise<{ providerMessageId: string }> {
+    const paragraphs = body
+      .split(/\n{2,}/)
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+    const text = paragraphs.join('\n\n');
+    const html = paragraphs.map((p) => `<p>${escapeHtml(p)}</p>`).join('\n');
+    return this.email.send({ to: [to], subject, text, html, tags });
+  }
+
   /** Send a paid-invoice receipt (scope §5). */
   async sendReceipt(
     to: EmailRecipient,

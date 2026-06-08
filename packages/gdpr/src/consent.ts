@@ -97,6 +97,13 @@ export const consentRecordSchema = z
   });
 
 /**
+ * Canonical consent purpose for marketing email. Bulk/segment *marketing* sends (§4.8) MUST be gated
+ * on an active grant for this purpose; *transactional* operational messages do not require it (their
+ * lawful basis is contract / legitimate interest, not consent).
+ */
+export const MARKETING_EMAIL_PURPOSE = 'marketing_email';
+
+/**
  * Repository port for consent records — injected by the app layer (no DB coupling here).
  * Records are immutable; withdrawal is expressed by `withdraw` producing the updated row.
  */
@@ -104,6 +111,15 @@ export interface ConsentRepository {
   record(consent: ConsentRecord): Promise<void>;
   /** Latest consent state per purpose for a subject. */
   listForSubject(tenantId: TenantId, subjectId: UserId): Promise<readonly ConsentRecord[]>;
+  /**
+   * The subject's CURRENT consent status for one purpose (the most-recent record), or null if they
+   * have never had a record for it. The gate for marketing sends: only `'granted'` may be messaged.
+   */
+  currentStatus(
+    tenantId: TenantId,
+    subjectId: UserId,
+    purpose: string,
+  ): Promise<ConsentStatus | null>;
   withdraw(
     tenantId: TenantId,
     subjectId: UserId,

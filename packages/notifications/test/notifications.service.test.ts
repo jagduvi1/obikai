@@ -225,4 +225,16 @@ describe('NotificationsService', () => {
     // 'fi' has no email catalog → English copy is used (DEFAULT_LOCALE fallback).
     expect(msg.subject).toBe('Your receipt from Shobukan — invoice INV-1001');
   });
+
+  it('sendBroadcast renders free-text subject + paragraphs and HTML-escapes the body (§4.8)', async () => {
+    await svc.sendBroadcast(recipient, 'Open mat', 'Come train!\n\nBring <gear> & water', {
+      kind: 'broadcast',
+    });
+    const msg = port.sent[0]!;
+    expect(msg.subject).toBe('Open mat'); // free text, not an i18n key
+    expect(msg.text).toBe('Come train!\n\nBring <gear> & water'); // paragraphs preserved
+    // HTML wraps each paragraph and escapes markup so admin text can't inject HTML.
+    expect(msg.html).toBe('<p>Come train!</p>\n<p>Bring &lt;gear&gt; &amp; water</p>');
+    expect(msg.tags).toEqual({ kind: 'broadcast' });
+  });
 });
