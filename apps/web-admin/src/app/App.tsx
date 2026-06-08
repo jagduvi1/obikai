@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from '../auth/auth-context';
 import { ClassesPage } from '../pages/ClassesPage';
+import { DashboardPage } from '../pages/DashboardPage';
 import { DisciplinesPage } from '../pages/DisciplinesPage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { LocationsPage } from '../pages/LocationsPage';
@@ -32,7 +33,7 @@ export function App() {
     <Routes>
       <Route
         path="/login"
-        element={status === 'authenticated' ? <Navigate to="/members" replace /> : <LoginPage />}
+        element={status === 'authenticated' ? <Navigate to="/dashboard" replace /> : <LoginPage />}
       />
       {/* Public, unauthenticated account-recovery routes (reached from emailed links). */}
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -126,7 +127,15 @@ export function App() {
           </RequireAuth>
         }
       />
-      <Route path="*" element={<Navigate to="/members" replace />} />
+      <Route
+        path="/dashboard"
+        element={
+          <RequireAuth>
+            <DashboardPage />
+          </RequireAuth>
+        }
+      />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 }

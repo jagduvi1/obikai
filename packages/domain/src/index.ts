@@ -21,3 +21,4 @@ export * from './attendance.js';
 export * from './waiver.js';
 export * from './rank.js';
 export * from './messaging.js';
+export * from './reporting.js';

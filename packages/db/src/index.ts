@@ -30,3 +30,4 @@ export * from './attendance.js';
 export * from './waiver.js';
 export * from './rank.js';
 export * from './message-log.js';
+export * from './reporting.js';

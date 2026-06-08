@@ -7,6 +7,19 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ## [Unreleased]
 
+### Added — Reporting & analytics (§4.9)
+
+- **Action-oriented owner dashboard.** A new admin home (`/dashboard`, now the default landing) surfaces
+  the numbers a dojo owner acts on: **members at risk** (active members with no attendance in 21 days — a
+  churn early-warning), **payments to recover** (open invoices in dunning), new-this-month, active
+  members, **MRR** (monthly recurring revenue, normalized per billing interval and kept per-currency),
+  and **outstanding** invoice totals, plus a 6-month **attendance trend**. Backed by a new tenant-guarded
+  `ReportingRepository` (the `tenantGuard` plugin scopes aggregation pipelines, so a report can never
+  cross tenants) + a `ReportingService` that composes the aggregates (`GET /reporting/dashboard`, gated on
+  `member:list`). Money is never mixed across currencies. en/sv; accessible cards + trend table.
+  (The "eligible for promotion" count via batch eligibility is a noted follow-up — it needs per-member
+  engine evaluation; per-member eligibility is already available in the existing dashboard.)
+
 ### Added — Communication & messaging (§4.8)
 
 - **Segment broadcast with a consent split (ADR-0031).** Staff can email a member **segment** (all /
