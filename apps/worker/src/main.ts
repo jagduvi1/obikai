@@ -1,11 +1,11 @@
 /**
  * Obikai background worker entrypoint (ADR-0001).
  *
- * A single BullMQ `Worker` drains the `jobs` queue and dispatches on the job name. The worker is
- * deployed as its own process on the hosted plane; on self-host it can also be started in-process
- * by the api when `config.runWorkerInProcess` is true. Either way this same module is the unit of
- * work, so it MUST be safe to run standalone. It is also a PRODUCER: it registers the recurring
- * `billing-tick` and enqueues that tick's per-tenant fan-out back onto the same queue (ADR-0017).
+ * A single BullMQ `Worker` drains the `jobs` queue and dispatches on the job name. The worker runs as
+ * its OWN process/container in every deploy mode (`docker compose up` starts it); hosting it inside
+ * the api process (`runWorkerInProcess`) is reserved for a future self-host mode but not yet wired,
+ * so this module is the sole place jobs are processed. It is also a PRODUCER: it registers the
+ * recurring `billing-tick` and enqueues that tick's per-tenant fan-out back onto the same queue (ADR-0017).
  *
  * Tenancy (ADR-0004): every TENANT-SCOPED job carries `tenantId` and does its work inside an explicit
  * `runInTenantContext(tenantId, ...)`. The worker NEVER relies on ambient tenant state and NEVER

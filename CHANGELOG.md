@@ -79,6 +79,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Fixed
 
+- Self-host clarity: the background `worker` service (recurring billing, dunning, reminders) is now
+  documented as a **required** service that `docker compose up` starts — not "optional" — and the
+  misleading `RUN_WORKER_IN_PROCESS=true` default (which did nothing; in-process hosting isn't
+  implemented) is flipped to `false` so operators don't disable the worker thinking the API covers it
+  (audit B1).
 - Worker job durability: every enqueued job now **retries transient failures** (3 attempts,
   exponential backoff) and old completed/failed jobs are **reaped** (bounded Redis memory) — a single
   Mongo/Redis blip no longer permanently drops a tenant's billing/dunning run, and jobs don't pile up
