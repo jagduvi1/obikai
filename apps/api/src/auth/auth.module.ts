@@ -123,6 +123,6 @@ const AUTH_ADAPTER_CONTEXT = 'AUTH_ADAPTER_CONTEXT';
       ],
     },
   ],
-  exports: [TokenService, MembershipRepository],
+  exports: [TokenService, MembershipRepository, LocalAuthProvider],
 })
 export class AuthModule {}

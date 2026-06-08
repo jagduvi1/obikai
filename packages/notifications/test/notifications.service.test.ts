@@ -187,6 +187,24 @@ describe('NotificationsService', () => {
     expect(msg.text).toContain('tok-123');
   });
 
+  it('renders a member-invite email with the dojo name and deep link', async () => {
+    await svc.sendMemberInvite(
+      recipient,
+      'en',
+      {
+        acceptUrl: 'https://app.example/accept-invite?token=inv',
+        token: 'inv',
+        expiresInHours: 168,
+      },
+      ctx({ dojoName: 'Shobukan' }),
+    );
+    const msg = port.sent[0]!;
+    expect(msg.subject).toBe("You're invited to Shobukan");
+    expect(msg.text).toContain('Shobukan');
+    expect(msg.text).toContain('https://app.example/accept-invite?token=inv');
+    expect(msg.tags).toEqual({ kind: 'member-invite' });
+  });
+
   it('renders an email-verification message with the deep link and tags it', async () => {
     await svc.sendEmailVerification(
       recipient,

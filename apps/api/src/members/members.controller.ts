@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   ForbiddenException,
   Get,
   HttpCode,
+  Inject,
   Ip,
   NotFoundException,
   Param,
@@ -14,14 +16,24 @@ import {
   Query,
 } from '@nestjs/common';
 import type { AuthzActor } from '@obikai/authz';
-import { getTenantContextOrThrow } from '@obikai/db';
+import type { AppConfig } from '@obikai/config';
+import { TenantRegistryRepository, getTenantContextOrThrow } from '@obikai/db';
 import {
+  DEFAULT_LOCALE,
   type MemberStatus,
   memberCreateSchema,
   memberStatusSchema,
   memberUpdateSchema,
 } from '@obikai/domain';
+import { NotificationsService } from '@obikai/notifications';
 import { z } from 'zod';
+import { APP_CONFIG } from '../config.provider.js';
+import {
+  InviteAlreadyLinkedError,
+  InviteNoEmailError,
+  type MemberInviteRequest,
+  MemberInviteService,
+} from './member-invite.service.js';
 import { ForbiddenError, MembersService, NotFoundError } from './members.service.js';
 
 /**
@@ -43,13 +55,27 @@ function currentActor(): AuthzActor {
 function translate(error: unknown): never {
   if (error instanceof ForbiddenError) throw new ForbiddenException(error.message);
   if (error instanceof NotFoundError) throw new NotFoundException(error.message);
+  if (error instanceof InviteNoEmailError) throw new BadRequestException(error.message);
+  if (error instanceof InviteAlreadyLinkedError) throw new ConflictException(error.message);
   if (error instanceof z.ZodError) throw new BadRequestException(error.issues);
   throw error;
 }
 
 @Controller('members')
 export class MembersController {
-  constructor(private readonly service: MembersService) {}
+  readonly #appName: string;
+  readonly #appPublicUrl: string | null;
+  readonly #tenants = new TenantRegistryRepository();
+
+  constructor(
+    private readonly service: MembersService,
+    private readonly invites: MemberInviteService,
+    private readonly notifications: NotificationsService,
+    @Inject(APP_CONFIG) config: AppConfig,
+  ) {
+    this.#appName = config.appName;
+    this.#appPublicUrl = config.appPublicUrl;
+  }
 
   @Post()
   async create(@Body() body: unknown, @Ip() ip: string) {
@@ -98,5 +124,38 @@ export class MembersController {
     } catch (error) {
       translate(error);
     }
+  }
+
+  /**
+   * Invite a member to set up a portal login (onboarding). Staff-authed (member:update); mints a
+   * single-use token and emails the accept link. 400 if the member has no email, 409 if already linked.
+   */
+  @Post(':id/invite')
+  @HttpCode(204)
+  async invite(@Param('id') id: string) {
+    try {
+      const { tenantId } = getTenantContextOrThrow();
+      const request = await this.invites.createInvite(currentActor(), tenantId, id);
+      await this.sendInviteEmail(tenantId, request);
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  /** Email the invite link. The dojo name comes from the tenant registry; the link from APP_PUBLIC_URL
+   *  (raw token when unset). A delivery failure surfaces to staff (not swallowed) — re-inviting supersedes. */
+  private async sendInviteEmail(tenantId: string, request: MemberInviteRequest): Promise<void> {
+    const tenant = await this.#tenants.findBySlug(tenantId);
+    const dojoName = tenant?.name ?? this.#appName;
+    const acceptUrl =
+      this.#appPublicUrl !== null
+        ? `${this.#appPublicUrl}/accept-invite?token=${encodeURIComponent(request.token)}`
+        : null;
+    await this.notifications.sendMemberInvite(
+      { email: request.email, name: request.memberName },
+      DEFAULT_LOCALE,
+      { acceptUrl, token: request.token, expiresInHours: 7 * 24 },
+      { name: request.memberName, dojoName, tenantDefaultLocale: DEFAULT_LOCALE },
+    );
   }
 }

@@ -39,6 +39,12 @@ const en: Catalog = {
     "Hi {name}, we received a request to reset your password. This link is valid for {hours} hours. If you didn't request this, you can safely ignore this email — your password stays unchanged.",
   'email.passwordReset.action': 'Reset your password: {url}',
   'email.passwordReset.actionCode': 'Use this code to reset your password: {token}',
+  'email.invite.subject': "You're invited to {dojo}",
+  'email.invite.heading': 'Set up your {dojo} account',
+  'email.invite.body':
+    'Hi {name}, {dojo} has invited you to set up your member account. Choose a password to get started. This invite is valid for {hours} hours.',
+  'email.invite.action': 'Accept your invite: {url}',
+  'email.invite.actionCode': 'Use this invite code to set up your account: {token}',
   'email.verify.subject': 'Confirm your email — {dojo}',
   'email.verify.heading': 'Confirm your email address',
   'email.verify.body':
@@ -76,6 +82,12 @@ const sv: Catalog = {
     'Hej {name}, vi har tagit emot en begäran om att återställa ditt lösenord. Länken är giltig i {hours} timmar. Om du inte begärde detta kan du ignorera detta e-postmeddelande — ditt lösenord förblir oförändrat.',
   'email.passwordReset.action': 'Återställ ditt lösenord: {url}',
   'email.passwordReset.actionCode': 'Använd denna kod för att återställa ditt lösenord: {token}',
+  'email.invite.subject': 'Du är inbjuden till {dojo}',
+  'email.invite.heading': 'Skapa ditt konto hos {dojo}',
+  'email.invite.body':
+    'Hej {name}, {dojo} har bjudit in dig att skapa ditt medlemskonto. Välj ett lösenord för att komma igång. Inbjudan är giltig i {hours} timmar.',
+  'email.invite.action': 'Acceptera din inbjudan: {url}',
+  'email.invite.actionCode': 'Använd denna inbjudningskod för att skapa ditt konto: {token}',
   'email.verify.subject': 'Bekräfta din e-postadress — {dojo}',
   'email.verify.heading': 'Bekräfta din e-postadress',
   'email.verify.body':

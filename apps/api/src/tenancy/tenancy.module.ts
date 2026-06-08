@@ -5,8 +5,10 @@ import { TenancyMiddleware } from './tenancy.middleware.js';
 /**
  * Wires the tenant-context middleware across the request pipeline. Excluded routes answer without a
  * resolved tenant: `/healthz` + `/readyz` (probes have no Host-derived dojo), `/capabilities`
- * (pre-login snapshot), `/auth/*` (identity is tenant-global, ADR-0012), and `/platform/*` (the
- * cross-tenant oversight plane runs under `runAsPlatform`, not a tenant context — ADR-0021/0022).
+ * (pre-login snapshot), `/auth/*` (identity is tenant-global, ADR-0012), `/platform/*` (the
+ * cross-tenant oversight plane runs under `runAsPlatform`, not a tenant context — ADR-0021/0022), and
+ * `/invites/accept` (public onboarding; the tenant is resolved from the trusted invite token, not the
+ * request — the handler opens its own context).
  * Imports AuthModule so the middleware can inject TokenService + MembershipRepository.
  */
 @Module({
@@ -17,7 +19,7 @@ export class TenancyModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
     consumer
       .apply(TenancyMiddleware)
-      .exclude('healthz', 'readyz', 'capabilities', 'auth/(.*)', 'platform/(.*)')
+      .exclude('healthz', 'readyz', 'capabilities', 'auth/(.*)', 'platform/(.*)', 'invites/(.*)')
       .forRoutes('*');
   }
 }
