@@ -5,8 +5,11 @@ import type {
   EligibilityResult,
   Invoice,
   MemberRankState,
+  MemberWaiverStatus,
   Promotion,
   RoleAssignment,
+  WaiverSignInput,
+  WaiverSignature,
 } from '@obikai/domain';
 
 /** The arts the dojo offers (shared reference data; members may read). */
@@ -49,4 +52,14 @@ export function myCurriculumCompletions(
 }
 export function myInvoices(memberId: string): Promise<Invoice[]> {
   return api.get<Invoice[]>(`/invoices?memberId=${encodeURIComponent(memberId)}`);
+}
+
+/** Active waiver templates + whether the member has signed each one's current version (self-access). */
+export function myWaiverStatus(memberId: string): Promise<MemberWaiverStatus[]> {
+  return api.get<MemberWaiverStatus[]>(`/waivers/status?memberId=${encodeURIComponent(memberId)}`);
+}
+
+/** Record a digital acknowledgement — the member signs their own waiver (no uploaded document). */
+export function signWaiver(input: WaiverSignInput): Promise<WaiverSignature> {
+  return api.post<WaiverSignature>('/waivers/sign', input);
 }

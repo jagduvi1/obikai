@@ -161,4 +161,19 @@ export class WaiversController {
       translate(error);
     }
   }
+
+  /**
+   * Member-portal view: each active template + whether `memberId` has signed its current version.
+   * Self-accessible (the covered member / their guardian) so a member can see what to sign without
+   * the staff `waiver:list` grant.
+   */
+  @Get('status')
+  async listForMember(@Query('memberId') memberId?: string) {
+    try {
+      const parsed = z.string().min(1).parse(memberId);
+      return await this.service.listForMember(currentActor(), parsed);
+    } catch (error) {
+      translate(error);
+    }
+  }
 }

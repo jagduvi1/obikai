@@ -6,6 +6,7 @@ import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { LoginPage } from '../pages/LoginPage';
 import { MyInvoicesPage } from '../pages/MyInvoicesPage';
 import { MyProgressPage } from '../pages/MyProgressPage';
+import { MyWaiversPage } from '../pages/MyWaiversPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { VerifyEmailPage } from '../pages/VerifyEmailPage';
 import { Layout } from './Layout';
@@ -43,6 +44,14 @@ export function App() {
         element={
           <RequireAuth>
             <MyInvoicesPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/waivers"
+        element={
+          <RequireAuth>
+            <MyWaiversPage />
           </RequireAuth>
         }
       />

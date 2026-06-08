@@ -7,7 +7,7 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
 const en = {
   app: { title: 'Obikai', skipToContent: 'Skip to content', signOut: 'Sign out' },
-  nav: { progress: 'My progress', invoices: 'My invoices' },
+  nav: { progress: 'My progress', invoices: 'My invoices', waivers: 'Waivers' },
   login: {
     title: 'Sign in',
     email: 'Email',
@@ -63,6 +63,27 @@ const en = {
     loading: 'Loading…',
     error: 'Could not load your invoices.',
   },
+  waivers: {
+    title: 'Waivers',
+    intro: 'Read each waiver and sign it digitally. Your signature is dated and kept as a record.',
+    loading: 'Loading…',
+    error: 'Could not load your waivers.',
+    actionNeeded: 'Needs your signature',
+    none: 'There are no waivers to sign right now.',
+    allSigned: 'You have signed all current waivers. Thank you!',
+    version: 'Version {{version}}',
+    signedOn: 'Signed {{date}}',
+    signedBy: 'Signed by {{name}}',
+    fullName: 'Your full name',
+    fullNameHelp: 'Type your full legal name to sign.',
+    agree: 'I have read and agree to this waiver.',
+    sign: 'Sign waiver',
+    signing: 'Signing…',
+    signError: 'Could not record your signature. Please try again.',
+    signedSection: 'Signed waivers',
+    mustAgree: 'Please confirm you have read and agree.',
+    mustName: 'Please type your full name to sign.',
+  },
 } as const;
 
 const withSignOut = (label: string) => ({
@@ -72,6 +93,29 @@ const withSignOut = (label: string) => ({
 });
 const sv = {
   ...withSignOut('Logga ut'),
+  nav: { ...en.nav, progress: 'Mina framsteg', invoices: 'Mina fakturor', waivers: 'Avtal' },
+  waivers: {
+    ...en.waivers,
+    title: 'Avtal',
+    intro:
+      'Läs varje avtal och signera det digitalt. Din signatur dateras och sparas som underlag.',
+    error: 'Kunde inte läsa in dina avtal.',
+    actionNeeded: 'Behöver din signatur',
+    none: 'Det finns inga avtal att signera just nu.',
+    allSigned: 'Du har signerat alla aktuella avtal. Tack!',
+    version: 'Version {{version}}',
+    signedOn: 'Signerat {{date}}',
+    signedBy: 'Signerat av {{name}}',
+    fullName: 'Ditt fullständiga namn',
+    fullNameHelp: 'Skriv ditt fullständiga namn för att signera.',
+    agree: 'Jag har läst och godkänner detta avtal.',
+    sign: 'Signera avtal',
+    signing: 'Signerar…',
+    signError: 'Kunde inte registrera din signatur. Försök igen.',
+    signedSection: 'Signerade avtal',
+    mustAgree: 'Bekräfta att du har läst och godkänner.',
+    mustName: 'Skriv ditt fullständiga namn för att signera.',
+  },
   login: { ...en.login, title: 'Logga in', submit: 'Logga in', forgot: 'Glömt ditt lösenord?' },
   auth: {
     ...en.auth,
