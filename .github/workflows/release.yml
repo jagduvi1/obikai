@@ -142,7 +142,7 @@ jobs:
       # immutable digest emitted by the build step below.
       - name: Derive image metadata
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/obikai-${{ matrix.app }}
           tags: |
