@@ -157,4 +157,16 @@ export class MemberRepository {
     const res = await this.model.deleteOne({ _id: String(id) }).exec();
     return (res.deletedCount ?? 0) > 0;
   }
+
+  /**
+   * Atomically link a tenant-global account to this member, but ONLY if it has no account yet
+   * (compare-and-swap on `userId: null`). Returns true if this call linked it, false if the member is
+   * unknown or already linked — so a re-played invite-accept cannot hijack an already-onboarded member.
+   */
+  async linkUserId(id: string, userId: string): Promise<boolean> {
+    const res = await this.model
+      .updateOne({ _id: String(id), userId: null }, { $set: { userId: String(userId) } })
+      .exec();
+    return (res.modifiedCount ?? 0) > 0;
+  }
 }

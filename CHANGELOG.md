@@ -9,6 +9,12 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Member-invite foundation** (onboarding, first step). A tenant-global, single-use `MemberInviteToken`
+  collection that *carries* its `tenantId` + `memberId` + email so the (future) public accept endpoint
+  can resolve the tenant from the trusted token without a tenant context; only `sha256(token)` is stored,
+  TTL-reaped, purged on member erasure. `MemberRepository.linkUserId` atomically links an account to a
+  member only if it has none yet (CAS) — a replayed accept can't hijack an onboarded member. Domain
+  `memberInviteAcceptSchema`. The invite service + endpoints + emails + UI build on this next.
 - **Member create + edit UI** in the admin SPA (the backend POST/PATCH existed but had no UI). An
   "Add member" form on the Members list and an "Edit profile" form on the member detail page, sharing
   one accessible `MemberForm` component (first/last name required; email/phone/DOB/notes optional →

@@ -63,6 +63,18 @@ describe('MemberRepository', () => {
     expect(found?.firstName).toBe('Aiko');
   });
 
+  it('linkUserId links an account once (CAS) — a second link attempt is a no-op', async () => {
+    const m = await runInTenantContext(ctx('t1'), () =>
+      repo.create({ firstName: 'Mei', lastName: 'Tan', status: 'lead' }),
+    );
+    // First link wins.
+    expect(await runInTenantContext(ctx('t1'), () => repo.linkUserId(m.id, 'user-1'))).toBe(true);
+    expect((await runInTenantContext(ctx('t1'), () => repo.findById(m.id)))?.userId).toBe('user-1');
+    // A second link (e.g. a replayed invite-accept) is rejected — it cannot hijack the member.
+    expect(await runInTenantContext(ctx('t1'), () => repo.linkUserId(m.id, 'user-2'))).toBe(false);
+    expect((await runInTenantContext(ctx('t1'), () => repo.findById(m.id)))?.userId).toBe('user-1');
+  });
+
   it("does not return another tenant's members", async () => {
     const a = await runInTenantContext(ctx('t1'), () =>
       repo.create({ firstName: 'A', lastName: 'One', status: 'active' }),

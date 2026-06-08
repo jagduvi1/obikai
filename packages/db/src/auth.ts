@@ -426,6 +426,79 @@ export class EmailVerificationTokenRepository {
   }
 }
 
+// ── Member invite token (tenant-global lookup; carries its tenant; single-use) ──
+// Deliberately tenant-GLOBAL: the public accept endpoint has no tenant context, so it resolves the
+// tenant FROM the trusted token (minted by staff inside the tenant). Carries memberId + email so accept
+// can link the new account to the right member without trusting client input.
+export interface MemberInviteTokenDoc {
+  _id: Types.ObjectId;
+  tenantId: string;
+  memberId: string;
+  email: string;
+  /** sha256(rawToken) — only the hash is stored; the raw token lives only in the emailed link. */
+  tokenHash: string;
+  expiresAt: Date;
+  usedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const memberInviteTokenSchema = new Schema<MemberInviteTokenDoc>(
+  {
+    tenantId: { type: String, required: true, index: true },
+    memberId: { type: String, required: true, index: true },
+    email: { type: String, required: true },
+    tokenHash: { type: String, required: true, unique: true },
+    expiresAt: { type: Date, required: true },
+    usedAt: { type: Date, default: null },
+  },
+  { timestamps: true },
+);
+// Reap tokens 24h AFTER they expire (invites are longer-lived, e.g. 7 days) — self-host-friendly cleanup.
+memberInviteTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 24 * 3_600 });
+
+export const MemberInviteTokenModel: Model<MemberInviteTokenDoc> =
+  (mongoose.models.MemberInviteToken as Model<MemberInviteTokenDoc> | undefined) ??
+  mongoose.model<MemberInviteTokenDoc>('MemberInviteToken', memberInviteTokenSchema);
+
+export class MemberInviteTokenRepository {
+  constructor(private readonly model: Model<MemberInviteTokenDoc> = MemberInviteTokenModel) {}
+
+  async create(input: {
+    tenantId: string;
+    memberId: string;
+    email: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }): Promise<void> {
+    await this.model.create({ ...input, usedAt: null });
+  }
+
+  /**
+   * Atomically consume an invite: it must exist, be UNUSED, and UNEXPIRED, marked used in the same op
+   * (CAS on `usedAt: null`). Returns the carried tenantId/memberId/email, or null if unknown/used/expired.
+   */
+  async consumeIfValid(
+    tokenHash: string,
+    now: Date,
+  ): Promise<{ tenantId: string; memberId: string; email: string } | null> {
+    const doc = await this.model
+      .findOneAndUpdate(
+        { tokenHash: String(tokenHash), usedAt: null, expiresAt: { $gt: now } },
+        { $set: { usedAt: now } },
+        { new: true },
+      )
+      .lean<MemberInviteTokenDoc>()
+      .exec();
+    return doc ? { tenantId: doc.tenantId, memberId: doc.memberId, email: doc.email } : null;
+  }
+
+  /** Invalidate every outstanding invite for a member (before reissuing one, and on erasure). */
+  async deleteByMemberId(memberId: string): Promise<void> {
+    await this.model.deleteMany({ memberId: String(memberId) }).exec();
+  }
+}
+
 // ── Membership (tenant-scoped) ────────────────────────────────────────────────
 interface RoleAssignmentDoc {
   role: string;

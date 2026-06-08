@@ -98,6 +98,13 @@ export const emailVerifyConfirmSchema = z.object({
 });
 export type EmailVerifyConfirmInput = z.infer<typeof emailVerifyConfirmSchema>;
 
+/** Accept a member invite: the emailed token + the password the member chooses for their account. */
+export const memberInviteAcceptSchema = z.object({
+  token: z.string().min(1),
+  password: newPassword,
+});
+export type MemberInviteAcceptInput = z.infer<typeof memberInviteAcceptSchema>;
+
 /** Change the password of the authenticated account: prove the current one, set a new (strong) one. */
 export const passwordChangeSchema = z
   .object({
