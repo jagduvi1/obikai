@@ -18,6 +18,7 @@ const elements = [
   { type: 'db', pattern: 'packages/db/**' },
   { type: 'gdpr', pattern: 'packages/gdpr/**' },
   { type: 'i18n', pattern: 'packages/i18n/**' },
+  { type: 'notifications', pattern: 'packages/notifications/**' },
   { type: 'test-utils', pattern: 'packages/test-utils/**' },
   { type: 'adapter-impl', pattern: 'adapters/**' },
   { type: 'app', pattern: 'apps/**' },
@@ -57,6 +58,9 @@ export default [
             { from: 'config', allow: ['domain'] },
             { from: 'authz', allow: ['domain'] },
             { from: 'i18n', allow: ['domain'] },
+            // Transactional email rendering: pure, framework-free; depends only on the email port
+            // contract, domain types, and the i18n catalogs. Used by both api and worker.
+            { from: 'notifications', allow: ['domain', 'adapter-contracts', 'i18n'] },
             { from: 'gdpr', allow: ['domain', 'adapter-contracts'] },
             // db may implement the gdpr ports (audit log, consent, identity-map, keystore) and reuse
             // its pure hash-chain primitives. gdpr is a DB-free leaf (domain + adapter-contracts only),
@@ -76,6 +80,7 @@ export default [
                 'db',
                 'gdpr',
                 'i18n',
+                'notifications',
                 'adapter-impl',
                 'test-utils',
               ],

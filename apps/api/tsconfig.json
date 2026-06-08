@@ -23,6 +23,7 @@
     { "path": "../../packages/db" },
     { "path": "../../packages/rank-engine" },
     { "path": "../../packages/i18n" },
+    { "path": "../../packages/notifications" },
     { "path": "../../adapters/auth-local" },
     { "path": "../../adapters/email-smtp" }
   ],

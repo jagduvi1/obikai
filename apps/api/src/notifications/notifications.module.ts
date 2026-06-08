@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
 import { type SmtpConfig, SmtpEmailProvider } from '@obikai/adapter-email-smtp';
 import type { AppConfig } from '@obikai/config';
+import { EMAIL_CATALOGS, NotificationsService } from '@obikai/notifications';
 import { APP_CONFIG } from '../config.provider.js';
-import { EMAIL_CATALOGS } from './email-catalogs.js';
-import { NotificationsService } from './notifications.service.js';
 
 /** Injection token for the SMTP email port (ADR-0003: the default EmailPort implementation). */
 const EMAIL_PORT = 'EMAIL_PORT';

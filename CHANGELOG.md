@@ -124,6 +124,10 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Changed
 
+- Extracted `NotificationsService` (+ email catalogs) into a shared `@obikai/notifications` package so
+  both the api and the worker can send transactional email (the worker can't import from `apps/api`).
+  No behavior change — the api wires it exactly as before; this unblocks wiring dunning/reminder emails
+  from worker jobs (audit C).
 - Occurrence materialization now issues a single `bulkWrite` instead of N sequential upserts —
   collapsing an N-occurrence horizon (e.g. ~90 for a daily class over 90 days) into one round-trip.
   Idempotency is unchanged (same `{tenantId, scheduleId, startsAt}` unique index + `$setOnInsert`).

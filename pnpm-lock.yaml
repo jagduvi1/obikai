@@ -324,6 +324,9 @@ importers:
       '@obikai/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
+      '@obikai/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
       '@obikai/rank-engine':
         specifier: workspace:*
         version: link:../../packages/rank-engine
@@ -753,6 +756,31 @@ importers:
       '@obikai/domain':
         specifier: workspace:*
         version: link:../domain
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.19.20
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: 'catalog:'
+        version: 6.4.3(@types/node@22.19.20)
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.8(@types/node@22.19.20)(jsdom@25.0.1)(vite@6.4.3(@types/node@22.19.20))
+
+  packages/notifications:
+    dependencies:
+      '@obikai/adapter-contracts':
+        specifier: workspace:*
+        version: link:../adapter-contracts
+      '@obikai/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@obikai/i18n':
+        specifier: workspace:*
+        version: link:../i18n
     devDependencies:
       '@types/node':
         specifier: ^22.10.2
