@@ -51,6 +51,14 @@ docker compose up -d
 This starts `api`, `worker` (required — it runs recurring billing, dunning, reminders), `mongo`, and
 `redis`. The `worker` is its own container; do not rely on running jobs inside the api.
 
+### Web UIs
+
+The three front-ends are published as separate static (Caddy-served) images alongside the api/worker:
+`obikai-web-admin`, `obikai-web-member`, `obikai-web-platform`. Serve them behind your reverse proxy and
+point each at the api (the SPAs call the API under `/api` by default — set `VITE_API_URL` if you split
+origins). The exact host/path topology (e.g. admin vs. member on separate subdomains) is yours to choose;
+the production compose currently wires the api + Traefik, with SPA routing left to your edge config.
+
 ## 4. Create the first owner
 
 The first admin is seeded directly (no email round-trip, so a mail misconfig can't lock you out). Set
