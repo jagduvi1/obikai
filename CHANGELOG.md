@@ -9,6 +9,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Member create + edit UI** in the admin SPA (the backend POST/PATCH existed but had no UI). An
+  "Add member" form on the Members list and an "Edit profile" form on the member detail page, sharing
+  one accessible `MemberForm` component (first/last name required; email/phone/DOB/notes optional →
+  null when blank; status dropdown). New `@obikai/api-client`-backed `createMember`/`updateMember`
+  bindings; i18n (en + sv). A dojo can now add and edit members through the app.
 - **Account-recovery screens** in the member portal — the same forgot/reset/verify public routes and
   "Forgot your password?" link as the admin SPA, so a locked-out member can recover their account
   (en + sv, accessible). The in-portal change-password awaits a member account page.

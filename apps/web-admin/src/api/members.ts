@@ -1,5 +1,5 @@
 import { api } from '@obikai/api-client';
-import type { Member, MemberStatus } from '@obikai/domain';
+import type { Member, MemberCreateInput, MemberStatus, MemberUpdateInput } from '@obikai/domain';
 
 /**
  * Members API binding. Reusing the shared `@obikai/domain` types is the payoff of the TS-end-to-end
@@ -12,4 +12,12 @@ export function listMembers(opts: { status?: MemberStatus } = {}): Promise<Membe
 
 export function getMember(id: string): Promise<Member> {
   return api.get<Member>(`/members/${encodeURIComponent(id)}`);
+}
+
+export function createMember(input: MemberCreateInput): Promise<Member> {
+  return api.post<Member>('/members', input);
+}
+
+export function updateMember(id: string, patch: MemberUpdateInput): Promise<Member> {
+  return api.patch<Member>(`/members/${encodeURIComponent(id)}`, patch);
 }

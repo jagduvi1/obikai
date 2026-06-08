@@ -3,9 +3,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { downloadInvoicePdf, formatMoney, listMemberInvoices } from '../api/billing';
-import { getMember } from '../api/members';
+import { getMember, updateMember } from '../api/members';
 import { enrollInDiscipline, listDisciplines, listRankStates } from '../api/rank';
 import { DisciplineRankSection } from '../components/DisciplineRankSection';
+import { MemberForm } from '../components/MemberForm';
 
 /** Member detail: profile + per-discipline rank panel (eligibility/award/history) + enrollment. */
 export function MemberDetailPage() {
@@ -13,6 +14,7 @@ export function MemberDetailPage() {
   const { id = '' } = useParams();
   const qc = useQueryClient();
   const [toEnroll, setToEnroll] = useState('');
+  const [editing, setEditing] = useState(false);
 
   const member = useQuery({
     queryKey: ['member', id],
@@ -42,6 +44,15 @@ export function MemberDetailPage() {
     },
   });
 
+  const update = useMutation({
+    mutationFn: (input: Parameters<typeof updateMember>[1]) => updateMember(id, input),
+    onSuccess: () => {
+      setEditing(false);
+      void qc.invalidateQueries({ queryKey: ['member', id] });
+      void qc.invalidateQueries({ queryKey: ['members'] });
+    },
+  });
+
   const nameOf = (disciplineId: string) =>
     disciplines.data?.find((d) => d.id === disciplineId)?.name ?? disciplineId;
   const enrolledIds = new Set((rankStates.data ?? []).map((s) => s.disciplineId));
@@ -55,9 +66,39 @@ export function MemberDetailPage() {
       {member.isLoading && <p>{t('members.loading')}</p>}
       {member.isError && <p className="form-error">{t('members.error')}</p>}
       {member.data && (
-        <h1>
-          {member.data.firstName} {member.data.lastName}
-        </h1>
+        <>
+          <h1>
+            {member.data.firstName} {member.data.lastName}
+          </h1>
+          <section aria-labelledby="profile-heading">
+            <div className="section-head">
+              <h2 id="profile-heading">{t('memberForm.editProfile')}</h2>
+              {!editing && (
+                <button type="button" onClick={() => setEditing(true)}>
+                  {t('memberForm.editProfile')}
+                </button>
+              )}
+            </div>
+            {editing && (
+              <MemberForm
+                initial={{
+                  firstName: member.data.firstName,
+                  lastName: member.data.lastName,
+                  email: member.data.email ?? '',
+                  phone: member.data.phone ?? '',
+                  dateOfBirth: member.data.dateOfBirth ?? '',
+                  status: member.data.status,
+                  notes: member.data.notes ?? '',
+                }}
+                submitLabel={t('memberForm.save')}
+                pending={update.isPending}
+                error={update.isError}
+                onSubmit={(input) => update.mutate(input)}
+              />
+            )}
+            <output className="status">{update.isSuccess ? t('memberForm.saved') : ''}</output>
+          </section>
+        </>
       )}
 
       <section aria-labelledby="rank-heading">
