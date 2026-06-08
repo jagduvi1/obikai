@@ -1,0 +1,69 @@
+import type { Member } from '@obikai/domain';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ProfilePage } from './ProfilePage';
+
+const { getMyProfile, updateMyProfile } = vi.hoisted(() => ({
+  getMyProfile: vi.fn(),
+  updateMyProfile: vi.fn(),
+}));
+vi.mock('../api/member-data', () => ({ getMyProfile, updateMyProfile }));
+
+const member = (over: Partial<Record<keyof Member, unknown>> = {}): Member =>
+  ({
+    id: 'm1',
+    tenantId: 't1',
+    userId: 'u1',
+    householdId: null,
+    firstName: 'Aiko',
+    lastName: 'Tanaka',
+    email: 'aiko@x.io',
+    phone: null,
+    dateOfBirth: null,
+    status: 'active',
+    joinDate: null,
+    emergencyContact: null,
+    notes: null,
+    tags: [],
+    createdAt: '2026-06-06T00:00:00.000Z',
+    updatedAt: '2026-06-06T00:00:00.000Z',
+    ...over,
+  }) as Member;
+
+function renderPage() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={qc}>
+      <ProfilePage />
+    </QueryClientProvider>,
+  );
+}
+
+describe('ProfilePage', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('pre-fills from the loaded profile and saves the edited contact fields', async () => {
+    getMyProfile.mockResolvedValue(member());
+    updateMyProfile.mockResolvedValue(member({ phone: '555-1' }));
+    const user = userEvent.setup();
+    renderPage();
+
+    const first = (await screen.findByLabelText(/first name/i)) as HTMLInputElement;
+    expect(first.value).toBe('Aiko');
+
+    // Two "Phone" inputs (member + emergency contact); [0] is the member's own, grouped separately.
+    await user.type(screen.getAllByLabelText('Phone')[0] as HTMLElement, '555-1');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+
+    await waitFor(() => expect(updateMyProfile).toHaveBeenCalledTimes(1));
+    expect(updateMyProfile.mock.calls[0]?.[0]).toMatchObject({
+      firstName: 'Aiko',
+      lastName: 'Tanaka',
+      email: 'aiko@x.io',
+      phone: '555-1',
+      emergencyContact: null,
+    });
+  });
+});

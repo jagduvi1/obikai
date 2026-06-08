@@ -8,6 +8,7 @@ import { MyAttendancePage } from '../pages/MyAttendancePage';
 import { MyInvoicesPage } from '../pages/MyInvoicesPage';
 import { MyProgressPage } from '../pages/MyProgressPage';
 import { MyWaiversPage } from '../pages/MyWaiversPage';
+import { ProfilePage } from '../pages/ProfilePage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SchedulePage } from '../pages/SchedulePage';
 import { VerifyEmailPage } from '../pages/VerifyEmailPage';
@@ -70,6 +71,14 @@ export function App() {
         element={
           <RequireAuth>
             <MyWaiversPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <RequireAuth>
+            <ProfilePage />
           </RequireAuth>
         }
       />

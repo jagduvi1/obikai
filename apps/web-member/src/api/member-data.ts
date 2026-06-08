@@ -7,6 +7,8 @@ import type {
   Discipline,
   EligibilityResult,
   Invoice,
+  Member,
+  MemberProfileUpdateInput,
   MemberRankState,
   MemberWaiverStatus,
   Program,
@@ -104,4 +106,16 @@ export function selfCheckIn(occurrenceId: string): Promise<Attendance> {
 /** The member's own attendance history (self-access GET /attendance?memberId=own), newest first. */
 export function myAttendance(memberId: string): Promise<Attendance[]> {
   return api.get<Attendance[]>(`/attendance?memberId=${encodeURIComponent(memberId)}`);
+}
+
+// ── Profile self-service (§4.6) ──────────────────────────────────────────────
+
+/** The member's own profile record (GET /me/profile). */
+export function getMyProfile(): Promise<Member> {
+  return api.get<Member>('/me/profile');
+}
+
+/** Update the member's own contact + emergency-contact details (PATCH /me/profile). */
+export function updateMyProfile(patch: MemberProfileUpdateInput): Promise<Member> {
+  return api.patch<Member>('/me/profile', patch);
 }
