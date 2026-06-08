@@ -197,9 +197,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return toAppConfig(parsed.data);
 }
 
-/** Like loadConfig but returns a Zod-style result instead of throwing — handy in tests. */
-export function tryLoadConfig(env: NodeJS.ProcessEnv): z.SafeParseReturnType<unknown, AppConfig> {
+/** Like loadConfig but returns a Zod-style result instead of throwing — handy in tests. The success
+ *  branch carries the mapped AppConfig; the error branch is Zod's own failure result. */
+export function tryLoadConfig(
+  env: NodeJS.ProcessEnv,
+): { success: true; data: AppConfig } | z.ZodSafeParseError<unknown> {
   const parsed = EnvSchema.safeParse(env);
-  if (!parsed.success) return parsed as z.SafeParseError<unknown>;
+  if (!parsed.success) return parsed;
   return { success: true, data: toAppConfig(parsed.data) };
 }

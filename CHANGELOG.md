@@ -9,6 +9,14 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Upgrade zod 3 → 4 (catalog-wide).** zod is a `catalog:` dependency used across 9 packages / ~65
+  files, but the v4 break for our code was tiny: only `z.SafeParseReturnType` (removed) and
+  `z.SafeParseError` (→ `ZodSafeParseError`) in `tryLoadConfig` (`@obikai/config`). Fixed by typing the
+  result as `{ success: true; data } | z.ZodSafeParseError<unknown>`. Everything else — `z.object`,
+  `instanceof z.ZodError` + `.issues` handling in ~20 controllers, and the deprecated-but-functional
+  string formats (`.email()`/`.url()`/`.datetime()`) — works unchanged; full suite green and zod stays
+  MIT. (Migrating the deprecated formats to `z.email()`/`z.iso.datetime()` is a noted, behaviour-
+  sensitive follow-up; they emit no runtime warnings. Closes Dependabot's held zod bump.)
 - **Translatable rank/curriculum content (i18n H4, ADR-0029).** Dojo-authored display content is now
   `LocalizedString`: `Discipline.name`/`description` and `CurriculumItem.label`/`description`. These are
   app-layer entities, fully decoupled from the immutable rank `versionId` (the engine's versioned config
