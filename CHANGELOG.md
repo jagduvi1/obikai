@@ -9,6 +9,22 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Upgrade NestJS 10 → 11 + Express 4 → 5 (`@obikai/api`).** Bumped `@nestjs/core`, `@nestjs/common`,
+  `@nestjs/platform-express`, `@nestjs/testing` to `^11.1` and `@types/express` to `^5` (the runtime is
+  now Express `5.2` / `path-to-regexp` `8`). Despite the path-to-regexp 8 rewrite, **our existing route
+  patterns work unchanged** — NestJS 11 normalises them internally, so `@Get('*')`/`@Put('*')` (fs files
+  controller), `forRoutes('*')` + `exclude('auth/(.*)', …)` (tenancy middleware) and `forRoutes('platform/*')`
+  (platform middleware) all still register and match. This is proven empirically: the real-app integration
+  boot registers every one of them and a new assertion drives a nested `/files/*` request to a 403 (route
+  matched) rather than a 404 (no route). The one genuine break was **NestJS 11's stricter injector** — it
+  now throws on an unresolved constructor param instead of silently injecting `undefined`. The former
+  `src/platform/platform.wiring.test.ts` exploited that old leniency (it booted `PlatformModule` under
+  esbuild, whose stripped `design:paramtypes` left injected deps `undefined`, which was fine for its
+  no-auth 401 path). Under Nest 11 that throws, so the wiring assertions were relocated to a real-app
+  integration test (`test/platform-wiring.int.test.ts`, SWC metadata + full DI) and the esbuild-bound unit
+  test was deleted. No production code changed. Full suite green (api 180 unit + 14 int). (Closes
+  Dependabot's held `@nestjs/core` and `@nestjs/platform-express` bumps and the `@types/express` 5 bump;
+  `@nestjs/common`/`@nestjs/testing` had no Dependabot PRs and were lifted to match.)
 - **Upgrade mongoose 8 → 9 (`@obikai/db`).** mongoose 9 (which bundles the MongoDB driver 6 → 7)
   tightened types and removed callback-style middleware — both of which our tenant-isolation layer
   leans on heavily. Changes: `FilterQuery<T>` → `QueryFilter<T>`; the four `tenantGuard` pre-hooks
