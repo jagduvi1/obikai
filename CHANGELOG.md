@@ -36,8 +36,9 @@ independently via [Changesets](https://github.com/changesets/changesets).
   is pure structure — no human strings), so **no engine/versioning change and no `versionId` migration**.
   The API returns the raw `LocalizedString`; the SPAs resolve it to the viewer's locale via
   `resolveLocalized` (admin disciplines/classes/member-detail, member progress). The admin disciplines
-  form authors a **name per locale**. A forward-only `migrate-mongo` migration wraps any existing string
-  as `{ en: value }`. Untranslated content falls back gracefully (requested → tenant default → en).
+  form authors a **name per locale**. No data migration ships — Obikai is pre-launch with no legacy
+  string-shaped content, and all write paths produce `LocalizedString` directly. Untranslated content
+  falls back gracefully (requested → tenant default → en).
 - **Upgrade `@noble/hashes` 1 → 2 (rank-engine + gdpr), byte-identically.** v2 reorganised its API:
   `sha256` moved to `@noble/hashes/sha2.js` (subpaths now require the `.js` extension) and no longer
   accepts a string (the implicit UTF-8 encode was removed — we now `utf8ToBytes(...)` explicitly, which

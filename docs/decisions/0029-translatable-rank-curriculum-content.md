@@ -48,19 +48,20 @@ immutability concern, and no `versionId` migration.**
    authoring UI offers a per-locale field set (at minimum the tenant default + English, with the other
    Nordic locales optional). At least one locale is required (`localizedStringSchema` enforces it).
 
-4. **Migration** rewrites existing `string` values to `{ en: value }` (forward-only, `migrate-mongo`).
-   Pre-launch there is no production data, so this is effectively a seed-data convenience; it makes the
-   change safe regardless.
+4. **No data migration.** Obikai is pre-launch with no production data and a freely re-seedable DB, and
+   every write path now produces `LocalizedString` directly — so there is no legacy `string`-shaped
+   content to convert. A one-shot old-string→`{ en: value }` migration was written and then dropped as
+   unnecessary back-compat scaffolding; the schema is the single source of truth.
 
 ## Consequences
 
 - No change to the rank engine, `mintVersion`, `versionId`, or promotion-history immutability — the
    crown-jewel invariant is untouched. (The `@noble/hashes`-v2 byte-stability tests from #98 continue to
    pin the hash.)
-- Cross-cutting but bounded: domain types + zod, `@obikai/db` models/mappers + a migration, the
-   disciplines/curriculum API DTOs, and two SPAs. Implemented as: **(PR-1)** domain + db + migration +
-   API + the two UIs (the `string`→object change must land with its consumers to stay green);
-   optionally split member-display from admin-authoring if the diff is large.
+- Cross-cutting but bounded: domain types + zod, `@obikai/db` models/mappers, the disciplines/curriculum
+   API DTOs, and two SPAs. Implemented as: **(PR-1)** domain + db + API + the two UIs (the `string`→object
+   change must land with its consumers to stay green); optionally split member-display from admin-authoring
+   if the diff is large.
 - A `LocalizedString` with only `en` renders as English everywhere via the fallback — so untranslated
    content degrades gracefully, exactly like the nb/da/fi UI stubs.
 - Tenant default locale: `resolveLocalized` takes a `defaultLocale`. Until a per-tenant authoring
