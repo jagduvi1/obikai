@@ -16,5 +16,10 @@
   "email.reminder.subject": "Reminder: {program} at {time}",
   "email.reminder.heading": "Your class is coming up",
   "email.reminder.body": "Hi {name}, this is a reminder that {program} starts at {time} at {location}. See you on the mat!",
+  "email.passwordReset.subject": "Reset your password — {dojo}",
+  "email.passwordReset.heading": "Password reset requested",
+  "email.passwordReset.body": "Hi {name}, we received a request to reset your password. This link is valid for {hours} hours. If you didn't request this, you can safely ignore this email — your password stays unchanged.",
+  "email.passwordReset.action": "Reset your password: {url}",
+  "email.passwordReset.actionCode": "Use this code to reset your password: {token}",
   "email.signature": "— The team at {dojo}"
 }

@@ -5,13 +5,15 @@ import type { AppConfig } from '@obikai/config';
 import {
   IdentityRepository,
   MembershipRepository,
+  PasswordResetTokenRepository,
   SessionRepository,
   UserRepository,
 } from '@obikai/db';
 import { adapterLogger } from '../common/logging.js';
 import { APP_CONFIG } from '../config.provider.js';
+import { NotificationsModule } from '../notifications/notifications.module.js';
 import { AuthController } from './auth.controller.js';
-import { AuthService } from './auth.service.js';
+import { AuthService, type IdentityLookup } from './auth.service.js';
 import { DbIdentityStore } from './identity-store.js';
 import { TokenService } from './token.service.js';
 
@@ -24,12 +26,17 @@ const AUTH_ADAPTER_CONTEXT = 'AUTH_ADAPTER_CONTEXT';
  * MembershipRepository so the tenancy middleware can verify tokens and resolve per-tenant roles.
  */
 @Module({
+  imports: [NotificationsModule],
   controllers: [AuthController],
   providers: [
     { provide: UserRepository, useFactory: () => new UserRepository() },
     { provide: IdentityRepository, useFactory: () => new IdentityRepository() },
     { provide: SessionRepository, useFactory: () => new SessionRepository() },
     { provide: MembershipRepository, useFactory: () => new MembershipRepository() },
+    {
+      provide: PasswordResetTokenRepository,
+      useFactory: () => new PasswordResetTokenRepository(),
+    },
     {
       provide: AUTH_ADAPTER_CONTEXT,
       useValue: {
@@ -68,8 +75,22 @@ const AUTH_ADAPTER_CONTEXT = 'AUTH_ADAPTER_CONTEXT';
     },
     {
       provide: AuthService,
-      useFactory: (auth: LocalAuthProvider, tokens: TokenService) => new AuthService(auth, tokens),
-      inject: [LocalAuthProvider, TokenService],
+      useFactory: (
+        auth: LocalAuthProvider,
+        tokens: TokenService,
+        identities: IdentityRepository,
+        resetTokens: PasswordResetTokenRepository,
+      ) => {
+        // Adapt the IdentityRepository to the AuthService's narrow IdentityLookup port (local provider).
+        const lookup: IdentityLookup = {
+          findByEmail: async (email) => {
+            const rec = await identities.findByEmailLower('local', email);
+            return rec ? { userId: rec.userId, email: rec.email } : null;
+          },
+        };
+        return new AuthService(auth, tokens, lookup, resetTokens);
+      },
+      inject: [LocalAuthProvider, TokenService, IdentityRepository, PasswordResetTokenRepository],
     },
   ],
   exports: [TokenService, MembershipRepository],

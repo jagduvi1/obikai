@@ -15,6 +15,7 @@ import type {
   HealthStatus,
   Identity,
   RegisterPasswordInput,
+  SetPasswordInput,
   VerifyPasswordInput,
 } from '@obikai/adapter-contracts';
 import { DECOY_HASH, hashPassword, verifyPassword } from './hash.js';
@@ -90,5 +91,14 @@ export class LocalAuthProvider implements AuthPort {
       return null;
     }
     return toIdentity(credential);
+  }
+
+  async setPassword(input: SetPasswordInput): Promise<boolean> {
+    // Hash here (the adapter owns the algorithm); the store only persists the encoded string. Keyed
+    // by subject so reset (token→userId) and change (session→userId) never need to re-prompt the email.
+    const passwordHash = hashPassword(input.password);
+    const updated = await this.#store.updatePasswordHash(input.subject, passwordHash);
+    if (updated) this.#ctx.logger.info('local auth: password updated', { subject: input.subject });
+    return updated;
   }
 }

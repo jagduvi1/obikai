@@ -41,6 +41,9 @@ class MemSessions implements SessionStore {
   async revokeFamily(family: string): Promise<void> {
     for (const r of this.rows.values()) if (r.family === family) r.revokedAt = new Date();
   }
+  async revokeAllForUser(userId: string): Promise<void> {
+    for (const r of this.rows.values()) if (r.userId === userId) r.revokedAt = new Date();
+  }
 }
 
 const config = {
@@ -122,5 +125,19 @@ describe('TokenService', () => {
     const tokens = await svc.startSession('user-1');
     await svc.revoke(tokens.refreshToken);
     expect(await svc.rotate(tokens.refreshToken)).toBeNull();
+  });
+
+  it('revokeAllSessions kills every session of one user but leaves other users untouched', async () => {
+    const a1 = await svc.startSession('user-1');
+    const a2 = await svc.startSession('user-1'); // a second device for the same user
+    const b1 = await svc.startSession('user-2');
+
+    await svc.revokeAllSessions('user-1');
+
+    // Both of user-1's sessions are dead …
+    expect(await svc.rotate(a1.refreshToken)).toBeNull();
+    expect(await svc.rotate(a2.refreshToken)).toBeNull();
+    // … but user-2's session still rotates.
+    expect(await svc.rotate(b1.refreshToken)).not.toBeNull();
   });
 });

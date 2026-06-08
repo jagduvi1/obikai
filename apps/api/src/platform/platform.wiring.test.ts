@@ -22,10 +22,20 @@ import { PlatformModule } from './platform.module.js';
  * the pure `decidePlatformAccess` unit tests + the production build (`emitDecoratorMetadata: true`).
  */
 
-// Minimal config: only what TokenService (constructed at boot) and the controller read.
+// Minimal config: what TokenService, the auth controller, and the (transitively imported)
+// notifications SMTP provider read at construction. PlatformModule → AuthModule → NotificationsModule,
+// so the EMAIL_PORT factory needs an `email` block even though these tests never send mail.
 const config = {
   tenancy: 'single',
+  baseDomain: 'localhost',
+  appName: 'Obikai',
+  appPublicUrl: null,
   auth: { jwtSecret: 'x'.repeat(32), accessTtl: '15m', refreshTtl: '7d' },
+  email: {
+    provider: 'smtp',
+    from: 'noreply@example.test',
+    smtp: { host: 'localhost', port: 587, secure: false, user: null, pass: null },
+  },
 } as AppConfig;
 
 @Global()

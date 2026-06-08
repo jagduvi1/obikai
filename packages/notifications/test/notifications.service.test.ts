@@ -162,6 +162,31 @@ describe('NotificationsService', () => {
     expect(msg.text).toContain('Vi ses på mattan');
   });
 
+  it('renders a password-reset email with the deep link when a URL is supplied', async () => {
+    await svc.sendPasswordReset(
+      recipient,
+      'en',
+      { resetUrl: 'https://app.example/reset?token=abc', token: 'abc', expiresInHours: 1 },
+      ctx({ dojoName: 'Obikai' }),
+    );
+    const msg = port.sent[0]!;
+    expect(msg.subject).toBe('Reset your password — Obikai');
+    expect(msg.text).toContain('reset your password');
+    expect(msg.text).toContain('https://app.example/reset?token=abc');
+    expect(msg.tags).toEqual({ kind: 'password-reset' });
+  });
+
+  it('falls back to showing the raw token when no reset URL is configured', async () => {
+    await svc.sendPasswordReset(
+      recipient,
+      'en',
+      { resetUrl: null, token: 'tok-123', expiresInHours: 2 },
+      ctx({ dojoName: 'Obikai' }),
+    );
+    const msg = port.sent[0]!;
+    expect(msg.text).toContain('tok-123');
+  });
+
   it('falls back to the platform default locale for an unsupported locale', async () => {
     await svc.sendReceipt(recipient, 'fi' as Locale, invoice, ctx());
     const msg = port.sent[0]!;

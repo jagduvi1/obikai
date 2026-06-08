@@ -30,6 +30,9 @@ export interface IdentityStore {
   findByEmail(email: string): Promise<StoredCredential | null>;
   /** Persist a new credential and return the stored record (with its assigned subject). */
   insert(credential: NewCredential): Promise<StoredCredential>;
+  /** Replace the password hash for the credential owned by `subject`. Returns true if one was
+   *  updated, false if the subject has no local credential. */
+  updatePasswordHash(subject: string, passwordHash: string): Promise<boolean>;
 }
 
 /** Raised when registering an email that already has a local credential. */

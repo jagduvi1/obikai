@@ -64,3 +64,16 @@ export const loginInputSchema = z.object({
   password: z.string().min(1),
 });
 export type LoginInput = z.infer<typeof loginInputSchema>;
+
+/** Begin a password reset — only the email; the response is identical whether or not it exists. */
+export const passwordResetRequestSchema = z.object({
+  email: z.string().email(),
+});
+export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchema>;
+
+/** Complete a password reset with the emailed token + a new password (same strength as registration). */
+export const passwordResetConfirmSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(12, 'password must be at least 12 characters'),
+});
+export type PasswordResetConfirmInput = z.infer<typeof passwordResetConfirmSchema>;

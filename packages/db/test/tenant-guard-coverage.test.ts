@@ -16,14 +16,16 @@ import { MissingTenantContextError } from '../src/errors.js';
 
 /**
  * The ONLY collections that are intentionally tenant-global (not owned by any single tenant):
- * the identity/account plane, the tenant registry, the platform plane, and the per-tenant-year
- * invoice counter (reachable on the issue path with an explicit {tenantId, year} filter). Everything
- * else holds tenant-owned data and MUST be guarded. Adding to this list is a deliberate decision.
+ * the identity/account plane (incl. password-reset tokens, keyed by the tenant-global userId), the
+ * tenant registry, the platform plane, and the per-tenant-year invoice counter (reachable on the
+ * issue path with an explicit {tenantId, year} filter). Everything else holds tenant-owned data and
+ * MUST be guarded. Adding to this list is a deliberate decision.
  */
 const TENANT_GLOBAL = new Set([
   'User',
   'Identity',
   'Session',
+  'PasswordResetToken',
   'Tenant',
   'PlatformGrant',
   'PlatformAudit',

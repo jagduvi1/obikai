@@ -33,6 +33,12 @@ const en: Catalog = {
   'email.reminder.heading': 'Your class is coming up',
   'email.reminder.body':
     'Hi {name}, this is a reminder that {program} starts at {time} at {location}. See you on the mat!',
+  'email.passwordReset.subject': 'Reset your password — {dojo}',
+  'email.passwordReset.heading': 'Password reset requested',
+  'email.passwordReset.body':
+    "Hi {name}, we received a request to reset your password. This link is valid for {hours} hours. If you didn't request this, you can safely ignore this email — your password stays unchanged.",
+  'email.passwordReset.action': 'Reset your password: {url}',
+  'email.passwordReset.actionCode': 'Use this code to reset your password: {token}',
   'email.signature': '— The team at {dojo}',
 };
 
@@ -58,6 +64,12 @@ const sv: Catalog = {
   'email.reminder.heading': 'Din klass börjar snart',
   'email.reminder.body':
     'Hej {name}, detta är en påminnelse om att {program} börjar kl. {time} på {location}. Vi ses på mattan!',
+  'email.passwordReset.subject': 'Återställ ditt lösenord — {dojo}',
+  'email.passwordReset.heading': 'Begäran om lösenordsåterställning',
+  'email.passwordReset.body':
+    'Hej {name}, vi har tagit emot en begäran om att återställa ditt lösenord. Länken är giltig i {hours} timmar. Om du inte begärde detta kan du ignorera detta e-postmeddelande — ditt lösenord förblir oförändrat.',
+  'email.passwordReset.action': 'Återställ ditt lösenord: {url}',
+  'email.passwordReset.actionCode': 'Använd denna kod för att återställa ditt lösenord: {token}',
   'email.signature': '— Teamet på {dojo}',
 };
 

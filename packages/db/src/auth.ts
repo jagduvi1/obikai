@@ -144,6 +144,22 @@ export class IdentityRepository {
     await this.model.create({ ...rec, emailLower: rec.email.trim().toLowerCase() });
   }
 
+  /**
+   * Replace the password hash for a user's credential of the given provider. Returns true if a
+   * credential was updated (the matched count), false if the user has no such credential. Used by the
+   * password reset / change flows — keyed by userId because both resolve the subject, not the email.
+   */
+  async updatePasswordHashByUserId(
+    userId: string,
+    passwordHash: string,
+    provider = 'local',
+  ): Promise<boolean> {
+    const res = await this.model
+      .updateOne({ userId: String(userId), provider: String(provider) }, { $set: { passwordHash } })
+      .exec();
+    return (res.matchedCount ?? 0) > 0;
+  }
+
   /** Hard-delete all local credentials for a user (GDPR erasure, ADR-0007). */
   async deleteByUserId(userId: string): Promise<void> {
     await this.model.deleteMany({ userId: String(userId) }).exec();
@@ -259,6 +275,71 @@ export class SessionRepository {
     await this.model
       .updateMany({ userId: String(userId), revokedAt: null }, { revokedAt: new Date() })
       .exec();
+  }
+}
+
+// ── Password reset token (tenant-global; single-use, time-boxed) ───────────────
+export interface PasswordResetTokenDoc {
+  _id: Types.ObjectId;
+  userId: string;
+  /** sha256(rawToken) — only the hash is stored; the raw token lives only in the emailed link. */
+  tokenHash: string;
+  expiresAt: Date;
+  usedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const passwordResetTokenSchema = new Schema<PasswordResetTokenDoc>(
+  {
+    userId: { type: String, required: true, index: true },
+    tokenHash: { type: String, required: true, unique: true },
+    expiresAt: { type: Date, required: true },
+    usedAt: { type: Date, default: null },
+  },
+  { timestamps: true },
+);
+// Reap tokens 24h AFTER they expire (they are already invalid by then) so the collection can't grow
+// unbounded — a self-host-friendly cleanup that needs no cron. Valid tokens (expiry in the future) stay.
+passwordResetTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 24 * 3_600 });
+
+export const PasswordResetTokenModel: Model<PasswordResetTokenDoc> =
+  (mongoose.models.PasswordResetToken as Model<PasswordResetTokenDoc> | undefined) ??
+  mongoose.model<PasswordResetTokenDoc>('PasswordResetToken', passwordResetTokenSchema);
+
+export class PasswordResetTokenRepository {
+  constructor(private readonly model: Model<PasswordResetTokenDoc> = PasswordResetTokenModel) {}
+
+  async create(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void> {
+    await this.model.create({
+      userId: input.userId,
+      tokenHash: input.tokenHash,
+      expiresAt: input.expiresAt,
+      usedAt: null,
+    });
+  }
+
+  /**
+   * Atomically consume a token: it must exist, be UNUSED, and be UNEXPIRED, and is marked used in the
+   * same op (compare-and-swap on `usedAt: null`). Returns the owning userId, or null if the token is
+   * unknown / already used / expired. Single-use is guaranteed by the `usedAt: null` filter — a
+   * replay loses the CAS and gets null.
+   */
+  async consumeIfValid(tokenHash: string, now: Date): Promise<{ userId: string } | null> {
+    const doc = await this.model
+      .findOneAndUpdate(
+        { tokenHash: String(tokenHash), usedAt: null, expiresAt: { $gt: now } },
+        { $set: { usedAt: now } },
+        { new: true },
+      )
+      .lean<PasswordResetTokenDoc>()
+      .exec();
+    return doc ? { userId: doc.userId } : null;
+  }
+
+  /** Invalidate every outstanding token for a user (called before issuing a new one, and on erasure). */
+  async deleteByUserId(userId: string): Promise<void> {
+    await this.model.deleteMany({ userId: String(userId) }).exec();
   }
 }
 

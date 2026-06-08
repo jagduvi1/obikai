@@ -1,7 +1,13 @@
 import type { TenantId, UserId } from '@obikai/domain';
 import type { ErasureModelResult, ErasureResult } from '@obikai/gdpr';
 import { AttendanceModel } from './attendance.js';
-import { IdentityModel, MembershipModel, SessionModel, UserModel } from './auth.js';
+import {
+  IdentityModel,
+  MembershipModel,
+  PasswordResetTokenModel,
+  SessionModel,
+  UserModel,
+} from './auth.js';
 import { EnrollmentModel } from './billing.js';
 import { MemberModel } from './member.js';
 import {
@@ -159,6 +165,13 @@ export async function eraseMemberSubject(input: EraseSubjectInput): Promise<Eras
       model: 'session',
       strategy: 'hard_delete',
       affected: sr.deletedCount ?? 0,
+      retained: 0,
+    });
+    const prt = await PasswordResetTokenModel.deleteMany({ userId: uid }).exec();
+    perModel.push({
+      model: 'password_reset_token',
+      strategy: 'hard_delete',
+      affected: prt.deletedCount ?? 0,
       retained: 0,
     });
   }

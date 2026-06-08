@@ -17,6 +17,7 @@ import type {
   PresignGetInput,
   PresignPutInput,
   RegisterPasswordInput,
+  SetPasswordInput,
   SetupMandateInput,
   SmsMessage,
   SmsPort,
@@ -288,5 +289,15 @@ export class FakeAuthProvider
     const stored = this.users.get(input.email.toLowerCase());
     if (stored === undefined || stored !== input.password) return null;
     return this.identity(input.email);
+  }
+
+  async setPassword(input: SetPasswordInput): Promise<boolean> {
+    for (const email of this.users.keys()) {
+      if (this.identity(email).subject === input.subject) {
+        this.users.set(email, input.password);
+        return true;
+      }
+    }
+    return false;
   }
 }
