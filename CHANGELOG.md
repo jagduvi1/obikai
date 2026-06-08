@@ -9,6 +9,15 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **In-app language switcher + locale activation (i18n H2/H3).** All three SPAs (member, admin, platform)
+  now ship a header **language switcher** listing the five UI locales by their endonym (English, Svenska,
+  Norsk bokmål, Dansk, Suomi). The chosen language is **persisted** (localStorage) and the app now boots
+  in the **detected** locale — a saved preference, else the browser's best match (`sv-SE` → `sv`), else
+  English — instead of always English. The active locale is reflected on **`<html lang>`** for assistive
+  tech and correct hyphenation (WCAG 3.1.1). The canonical UI-locale set + native names + a pure matcher
+  now live once in **`@obikai/i18n`** (`UI_LOCALES`, `UI_LOCALE_NATIVE_NAMES`, `matchUiLocale`), so the
+  apps no longer each redeclare them. Activates the translations already present (English complete, sv
+  well-covered); filling out nb/da/fi copy (H1) and translatable rank/curriculum content (H4) follow.
 - **Deny-by-default npm install scripts (supply-chain hardening, ADR-0028).** A dependency's
   `pre`/`install`/`post`install script runs automatically during `pnpm install` with full developer
   privileges — the vector behind the active 2026 typosquat campaign that planted credential stealers (and

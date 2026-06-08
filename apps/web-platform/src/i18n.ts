@@ -1,15 +1,23 @@
+import { UI_LOCALES } from '@obikai/i18n';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { applyDocumentLang, loadInitialLocale, persistLocale } from './locale';
 
 /**
  * i18n scaffold for the platform console (invariant 6: sv/nb/da/fi/en from day one). English is the
- * source; Nordic locales start as copies and are translated as strings land.
+ * source; Nordic locales start as copies and are translated as strings land. The supported set is the
+ * single source of truth in @obikai/i18n.
  */
-export const SUPPORTED_LOCALES = ['en', 'sv', 'nb', 'da', 'fi'] as const;
+export const SUPPORTED_LOCALES = UI_LOCALES;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
 const en = {
-  app: { title: 'Obikai Platform', skipToContent: 'Skip to content', signOut: 'Sign out' },
+  app: {
+    title: 'Obikai Platform',
+    skipToContent: 'Skip to content',
+    signOut: 'Sign out',
+    language: 'Language',
+  },
   nav: { tenants: 'Tenants', audit: 'Audit log', dashboard: 'Platform' },
   login: {
     title: 'Platform sign in',
@@ -58,7 +66,7 @@ const en = {
 
 const sv = {
   ...en,
-  app: { ...en.app, signOut: 'Logga ut' },
+  app: { ...en.app, signOut: 'Logga ut', language: 'Språk' },
   login: { ...en.login, title: 'Logga in', submit: 'Logga in' },
 };
 const nb = {
@@ -77,6 +85,8 @@ const fi = {
   login: { ...en.login, title: 'Kirjaudu', submit: 'Kirjaudu' },
 };
 
+const initialLocale = loadInitialLocale();
+
 void i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en },
@@ -85,9 +95,16 @@ void i18n.use(initReactI18next).init({
     da: { translation: da },
     fi: { translation: fi },
   },
-  lng: 'en',
+  lng: initialLocale,
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
+});
+
+// Reflect the active locale on <html lang> now and on every switch, and remember the user's choice.
+applyDocumentLang(initialLocale);
+i18n.on('languageChanged', (lng: string) => {
+  persistLocale(lng);
+  applyDocumentLang(lng);
 });
 
 export default i18n;

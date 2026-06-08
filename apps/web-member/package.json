@@ -14,6 +14,7 @@
   "dependencies": {
     "@obikai/api-client": "workspace:*",
     "@obikai/domain": "workspace:*",
+    "@obikai/i18n": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
     "i18next": "^24.2.0",
     "react": "^18.3.1",

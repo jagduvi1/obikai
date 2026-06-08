@@ -12,6 +12,9 @@
 export { makeFormatters } from './formatters.js';
 export type { FormatterContext, Formatters } from './formatters.js';
 
+export { UI_LOCALES, UI_LOCALE_NATIVE_NAMES, isUiLocale, matchUiLocale } from './locales.js';
+export type { UiLocale } from './locales.js';
+
 export { NAMESPACES, t } from './catalog.js';
 export type { Catalog, Namespace, TVars } from './catalog.js';
 export { resolveLocalized } from './catalog.js';
