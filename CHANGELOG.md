@@ -9,6 +9,12 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Password change** (account lifecycle E3). `POST /auth/password` (authenticated via the access
+  token — the `/auth` plane is outside the tenancy middleware, so the controller verifies the Bearer
+  itself) proves the **current** password before setting a new one (a stolen access token alone can't
+  change it; the `userId` comes from the verified token, never the body), then revokes **all** of the
+  user's sessions and issues a fresh one for the caller. New `AuthService.changePassword` +
+  `passwordChangeSchema` (new password ≥12 chars and must differ from the current).
 - **Password reset** (account lifecycle E1). `POST /auth/password-reset/request` always returns 204
   whether or not the email exists (no account-enumeration oracle) and, when it does, emails a
   single-use, time-boxed (1h) reset link via `@obikai/notifications`; `POST /auth/password-reset/confirm`

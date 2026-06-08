@@ -53,15 +53,23 @@ export interface Session {
   readonly ip: string | null;
 }
 
+/** Shared password rules. A generous 256-char ceiling bounds KDF work (a hashed long string can't be
+ *  used to tie up scrypt) without constraining real passphrases. */
+const newPassword = z
+  .string()
+  .min(12, 'password must be at least 12 characters')
+  .max(256, 'password must be at most 256 characters');
+const existingPassword = z.string().min(1).max(256);
+
 export const registerInputSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(12, 'password must be at least 12 characters'),
+  password: newPassword,
 });
 export type RegisterInput = z.infer<typeof registerInputSchema>;
 
 export const loginInputSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
+  password: existingPassword,
 });
 export type LoginInput = z.infer<typeof loginInputSchema>;
 
@@ -74,6 +82,18 @@ export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchem
 /** Complete a password reset with the emailed token + a new password (same strength as registration). */
 export const passwordResetConfirmSchema = z.object({
   token: z.string().min(1),
-  password: z.string().min(12, 'password must be at least 12 characters'),
+  password: newPassword,
 });
 export type PasswordResetConfirmInput = z.infer<typeof passwordResetConfirmSchema>;
+
+/** Change the password of the authenticated account: prove the current one, set a new (strong) one. */
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: existingPassword,
+    newPassword,
+  })
+  .refine((v) => v.currentPassword !== v.newPassword, {
+    message: 'new password must differ from the current one',
+    path: ['newPassword'],
+  });
+export type PasswordChangeInput = z.infer<typeof passwordChangeSchema>;

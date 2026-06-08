@@ -1,4 +1,4 @@
-# 0027 — Bearer-token hashing: SHA-256 for high-entropy tokens, KDF only for passwords
+# 0027 — Bearer-token handling: SHA-256 hashing for high-entropy tokens, KDF only for passwords, hardened refresh cookie
 
 **Status:** Accepted · 2026-06-08
 
@@ -50,6 +50,25 @@ DB-only compromise from forging a `tokenHash` lookup without the server key. Thi
 defense-in-depth against a *different, weaker* threat than hash brute force, and is **not required for
 correctness**. If ever adopted it must be applied uniformly to both reset and refresh tokens, keeping
 the atomic consume/rotate semantics. Tracked as a possible future hardening, not done here.
+
+## Refresh-token delivery (addendum)
+
+The rotating refresh token is delivered to browsers as the cookie value itself, set with
+`httpOnly: true`, `secure: true` (prod; off only on loopback), `sameSite: 'strict'`, `path: '/'`.
+CodeQL `js/clear-text-storage-of-sensitive-data` flags this (it has no model of cookie attributes and
+treats any bearer credential reaching `res.cookie` as cleartext storage). It is a **false positive,
+dismissed**:
+
+- A bearer refresh cookie's value **must equal the secret** to function — that is how the mechanism
+  works. Any reversible wrapping just yields an equivalent bearer secret, so "encrypting the cookie
+  value" adds nothing (whoever can read the cookie can also replay it).
+- Every concrete attack is already mitigated: XSS read → blocked by `httpOnly`; plaintext-network leak
+  → blocked by `Secure`; CSRF → blocked by `SameSite=strict`; DB/cookie theft → the value is an opaque
+  256-bit `randomBytes`, stored server-side only as `sha256`, with rotation + reuse-detection, and a
+  password change revokes all sessions first. This is the OWASP-recommended pattern (preferred over
+  `localStorage`).
+- Tell of a false positive: the identical `respond()` cookie path used by register/login/refresh is not
+  flagged — the alert is only a new taint *source* (`changePassword`) reaching the pre-existing sink.
 
 ## Consequences
 

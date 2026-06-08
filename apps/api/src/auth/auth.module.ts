@@ -80,6 +80,7 @@ const AUTH_ADAPTER_CONTEXT = 'AUTH_ADAPTER_CONTEXT';
         tokens: TokenService,
         identities: IdentityRepository,
         resetTokens: PasswordResetTokenRepository,
+        users: UserRepository,
       ) => {
         // Adapt the IdentityRepository to the AuthService's narrow IdentityLookup port (local provider).
         const lookup: IdentityLookup = {
@@ -88,9 +89,16 @@ const AUTH_ADAPTER_CONTEXT = 'AUTH_ADAPTER_CONTEXT';
             return rec ? { userId: rec.userId, email: rec.email } : null;
           },
         };
-        return new AuthService(auth, tokens, lookup, resetTokens);
+        // UserRepository.findById returns a User (email: string) — structurally a UserLookup.
+        return new AuthService(auth, tokens, lookup, resetTokens, users);
       },
-      inject: [LocalAuthProvider, TokenService, IdentityRepository, PasswordResetTokenRepository],
+      inject: [
+        LocalAuthProvider,
+        TokenService,
+        IdentityRepository,
+        PasswordResetTokenRepository,
+        UserRepository,
+      ],
     },
   ],
   exports: [TokenService, MembershipRepository],

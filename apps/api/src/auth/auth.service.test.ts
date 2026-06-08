@@ -12,6 +12,7 @@ import {
   InvalidCredentialsError,
   InvalidResetTokenError,
   type PasswordResetStore,
+  type UserLookup,
 } from './auth.service.js';
 import { type SessionStore, TokenService } from './token.service.js';
 
@@ -59,6 +60,11 @@ class FakeAuth implements AuthPort {
   lookupByEmail(email: string): { userId: string; email: string } | null {
     const cred = this.creds.get(email.toLowerCase());
     return cred ? { userId: cred.subject, email: email.toLowerCase() } : null;
+  }
+  /** Helper backing the UserLookup fake — resolve {email} for a subject (userId). */
+  lookupById(userId: string): { email: string } | null {
+    for (const [email, cred] of this.creds) if (cred.subject === userId) return { email };
+    return null;
   }
 }
 
@@ -139,7 +145,8 @@ describe('AuthService', () => {
     auth = new FakeAuth();
     resetTokens = new MemResetTokens();
     const identities: IdentityLookup = { findByEmail: async (e) => auth.lookupByEmail(e) };
-    svc = new AuthService(auth, tokens, identities, resetTokens);
+    const users: UserLookup = { findById: async (id) => auth.lookupById(id) };
+    svc = new AuthService(auth, tokens, identities, resetTokens, users);
   });
 
   it('registers then issues a working session', async () => {
@@ -222,5 +229,37 @@ describe('AuthService', () => {
     await svc.confirmPasswordReset(second!.token, 'y-password');
     const ok = await svc.login({ email: 'a@example.com', password: 'y-password' });
     expect(ok.accessToken).toBeTruthy();
+  });
+
+  it('changePassword verifies the current password, sets the new one, and returns a fresh session', async () => {
+    const initial = await svc.register({ email: 'a@example.com', password: 'original-password' });
+    // The userId is whatever the verified access token resolves to — here, the registered subject.
+    const userId = auth.lookupByEmail('a@example.com')!.userId;
+
+    const issued = await svc.changePassword(userId, 'original-password', 'totally-new-password');
+    expect(issued.accessToken).toBeTruthy();
+
+    // Old password rejected, new one works.
+    await expect(
+      svc.login({ email: 'a@example.com', password: 'original-password' }),
+    ).rejects.toBeInstanceOf(InvalidCredentialsError);
+    expect(
+      (await svc.login({ email: 'a@example.com', password: 'totally-new-password' })).accessToken,
+    ).toBeTruthy();
+
+    // Sessions minted before the change are revoked (logout-everywhere).
+    await expect(svc.refresh(initial.refreshToken)).rejects.toBeInstanceOf(InvalidCredentialsError);
+  });
+
+  it('changePassword rejects a wrong current password and leaves the password unchanged', async () => {
+    await svc.register({ email: 'a@example.com', password: 'original-password' });
+    const userId = auth.lookupByEmail('a@example.com')!.userId;
+    await expect(
+      svc.changePassword(userId, 'WRONG-current', 'totally-new-password'),
+    ).rejects.toBeInstanceOf(InvalidCredentialsError);
+    // Original still works — nothing changed.
+    expect(
+      (await svc.login({ email: 'a@example.com', password: 'original-password' })).accessToken,
+    ).toBeTruthy();
   });
 });
