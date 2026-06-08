@@ -9,6 +9,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **GDPR data export now includes consent records (Art. 15).** The data-subject export already covered
+  member-keyed PII (via the ROPA registry) plus the tenant-global login account + sessions; it now also
+  includes the subject's full **consent history + Art. 7 evidence** (keyed by the account `userId`,
+  tenant-scoped). This makes the data-subject rights symmetric — consent is now both **exported** (Art. 15)
+  and **erased** (Art. 17). (Household name and crypto-shred remain tracked follow-ups.)
 - **GDPR right-to-erasure now also erases consent records (Art. 17).** A data subject's consent records
   carry Art. 7 evidence PII (purpose + `ip`/`userAgent`/`note`) and were previously left intact by member
   erasure. `eraseMemberSubject` now hard-deletes them (keyed by the account `userId`, tenant-scoped so it

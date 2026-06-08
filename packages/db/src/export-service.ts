@@ -6,11 +6,12 @@ import {
   type RopaRegistry,
 } from '@obikai/gdpr';
 import { SessionModel, UserModel } from './auth.js';
+import { ConsentModel } from './consent.js';
 
 /**
  * Data-subject export (GDPR Art. 15/20, audit H7). Walks the ROPA registry — for every exportable
  * member-keyed model it collects the subject's rows and maps them through the record's `toExport` —
- * then appends the tenant-GLOBAL identity (login account + sessions) resolved via the linked `userId`.
+ * then appends the login account + sessions + consent records resolved via the linked `userId`.
  * Runs inside the caller's `runInTenantContext`, so the member-keyed queries are tenant-scoped by the
  * guard; the identity collections are tenant-global by design (ADR-0012) and queried by `userId`.
  *
@@ -74,6 +75,28 @@ export async function buildExportBundle(
         userAgent: s.userAgent,
         lastUsedAt: s.lastUsedAt.toISOString(),
         createdAt: s.createdAt.toISOString(),
+      })),
+    });
+  }
+
+  // 3. Consent records (Art. 15) — the subject's full consent history incl. Art. 7 evidence (their own
+  // data), keyed by the account `userId`. Tenant-scoped (tenantGuard), so scoped to the request tenant.
+  const consents = await ConsentModel.find({ subjectId: String(userId) })
+    .lean()
+    .exec();
+  if (consents.length > 0) {
+    sections.push({
+      model: 'consent',
+      purpose: 'Consent records',
+      records: consents.map((c) => ({
+        purpose: c.purpose,
+        lawfulBasis: c.lawfulBasis,
+        status: c.status,
+        policyVersion: c.policyVersion,
+        grantedAt: c.grantedAt.toISOString(),
+        withdrawnAt: c.withdrawnAt ? c.withdrawnAt.toISOString() : null,
+        source: c.source,
+        evidence: c.evidence ?? null,
       })),
     });
   }
