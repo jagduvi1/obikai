@@ -83,7 +83,7 @@ export class LocationRepository {
 
   async update(id: string, patch: LocationUpdateInput): Promise<Location | null> {
     const doc = await this.model
-      .findByIdAndUpdate(id, patchFields(patch), { new: true })
+      .findByIdAndUpdate(id, patchFields(patch), { returnDocument: 'after' })
       .lean<LocationDoc>()
       .exec();
     return doc ? toLocation(doc) : null;

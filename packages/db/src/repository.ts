@@ -19,9 +19,9 @@
  */
 import type {
   AnyBulkWriteOperation,
-  FilterQuery,
   Model,
   MongooseBulkWriteOptions,
+  QueryFilter,
   UpdateQuery,
 } from 'mongoose';
 import { CrossTenantWriteError } from './errors.js';
@@ -33,12 +33,12 @@ export interface TenantScoped {
 }
 
 /** Merge `{ tenantId }` into a filter, rejecting an explicit foreign tenant. */
-function withTenantFilter<T>(filter: FilterQuery<T>, tenantId: string): FilterQuery<T> {
+function withTenantFilter<T>(filter: QueryFilter<T>, tenantId: string): QueryFilter<T> {
   const existing = (filter as Record<string, unknown>).tenantId;
   if (existing !== undefined && existing !== tenantId) {
     throw new CrossTenantWriteError(tenantId, String(existing));
   }
-  return { ...filter, tenantId } as FilterQuery<T>;
+  return { ...filter, tenantId } as QueryFilter<T>;
 }
 
 export class TenantRepository<T extends TenantScoped> {
@@ -47,7 +47,9 @@ export class TenantRepository<T extends TenantScoped> {
   /** Create one document, tenant-stamped from context. The `pre('save')` hook also enforces this. */
   async create(doc: Omit<T, 'tenantId'> & Partial<Pick<T, 'tenantId'>>): Promise<T> {
     const tenantId = getTenantIdOrThrow();
-    const created = await this.model.create({ ...doc, tenantId });
+    // mongoose 9 tightened create()'s param typing (DeepPartial/Require_id); our T is a plain
+    // TenantScoped shape with branded/readonly fields, so cast at this single contained boundary.
+    const created = await this.model.create({ ...doc, tenantId } as T);
     return created.toObject() as T;
   }
 
@@ -55,13 +57,13 @@ export class TenantRepository<T extends TenantScoped> {
   async findById(id: string): Promise<T | null> {
     const tenantId = getTenantIdOrThrow();
     return this.model
-      .findOne({ _id: id, tenantId } as FilterQuery<T>)
+      .findOne({ _id: id, tenantId } as QueryFilter<T>)
       .lean<T>()
       .exec();
   }
 
   /** Find many within the active tenant. The guard also injects `{ tenantId }`; we set it here too. */
-  async find(filter: FilterQuery<T> = {}): Promise<T[]> {
+  async find(filter: QueryFilter<T> = {}): Promise<T[]> {
     const tenantId = getTenantIdOrThrow();
     return this.model.find(withTenantFilter(filter, tenantId)).lean<T[]>().exec();
   }
@@ -70,7 +72,9 @@ export class TenantRepository<T extends TenantScoped> {
   async updateById(id: string, update: UpdateQuery<T>): Promise<T | null> {
     const tenantId = getTenantIdOrThrow();
     return this.model
-      .findOneAndUpdate({ _id: id, tenantId } as FilterQuery<T>, update, { new: true })
+      .findOneAndUpdate({ _id: id, tenantId } as QueryFilter<T>, update, {
+        returnDocument: 'after',
+      })
       .lean<T>()
       .exec();
   }
@@ -78,7 +82,7 @@ export class TenantRepository<T extends TenantScoped> {
   /** Delete by id within the active tenant; returns true if a doc in this tenant was deleted. */
   async deleteById(id: string): Promise<boolean> {
     const tenantId = getTenantIdOrThrow();
-    const res = await this.model.deleteOne({ _id: id, tenantId } as FilterQuery<T>).exec();
+    const res = await this.model.deleteOne({ _id: id, tenantId } as QueryFilter<T>).exec();
     return (res.deletedCount ?? 0) > 0;
   }
 
@@ -118,7 +122,7 @@ export class TenantRepository<T extends TenantScoped> {
     for (const key of ['updateOne', 'updateMany', 'replaceOne', 'deleteOne', 'deleteMany']) {
       const inner = record[key];
       if (!inner) continue;
-      const filter = withTenantFilter((inner.filter ?? {}) as FilterQuery<T>, tenantId) as Record<
+      const filter = withTenantFilter((inner.filter ?? {}) as QueryFilter<T>, tenantId) as Record<
         string,
         unknown
       >;

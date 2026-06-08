@@ -90,7 +90,7 @@ export class HouseholdRepository {
   /** Update mutable household fields (payer reassignment, rename) within the active tenant. */
   async update(id: string, patch: HouseholdUpdateInput): Promise<Household | null> {
     const doc = await this.model
-      .findByIdAndUpdate(id, patchFields(patch), { new: true })
+      .findByIdAndUpdate(id, patchFields(patch), { returnDocument: 'after' })
       .lean<HouseholdDoc>()
       .exec();
     return doc ? toHousehold(doc) : null;

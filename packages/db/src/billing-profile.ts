@@ -111,7 +111,7 @@ export class BillingProfileRepository {
       .findOneAndUpdate(
         {},
         { $set: toSetFields(input) },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
       )
       .lean<BillingProfileDoc>()
       .exec();

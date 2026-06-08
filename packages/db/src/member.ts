@@ -134,20 +134,20 @@ export class MemberRepository {
   }
 
   async list(opts: { status?: MemberStatus } = {}): Promise<Member[]> {
-    const filter = opts.status ? { status: String(opts.status) } : {};
+    const filter = opts.status ? { status: opts.status } : {};
     const docs = await this.model.find(filter).sort({ lastName: 1 }).lean<MemberDoc[]>().exec();
     return docs.map(toMember);
   }
 
   /** Count members in the active tenant (guard injects tenantId), optionally by status. */
   async count(opts: { status?: MemberStatus } = {}): Promise<number> {
-    const filter = opts.status ? { status: String(opts.status) } : {};
+    const filter = opts.status ? { status: opts.status } : {};
     return this.model.countDocuments(filter).exec();
   }
 
   async update(id: string, patch: MemberUpdateInput): Promise<Member | null> {
     const doc = await this.model
-      .findByIdAndUpdate(id, patchFields(patch), { new: true })
+      .findByIdAndUpdate(id, patchFields(patch), { returnDocument: 'after' })
       .lean<MemberDoc>()
       .exec();
     return doc ? toMember(doc) : null;

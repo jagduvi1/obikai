@@ -349,7 +349,7 @@ export class PasswordResetTokenRepository {
       .findOneAndUpdate(
         { tokenHash: String(tokenHash), usedAt: null, expiresAt: { $gt: now } },
         { $set: { usedAt: now } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<PasswordResetTokenDoc>()
       .exec();
@@ -413,7 +413,7 @@ export class EmailVerificationTokenRepository {
       .findOneAndUpdate(
         { tokenHash: String(tokenHash), usedAt: null, expiresAt: { $gt: now } },
         { $set: { usedAt: now } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<EmailVerificationTokenDoc>()
       .exec();
@@ -486,7 +486,7 @@ export class MemberInviteTokenRepository {
       .findOneAndUpdate(
         { tokenHash: String(tokenHash), usedAt: null, expiresAt: { $gt: now } },
         { $set: { usedAt: now } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<MemberInviteTokenDoc>()
       .exec();
@@ -575,12 +575,14 @@ export class MembershipRepository {
     roles: readonly RoleAssignment[];
     status?: MembershipStatus;
   }): Promise<Membership> {
+    // mongoose 9's create() checks nested types strictly; RoleAssignment.locationScope is branded
+    // ('ALL' | LocationId[]) vs the schema's 'ALL' | string[]. Runtime-identical, so cast the input.
     const created = await this.model.create({
       userId: input.userId,
       memberId: input.memberId ?? null,
-      roles: input.roles,
+      roles: [...input.roles],
       status: input.status ?? 'active',
-    });
+    } as unknown as MembershipDoc);
     return toMembership(created.toObject() as unknown as MembershipDoc);
   }
 }

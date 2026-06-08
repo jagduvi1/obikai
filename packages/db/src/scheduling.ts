@@ -105,7 +105,7 @@ export class ProgramRepository {
       if (value !== undefined) out[key] = value;
     }
     const doc = await this.model
-      .findByIdAndUpdate(id, out, { new: true })
+      .findByIdAndUpdate(id, out, { returnDocument: 'after' })
       .lean<ProgramDoc>()
       .exec();
     return doc ? toProgram(doc) : null;
@@ -224,7 +224,7 @@ export class ClassScheduleRepository {
       if (value !== undefined) out[key] = value;
     }
     const doc = await this.model
-      .findByIdAndUpdate(id, out, { new: true })
+      .findByIdAndUpdate(id, out, { returnDocument: 'after' })
       .lean<ClassScheduleDoc>()
       .exec();
     return doc ? toClassSchedule(doc) : null;
@@ -370,7 +370,7 @@ export class ClassOccurrenceRepository {
 
   async setStatus(id: string, status: OccurrenceStatus): Promise<ClassOccurrence | null> {
     const doc = await this.model
-      .findByIdAndUpdate(id, { status }, { new: true })
+      .findByIdAndUpdate(id, { status }, { returnDocument: 'after' })
       .lean<ClassOccurrenceDoc>()
       .exec();
     return doc ? toClassOccurrence(doc) : null;
@@ -480,14 +480,12 @@ export class BookingRepository {
 
   /** Count occurrence bookings in a given status (capacity check counts `booked`). */
   async countByOccurrence(occurrenceId: string, status: BookingStatus): Promise<number> {
-    return this.model
-      .countDocuments({ occurrenceId: String(occurrenceId), status: String(status) })
-      .exec();
+    return this.model.countDocuments({ occurrenceId: String(occurrenceId), status }).exec();
   }
 
   async setStatus(id: string, status: BookingStatus): Promise<Booking | null> {
     const doc = await this.model
-      .findByIdAndUpdate(id, { status }, { new: true })
+      .findByIdAndUpdate(id, { status }, { returnDocument: 'after' })
       .lean<BookingDoc>()
       .exec();
     return doc ? toBooking(doc) : null;
@@ -506,7 +504,7 @@ export class BookingRepository {
       .findOneAndUpdate(
         { _id: String(id), status: 'waitlisted' },
         { $set: { status: 'booked' } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<BookingDoc>()
       .exec();
@@ -526,7 +524,7 @@ export class BookingRepository {
       .findOneAndUpdate(
         { _id: String(id), reminderSentAt: null },
         { $set: { reminderSentAt: now } },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<BookingDoc>()
       .exec();

@@ -94,18 +94,18 @@ export class TenantRegistryRepository {
       .findOneAndUpdate(
         { _id: String(input.slug) },
         { $setOnInsert: { name: input.name, status: input.status ?? 'active' } },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
       )
       .lean<TenantDoc>()
       .exec();
-    // `new: true` + upsert always returns the (existing or freshly-inserted) document.
+    // `returnDocument: 'after'` + upsert always returns the (existing or freshly-inserted) document.
     return toTenant(doc as TenantDoc);
   }
 
   /** Set a tenant's lifecycle status (active → suspended/archived and back). */
   async updateStatus(slug: string, status: TenantStatus): Promise<Tenant | null> {
     const doc = await this.model
-      .findByIdAndUpdate(String(slug), { status }, { new: true })
+      .findByIdAndUpdate(String(slug), { status }, { returnDocument: 'after' })
       .lean<TenantDoc>()
       .exec();
     return doc ? toTenant(doc) : null;
@@ -114,7 +114,7 @@ export class TenantRegistryRepository {
   /** Enumerate tenants (optionally by status), slug-sorted. Platform-context only. */
   async list(opts: { status?: TenantStatus } = {}): Promise<Tenant[]> {
     this.assertPlatform('list');
-    const filter = opts.status ? { status: String(opts.status) } : {};
+    const filter = opts.status ? { status: opts.status } : {};
     const docs = await this.model.find(filter).sort({ _id: 1 }).lean<TenantDoc[]>().exec();
     return docs.map(toTenant);
   }

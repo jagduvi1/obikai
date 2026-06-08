@@ -23,7 +23,7 @@
     "@obikai/config": "workspace:*",
     "@obikai/domain": "workspace:*",
     "@obikai/gdpr": "workspace:*",
-    "mongoose": "^8.9.5"
+    "mongoose": "^9.6.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

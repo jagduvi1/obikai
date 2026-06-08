@@ -9,6 +9,19 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Upgrade mongoose 8 → 9 (`@obikai/db`).** mongoose 9 (which bundles the MongoDB driver 6 → 7)
+  tightened types and removed callback-style middleware — both of which our tenant-isolation layer
+  leans on heavily. Changes: `FilterQuery<T>` → `QueryFilter<T>`; the four `tenantGuard` pre-hooks
+  (`pre(SCOPED_QUERY_OPS)`, `pre('validate')`, `pre('insertMany')`, `pre('aggregate')`) are now
+  **synchronous** — mongoose 9 dropped the `next` callback, and `insertMany`'s pre-hook receives the
+  docs array as its first positional arg (the runtime `TypeError: next is not a function` this fixed
+  was the only behavioural break); `create()`'s stricter `DeepPartial/Require_id` typing is satisfied
+  with a single cast at the `TenantRepository.create` boundary (our `T` is a plain `TenantScoped`
+  shape with branded/readonly fields); query filters keep their literal-union types (dropped the
+  defensive `String(status)` coercions that mongoose 9 now rejects); and every deprecated
+  `{ new: true }` option migrated to `{ returnDocument: 'after' }`. No schema or data migration — the
+  wire format is unchanged. Full suite green (db 146, api 184+9, worker 26). (Closes Dependabot's held
+  mongoose bump.)
 - **Upgrade zod 3 → 4 (catalog-wide).** zod is a `catalog:` dependency used across 9 packages / ~65
   files, but the v4 break for our code was tiny: only `z.SafeParseReturnType` (removed) and
   `z.SafeParseError` (→ `ZodSafeParseError`) in `tryLoadConfig` (`@obikai/config`). Fixed by typing the
