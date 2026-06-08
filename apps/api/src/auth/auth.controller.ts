@@ -15,6 +15,7 @@ import type { AppConfig } from '@obikai/config';
 import {
   DEFAULT_LOCALE,
   loginInputSchema,
+  passwordChangeSchema,
   passwordResetConfirmSchema,
   passwordResetRequestSchema,
   registerInputSchema,
@@ -24,7 +25,7 @@ import type { CookieOptions, Request, Response } from 'express';
 import { z } from 'zod';
 import { APP_CONFIG } from '../config.provider.js';
 import { AuthService, InvalidCredentialsError, InvalidResetTokenError } from './auth.service.js';
-import type { IssuedTokens, SessionMeta } from './token.service.js';
+import { type IssuedTokens, type SessionMeta, TokenService } from './token.service.js';
 
 /** httpOnly cookie name carrying the refresh token for browser clients. */
 const REFRESH_COOKIE = 'obikai_rt';
@@ -45,6 +46,7 @@ export class AuthController {
     private readonly service: AuthService,
     @Inject(APP_CONFIG) config: AppConfig,
     private readonly notifications: NotificationsService,
+    private readonly tokens: TokenService,
   ) {
     // Secure cookie everywhere except local dev. Derived from config, NOT per-request req.secure,
     // which is fragile behind a TLS-terminating proxy if trust-proxy is misconfigured (ADR-0012).
@@ -169,6 +171,38 @@ export class AuthController {
     }
   }
 
+  /**
+   * Change the password of the authenticated account (E3). Authenticated by the access token directly
+   * (the /auth plane is outside the tenancy middleware), so we verify the Bearer here. The current
+   * password must be proven — a stolen access token alone cannot change it. On success every refresh
+   * session is revoked and a fresh one is issued for this device, so the response carries new tokens
+   * (other devices can no longer mint access tokens; their current ones expire within the short TTL).
+   */
+  @Post('password')
+  @HttpCode(200)
+  async changePassword(
+    @Body() body: unknown,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const bearer = bearerFrom(req);
+    if (!bearer) throw new UnauthorizedException('missing access token');
+    const claims = await this.tokens.verifyAccess(bearer);
+    if (!claims) throw new UnauthorizedException('invalid access token');
+    try {
+      const { currentPassword, newPassword } = passwordChangeSchema.parse(body);
+      const tokens = await this.service.changePassword(
+        claims.userId,
+        currentPassword,
+        newPassword,
+        metaOf(req),
+      );
+      return this.respond(res, tokens);
+    } catch (error) {
+      throw translate(error);
+    }
+  }
+
   /** Set the refresh cookie and return only the access token to the body. */
   private respond(
     res: Response,
@@ -186,6 +220,14 @@ export class AuthController {
 function metaOf(req: Request): SessionMeta {
   const ua = req.headers['user-agent'];
   return { userAgent: typeof ua === 'string' ? ua : null, ip: req.ip ?? null };
+}
+
+/** Access token from the `Authorization: Bearer <jwt>` header, or null if absent/malformed. */
+function bearerFrom(req: Request): string | null {
+  const header = req.headers.authorization;
+  if (typeof header !== 'string' || !header.startsWith('Bearer ')) return null;
+  const token = header.slice('Bearer '.length).trim();
+  return token.length > 0 ? token : null;
 }
 
 /** Refresh token from the httpOnly cookie (browsers) or the request body (native clients). */
