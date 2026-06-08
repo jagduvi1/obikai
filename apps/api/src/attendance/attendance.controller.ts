@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
@@ -18,6 +19,12 @@ import {
   ForbiddenError,
   NotFoundError,
 } from './attendance.service.js';
+import {
+  CheckInClosedError,
+  CheckInService,
+  NotBookedError,
+  OccurrenceCancelledError,
+} from './check-in.service.js';
 
 /**
  * Attendance & check-in REST endpoints (ADR-0014, scope §4.4). The actor is derived from the
@@ -38,9 +45,18 @@ function currentActor(): AuthzActor {
 function translate(error: unknown): never {
   if (error instanceof ForbiddenError) throw new ForbiddenException(error.message);
   if (error instanceof NotFoundError) throw new NotFoundException(error.message);
+  // Self check-in state conflicts (cancelled class, outside the window, not booked) → 409.
+  if (
+    error instanceof OccurrenceCancelledError ||
+    error instanceof CheckInClosedError ||
+    error instanceof NotBookedError
+  )
+    throw new ConflictException(error.message);
   if (error instanceof z.ZodError) throw new BadRequestException(error.issues);
   throw error;
 }
+
+const checkInSchema = z.object({ occurrenceId: z.string().min(1) });
 
 /** Query schema for the since-promotion count: member + discipline + an ISO `since` instant. */
 const sincePromotionQuerySchema = z.object({
@@ -51,12 +67,29 @@ const sincePromotionQuerySchema = z.object({
 
 @Controller('attendance')
 export class AttendanceController {
-  constructor(private readonly service: AttendanceService) {}
+  constructor(
+    private readonly service: AttendanceService,
+    private readonly checkIn: CheckInService,
+  ) {}
 
   @Post()
   async record(@Body() body: unknown) {
     try {
       return await this.service.record(currentActor(), attendanceCreateSchema.parse(body));
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  /**
+   * Member SELF check-in (§4.4): record the logged-in member's attendance for a class they booked and
+   * that is happening now. 409 if the class is cancelled, outside the check-in window, or unbooked.
+   */
+  @Post('checkin')
+  async selfCheckIn(@Body() body: unknown) {
+    try {
+      const { occurrenceId } = checkInSchema.parse(body);
+      return await this.checkIn.selfCheckIn(currentActor(), occurrenceId);
     } catch (error) {
       translate(error);
     }

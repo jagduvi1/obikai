@@ -493,6 +493,15 @@ export class BookingRepository {
     return docs.map(toBooking);
   }
 
+  /** A member's booking for a specific occurrence, if any (self check-in confirms they're booked). */
+  async findByMemberOccurrence(memberId: string, occurrenceId: string): Promise<Booking | null> {
+    const doc = await this.model
+      .findOne({ occurrenceId: String(occurrenceId), memberId: String(memberId) })
+      .lean<BookingDoc>()
+      .exec();
+    return doc ? toBooking(doc) : null;
+  }
+
   async setStatus(id: string, status: BookingStatus): Promise<Booking | null> {
     const doc = await this.model
       .findByIdAndUpdate(id, { status }, { returnDocument: 'after' })

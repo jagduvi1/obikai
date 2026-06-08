@@ -1,5 +1,6 @@
 import { api } from '@obikai/api-client';
 import type {
+  Attendance,
   Booking,
   ClassOccurrence,
   CurriculumCompletion,
@@ -93,4 +94,14 @@ export function bookOccurrence(occurrenceId: string, memberId: string): Promise<
 /** Cancel a booking (frees a seat → promotes the oldest waitlisted). Resolves on 204. */
 export function cancelBooking(bookingId: string): Promise<void> {
   return api.del<void>(`/bookings/${encodeURIComponent(bookingId)}`);
+}
+
+/** Self check-in: record the member's attendance for a booked, now-happening class (§4.4). */
+export function selfCheckIn(occurrenceId: string): Promise<Attendance> {
+  return api.post<Attendance>('/attendance/checkin', { occurrenceId });
+}
+
+/** The member's own attendance history (self-access GET /attendance?memberId=own), newest first. */
+export function myAttendance(memberId: string): Promise<Attendance[]> {
+  return api.get<Attendance[]>(`/attendance?memberId=${encodeURIComponent(memberId)}`);
 }
