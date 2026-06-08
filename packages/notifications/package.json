@@ -23,7 +23,7 @@
     "@obikai/i18n": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/node": "^25.9.2",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
