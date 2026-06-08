@@ -203,7 +203,12 @@ export class AuthController {
     }
   }
 
-  /** Set the refresh cookie and return only the access token to the body. */
+  /**
+   * Set the refresh cookie and return only the access token to the body. The refresh token is the
+   * cookie VALUE by design (a bearer credential), delivered hardened: httpOnly + Secure (prod) +
+   * SameSite=strict, and stored server-side only as sha256 with rotation/reuse-detection. CodeQL's
+   * `js/clear-text-storage` here is a false positive (it has no model of cookie attributes); see ADR-0027.
+   */
   private respond(
     res: Response,
     tokens: IssuedTokens,
