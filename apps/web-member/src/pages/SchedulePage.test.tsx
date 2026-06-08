@@ -5,15 +5,23 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SchedulePage } from './SchedulePage';
 
-const { getMe, listPrograms, listOccurrences, myBookings, bookOccurrence, cancelBooking } =
-  vi.hoisted(() => ({
-    getMe: vi.fn(),
-    listPrograms: vi.fn(),
-    listOccurrences: vi.fn(),
-    myBookings: vi.fn(),
-    bookOccurrence: vi.fn(),
-    cancelBooking: vi.fn(),
-  }));
+const {
+  getMe,
+  listPrograms,
+  listOccurrences,
+  myBookings,
+  bookOccurrence,
+  cancelBooking,
+  selfCheckIn,
+} = vi.hoisted(() => ({
+  getMe: vi.fn(),
+  listPrograms: vi.fn(),
+  listOccurrences: vi.fn(),
+  myBookings: vi.fn(),
+  bookOccurrence: vi.fn(),
+  cancelBooking: vi.fn(),
+  selfCheckIn: vi.fn(),
+}));
 
 vi.mock('../api/member-data', () => ({
   getMe,
@@ -22,6 +30,7 @@ vi.mock('../api/member-data', () => ({
   myBookings,
   bookOccurrence,
   cancelBooking,
+  selfCheckIn,
 }));
 
 // Branded IDs are nominal — the fixtures use `as` assertions, the same pattern as the other tests.
@@ -93,5 +102,24 @@ describe('SchedulePage', () => {
     expect(await screen.findByText('Booked')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^book$/i })).not.toBeInTheDocument();
+  });
+
+  it('offers self check-in for a booked class happening now and records it', async () => {
+    // An occurrence whose check-in window includes "now" (started 5 min ago, ends in 30 min).
+    const nowMs = Date.now();
+    const live = {
+      ...occurrence(),
+      startsAt: new Date(nowMs - 5 * 60_000).toISOString(),
+      endsAt: new Date(nowMs + 30 * 60_000).toISOString(),
+    } as ClassOccurrence;
+    listOccurrences.mockResolvedValue([live]);
+    myBookings.mockResolvedValue([booking({ status: 'booked' })]);
+    selfCheckIn.mockResolvedValue({ id: 'a1' });
+    const user = userEvent.setup();
+    renderPage();
+
+    const checkInBtn = await screen.findByRole('button', { name: /check in/i });
+    await user.click(checkInBtn);
+    await waitFor(() => expect(selfCheckIn).toHaveBeenCalledWith('occ1'));
   });
 });

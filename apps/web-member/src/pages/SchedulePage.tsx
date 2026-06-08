@@ -8,13 +8,25 @@ import {
   listOccurrences,
   listPrograms,
   myBookings,
+  selfCheckIn,
 } from '../api/member-data';
 
 const DAYS_AHEAD = 14;
+// Mirror of the server's check-in window (check-in.service.ts) so the button only shows when it works.
+const CHECK_IN_LEAD_MS = 60 * 60 * 1000;
+const CHECK_IN_GRACE_MS = 60 * 60 * 1000;
 
 /** A member's live (non-cancelled) booking for an occurrence, if any. */
 function liveBookingFor(bookings: Booking[], occurrenceId: string): Booking | undefined {
   return bookings.find((b) => b.occurrenceId === occurrenceId && b.status !== 'cancelled');
+}
+
+/** True when now is inside the occurrence's check-in window (start − lead … end + grace). */
+function checkInOpen(o: ClassOccurrence, nowMs: number): boolean {
+  return (
+    nowMs >= Date.parse(o.startsAt) - CHECK_IN_LEAD_MS &&
+    nowMs <= Date.parse(o.endsAt) + CHECK_IN_GRACE_MS
+  );
 }
 
 /**
@@ -52,6 +64,10 @@ export function SchedulePage() {
     onSuccess: invalidate,
   });
   const cancel = useMutation({ mutationFn: cancelBooking, onSuccess: invalidate });
+  const checkIn = useMutation({
+    mutationFn: (occurrenceId: string) => selfCheckIn(occurrenceId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['myAttendance', memberId] }),
+  });
 
   const programName = (programId: string): string =>
     programs.data?.find((p) => p.id === programId)?.name ?? '—';
@@ -74,7 +90,8 @@ export function SchedulePage() {
         </p>
       )}
       <output className="status">
-        {book.isError || cancel.isError ? t('schedule.actionError') : ''}
+        {checkIn.isSuccess ? t('schedule.checkedIn') : ''}
+        {book.isError || cancel.isError || checkIn.isError ? t('schedule.actionError') : ''}
       </output>
 
       {upcoming.length === 0 && !loading && <p className="muted">{t('schedule.empty')}</p>}
@@ -91,13 +108,19 @@ export function SchedulePage() {
           <tbody>
             {upcoming.map((o) => {
               const booking = liveBookingFor(bookings.data ?? [], o.id);
-              const pending = book.isPending || cancel.isPending;
+              const pending = book.isPending || cancel.isPending || checkIn.isPending;
+              const canCheckIn = !!booking && checkInOpen(o, now.getTime());
               return (
                 <tr key={o.id}>
                   <td>{programName(o.programId)}</td>
                   <td>{formatWhen(o.startsAt)}</td>
                   <td>{booking ? t(`schedule.bookingStatus.${booking.status}`) : '—'}</td>
-                  <td>
+                  <td className="action-cell">
+                    {canCheckIn && (
+                      <button type="button" disabled={pending} onClick={() => checkIn.mutate(o.id)}>
+                        {t('schedule.checkIn')}
+                      </button>
+                    )}
                     {booking ? (
                       <button
                         type="button"

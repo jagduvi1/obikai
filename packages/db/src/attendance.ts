@@ -42,6 +42,8 @@ const attendanceSchema = new Schema<AttendanceDoc>(
 attendanceSchema.plugin(tenantGuard);
 // Drives `classesSinceLastPromotion` (member + discipline range count) and the member-history list.
 attendanceSchema.index({ tenantId: 1, memberId: 1, disciplineId: 1, occurredAt: 1 });
+// Per-occurrence attendance: roster "who attended" + the self-check-in idempotency lookup.
+attendanceSchema.index({ tenantId: 1, occurrenceId: 1, memberId: 1 });
 
 export const AttendanceModel: Model<AttendanceDoc> =
   (mongoose.models.Attendance as Model<AttendanceDoc> | undefined) ??
@@ -103,6 +105,19 @@ export class AttendanceRepository {
       .lean<AttendanceDoc[]>()
       .exec();
     return docs.map(toAttendance);
+  }
+
+  /**
+   * The member's existing check-in for an occurrence, if any — the idempotency guard for self
+   * check-in (a member tapping "check in" twice must not record two rows). Indexed by
+   * `{tenantId, occurrenceId, memberId}`.
+   */
+  async findByMemberOccurrence(memberId: string, occurrenceId: string): Promise<Attendance | null> {
+    const doc = await this.model
+      .findOne({ memberId: String(memberId), occurrenceId: String(occurrenceId) })
+      .lean<AttendanceDoc>()
+      .exec();
+    return doc ? toAttendance(doc) : null;
   }
 
   /**

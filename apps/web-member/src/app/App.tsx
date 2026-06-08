@@ -4,6 +4,7 @@ import { useAuth } from '../auth/auth-context';
 import { AcceptInvitePage } from '../pages/AcceptInvitePage';
 import { ForgotPasswordPage } from '../pages/ForgotPasswordPage';
 import { LoginPage } from '../pages/LoginPage';
+import { MyAttendancePage } from '../pages/MyAttendancePage';
 import { MyInvoicesPage } from '../pages/MyInvoicesPage';
 import { MyProgressPage } from '../pages/MyProgressPage';
 import { MyWaiversPage } from '../pages/MyWaiversPage';
@@ -45,6 +46,14 @@ export function App() {
         element={
           <RequireAuth>
             <SchedulePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/attendance"
+        element={
+          <RequireAuth>
+            <MyAttendancePage />
           </RequireAuth>
         }
       />

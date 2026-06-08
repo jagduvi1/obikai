@@ -9,6 +9,16 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Member-facing experience (§4.6)
 
+- **Member self check-in (§4.4 differentiator).** A member can tap "Check in" on a class they booked
+  that is happening now; it records an immutable `method:'self'` attendance row that feeds the rank
+  engine's "classes since last promotion" exactly like an instructor-marked check-in. A new
+  `CheckInService` (composing the attendance + scheduling repos) enforces a strict guard: member-only
+  (a non-member actor is forbidden — staff use the roster path), the class must exist and not be
+  cancelled, now must be inside the check-in window (60 min before start … 60 min after end), the
+  member must hold a live booking, and it is **idempotent** (a second tap returns the existing row, no
+  duplicate). The discipline is derived from the class's program. New `POST /attendance/checkin`;
+  state conflicts (cancelled / outside window / not booked) → 409. The member app surfaces the button
+  only inside the window, plus a new **"My attendance"** history page (`/attendance` + nav, en/sv).
 - **Class booking in the member app.** Members can now browse the upcoming class schedule and
   book/cancel themselves from the portal (new `/schedule` page + nav, en/sv, WCAG 2.1 AA table). It
   reuses the existing capacity→waitlist booking API and surfaces each occurrence's program, time, and
