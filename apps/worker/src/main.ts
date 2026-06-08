@@ -14,6 +14,9 @@
  * PLATFORM job (`billing-tick`): it carries no tenantId and runs under the audited `runAsPlatform`
  * marker purely to enumerate active tenants and fan out scoped jobs — never to touch tenant data.
  */
+import { realpathSync } from 'node:fs';
+import { argv } from 'node:process';
+import { fileURLToPath } from 'node:url';
 import { type Tenancy, loadConfig } from '@obikai/config';
 import {
   type TenantContext,
@@ -77,7 +80,7 @@ function makeLogger(): Logger {
 /** What each job handler needs from the runtime: a logger, the tenancy axis, the capability to
  *  enqueue tenant-scoped follow-up jobs (platform fan-out), and the optional notifier for the jobs
  *  that send mail (null when email is not configured). */
-interface JobDeps {
+export interface JobDeps {
   readonly log: Logger;
   readonly tenancy: Tenancy;
   readonly enqueue: (name: JobName, data: BaseJobData) => Promise<void>;
@@ -90,7 +93,7 @@ interface JobDeps {
  * is tenant-scoped: it must carry a `tenantId` and runs inside `runInTenantContext`. The tenant
  * branches are documented STUBs where noted; real logic lands behind this seam (ADR-0001/0004).
  */
-async function handleJob(job: Job<AnyJobData>, deps: JobDeps): Promise<void> {
+export async function handleJob(job: Job<AnyJobData>, deps: JobDeps): Promise<void> {
   const { log, tenancy, enqueue, notifier } = deps;
 
   // ── Platform (cross-tenant) jobs — explicit marker, no tenantId (ADR-0004/0017) ──────────────
@@ -339,4 +342,16 @@ async function main(): Promise<void> {
   });
 }
 
-void main();
+/** Run the worker only when invoked directly (`node dist/main.js`), not when imported (tests import
+ *  `handleJob`). Mirrors the api CLIs (create-owner.ts, migrate.ts). */
+function isMainModule(): boolean {
+  const entry = argv[1];
+  if (entry === undefined) return false;
+  try {
+    return realpathSync(fileURLToPath(import.meta.url)) === realpathSync(entry);
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) void main();

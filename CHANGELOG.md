@@ -9,6 +9,16 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Worker integration tests (I3 — BullMQ over real Redis).** Drives the actual producer → Redis →
+  `Worker` → `handleJob` dispatch loop (`apps/worker/test/worker-jobs.int.test.ts`), not the
+  framework-free unit fakes: a tenant-scoped job runs to completion, a not-yet-implemented GDPR job
+  **fails loudly** (audit H2 — never false success), a job missing its `tenantId` is rejected at the
+  worker boundary (ADR-0004), and the platform `billing-tick` fans out per-tenant `billing-run` +
+  `dunning` under `runAsPlatform`. `apps/worker/src/main.ts` now exports `handleJob`/`JobDeps` and guards
+  `main()` behind an `isMainModule()` check (mirrors the api CLIs) so importing it for tests doesn't boot
+  the worker. Redis doesn't run natively on Windows, so the suite **skips** when none is reachable but
+  **fails in CI** (where the workflow provides one) so coverage can't silently disappear; Mongo uses an
+  ephemeral in-memory server. New worker devDep: `mongodb-memory-server` (MIT, dev-only).
 - **API integration tests (I1 HTTP/controller + I2 two-tenant isolation).** First tests that boot the
   **real NestJS app** (full DI graph) over an ephemeral in-memory MongoDB and drive it over HTTP with
   supertest — covering the controller → service → repository → Mongo wiring the unit (service-with-fakes)
