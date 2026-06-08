@@ -9,6 +9,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Member invite/onboarding UI** — completes onboarding end-to-end. An "Invite to portal" button on
+  the admin member detail page (shown when the member has an email and no account; "Has a portal
+  account" once linked) and a public `/accept-invite?token=…` page in the member portal where the
+  invited person chooses a password and is auto-signed-in. New `@obikai/api-client` `acceptInvite` +
+  admin `inviteMember`; i18n (en + sv); accessible. A member can now be invited and self-onboard.
 - **Member invite/onboarding backend** — staff can invite a member to set up a portal login.
   `POST /members/:id/invite` (staff, `member:update`) mints a single-use 7-day token for a member that
   has an email and no account, and emails the accept link; **public** `POST /invites/accept` (excluded

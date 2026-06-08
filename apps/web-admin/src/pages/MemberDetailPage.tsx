@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { downloadInvoicePdf, formatMoney, listMemberInvoices } from '../api/billing';
-import { getMember, updateMember } from '../api/members';
+import { getMember, inviteMember, updateMember } from '../api/members';
 import { enrollInDiscipline, listDisciplines, listRankStates } from '../api/rank';
 import { DisciplineRankSection } from '../components/DisciplineRankSection';
 import { MemberForm } from '../components/MemberForm';
@@ -53,6 +53,8 @@ export function MemberDetailPage() {
     },
   });
 
+  const invite = useMutation({ mutationFn: () => inviteMember(id) });
+
   const nameOf = (disciplineId: string) =>
     disciplines.data?.find((d) => d.id === disciplineId)?.name ?? disciplineId;
   const enrolledIds = new Set((rankStates.data ?? []).map((s) => s.disciplineId));
@@ -78,6 +80,25 @@ export function MemberDetailPage() {
                   {t('memberForm.editProfile')}
                 </button>
               )}
+            </div>
+            <div className="invite-row">
+              {member.data.userId ? (
+                <span className="muted">{t('memberForm.hasAccount')}</span>
+              ) : member.data.email ? (
+                <button
+                  type="button"
+                  onClick={() => invite.mutate()}
+                  disabled={invite.isPending || invite.isSuccess}
+                >
+                  {t('memberForm.invite')}
+                </button>
+              ) : (
+                <span className="muted">{t('memberForm.inviteNoEmail')}</span>
+              )}
+              <output className="status">
+                {invite.isSuccess ? t('memberForm.inviteSent') : ''}
+              </output>
+              {invite.isError && <span className="form-error">{t('memberForm.inviteError')}</span>}
             </div>
             {editing && (
               <MemberForm

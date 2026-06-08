@@ -21,3 +21,8 @@ export function createMember(input: MemberCreateInput): Promise<Member> {
 export function updateMember(id: string, patch: MemberUpdateInput): Promise<Member> {
   return api.patch<Member>(`/members/${encodeURIComponent(id)}`, patch);
 }
+
+/** Invite a member to set up a portal login (emails the accept link). Resolves on 204. */
+export function inviteMember(id: string): Promise<void> {
+  return api.post<void>(`/members/${encodeURIComponent(id)}/invite`);
+}

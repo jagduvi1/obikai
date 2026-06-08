@@ -342,6 +342,14 @@ progress {
   gap: 1rem;
   flex-wrap: wrap;
 }
+/* Inline row for the portal-account state + invite action. */
+.invite-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0;
+}
 .field-row {
   display: flex;
   gap: 0.75rem;

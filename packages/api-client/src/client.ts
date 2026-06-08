@@ -187,3 +187,11 @@ export async function changePassword(
   accessToken = result.accessToken;
   return result;
 }
+
+/** Accept a member invite: set the account password from the emailed token. The API creates + links
+ *  the account and auto-logs-in, so we adopt the returned access token (refresh cookie is set too). */
+export async function acceptInvite(token: string, password: string): Promise<LoginResult> {
+  const result = await api.post<LoginResult>('/invites/accept', { token, password });
+  accessToken = result.accessToken;
+  return result;
+}
