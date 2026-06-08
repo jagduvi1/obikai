@@ -6,7 +6,7 @@ import type {
 } from '@obikai/adapter-contracts';
 import type { Locale } from '@obikai/domain';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { EMAIL_CATALOGS } from './email-catalogs.js';
+import { EMAIL_CATALOGS } from '../src/email-catalogs.js';
 import {
   type ClassReminder,
   type DunningNotice,
@@ -14,7 +14,7 @@ import {
   type NotificationContext,
   NotificationsService,
   type WaiverRequest,
-} from './notifications.service.js';
+} from '../src/notifications.service.js';
 
 /** Fake EmailPort — records every dispatched message so we can assert what WE rendered (ADR-0003). */
 class FakeEmailPort implements EmailPort {
