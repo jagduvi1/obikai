@@ -9,6 +9,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Publish the SPA images on release** (self-host, audit G4). The release workflow built only the
+  api/worker images, so a self-host could pull the backend but **no UI** — the three front-ends
+  (`obikai-web-admin`, `obikai-web-member`, `obikai-web-platform`, static Caddy-served) were validated
+  in CI but never published. The publish matrix now mirrors the CI build matrix (multi-arch, signed,
+  SBOM-attested for all five). `docs/self-host.md` documents serving them behind your edge.
 - **Datastore authentication for self-host** (security hardening, audit G2). The compose `mongo` service
   now starts with `--auth` (root credentials from `MONGO_ROOT_USER`/`MONGO_ROOT_PASSWORD`) and `redis`
   with `--requirepass` (`REDIS_PASSWORD`) — so a default self-host is no longer reachable
