@@ -9,6 +9,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Mongo backups for self-host** (audit G3). An opt-in `backup` compose profile dumps the whole
+  database (gzipped, timestamped) to a `mongo-backups` volume, authenticating with `MONGO_URI`:
+  `docker compose --profile backup run --rm backup`. `docs/self-host.md` documents scheduling,
+  copying archives off-box, and the `mongorestore --drop` restore. The dump/restore roundtrip and the
+  exact compose entrypoint were verified end-to-end against an authenticated MongoDB.
 - **Publish the SPA images on release** (self-host, audit G4). The release workflow built only the
   api/worker images, so a self-host could pull the backend but **no UI** — the three front-ends
   (`obikai-web-admin`, `obikai-web-member`, `obikai-web-platform`, static Caddy-served) were validated

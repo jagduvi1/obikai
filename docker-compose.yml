@@ -139,6 +139,32 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # ── `backup` profile: one-shot Mongo dump (G3) ────────────────────────────────
+  # Manual/scheduled backup — opt-in so it never runs as part of a normal `up`:
+  #   docker compose --profile backup run --rm backup
+  # Writes a timestamped, gzipped `mongodump` archive of the whole database to the `mongo-backups`
+  # volume, authenticating with MONGO_URI (which embeds the credentials). Copy archives off-box (or
+  # bind-mount a host path over /backups) and schedule via cron for a real backup regime. Restore with
+  # `mongorestore --uri="$MONGO_URI" --archive=/backups/<file> --gzip` (see docs/self-host.md).
+  backup:
+    image: mongo:7
+    container_name: obikai-backup
+    profiles: ["backup"]
+    restart: "no"
+    env_file: .env
+    depends_on:
+      mongo:
+        condition: service_healthy
+    volumes:
+      - mongo-backups:/backups
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'mongodump --uri="$$MONGO_URI" --archive="/backups/obikai-$$(date +%Y%m%d-%H%M%S).gz" --gzip && echo "Backup written to the mongo-backups volume."'
+    security_opt:
+      - no-new-privileges:true
+
 volumes:
   mongo-data:
   redis-data:
+  mongo-backups:
