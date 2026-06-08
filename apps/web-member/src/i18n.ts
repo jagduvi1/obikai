@@ -1,12 +1,20 @@
+import { UI_LOCALES } from '@obikai/i18n';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { applyDocumentLang, loadInitialLocale, persistLocale } from './locale';
 
-/** Member PWA i18n (sv/nb/da/fi/en, invariant 6). English is the source; Nordic locales seeded. */
-export const SUPPORTED_LOCALES = ['en', 'sv', 'nb', 'da', 'fi'] as const;
+/** Member PWA i18n (sv/nb/da/fi/en, invariant 6). English is the source; Nordic locales seeded. The
+ *  supported set is the single source of truth in @obikai/i18n. */
+export const SUPPORTED_LOCALES = UI_LOCALES;
 export type Locale = (typeof SUPPORTED_LOCALES)[number];
 
 const en = {
-  app: { title: 'Obikai', skipToContent: 'Skip to content', signOut: 'Sign out' },
+  app: {
+    title: 'Obikai',
+    skipToContent: 'Skip to content',
+    signOut: 'Sign out',
+    language: 'Language',
+  },
   nav: { progress: 'My progress', invoices: 'My invoices', waivers: 'Waivers' },
   login: {
     title: 'Sign in',
@@ -93,6 +101,7 @@ const withSignOut = (label: string) => ({
 });
 const sv = {
   ...withSignOut('Logga ut'),
+  app: { ...en.app, signOut: 'Logga ut', language: 'Språk' },
   nav: { ...en.nav, progress: 'Mina framsteg', invoices: 'Mina fakturor', waivers: 'Avtal' },
   waivers: {
     ...en.waivers,
@@ -158,6 +167,8 @@ const fi = {
   login: { ...en.login, title: 'Kirjaudu', submit: 'Kirjaudu' },
 };
 
+const initialLocale = loadInitialLocale();
+
 void i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en },
@@ -166,9 +177,16 @@ void i18n.use(initReactI18next).init({
     da: { translation: da },
     fi: { translation: fi },
   },
-  lng: 'en',
+  lng: initialLocale,
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
+});
+
+// Reflect the active locale on <html lang> now and on every switch, and remember the user's choice.
+applyDocumentLang(initialLocale);
+i18n.on('languageChanged', (lng: string) => {
+  persistLocale(lng);
+  applyDocumentLang(lng);
 });
 
 export default i18n;
