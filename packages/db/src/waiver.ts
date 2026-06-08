@@ -173,7 +173,7 @@ export class WaiverTemplateRepository {
     const update =
       Object.keys(set).length > 0 ? { $set: set, $inc: { version: 1 } } : { $inc: { version: 1 } };
     const doc = await this.model
-      .findByIdAndUpdate(id, update, { new: true })
+      .findByIdAndUpdate(id, update, { returnDocument: 'after' })
       .lean<WaiverTemplateDoc>()
       .exec();
     return doc ? toWaiverTemplate(doc) : null;

@@ -207,23 +207,24 @@ export function tenantGuard(schema: Schema): void {
     tenantId: { type: String, required: true, index: true, immutable: true },
   });
 
+  // mongoose 9 removed callback-style middleware — sync hooks take no `next` (and proceed when they
+  // return); insertMany's pre hook now receives `docs` as its first positional arg.
+
   // (b) Scope every read/update/delete query filter to the active tenant.
-  s.pre(SCOPED_QUERY_OPS, function preScopedQuery(this: ScopedQueryThis, next: () => void) {
+  s.pre(SCOPED_QUERY_OPS, function preScopedQuery(this: ScopedQueryThis) {
     scopeFilter.call(this);
-    next();
   } as (...args: never[]) => unknown);
 
   // (c) Stamp tenantId on new docs; reject a doc whose tenantId belongs to another tenant.
   // Registered on 'validate' (NOT 'save'): Mongoose runs validation before save hooks, so stamping
   // in pre('save') would fail the required-tenantId validation first. pre('validate') also makes a
   // no-context write throw MissingTenantContextError rather than a Mongoose ValidationError.
-  s.pre('validate', function preValidate(this: Record<string, unknown>, next: () => void) {
+  s.pre('validate', function preValidate(this: Record<string, unknown>) {
     stampDoc(this, getTenantIdOrThrow());
-    next();
   } as (...args: never[]) => unknown);
 
   // (d) Stamp tenantId on every doc passed to insertMany (query middleware does not fire for it).
-  s.pre('insertMany', function preInsertMany(next: () => void, docs: unknown) {
+  s.pre('insertMany', function preInsertMany(this: unknown, docs: unknown) {
     const tenantId = getTenantIdOrThrow();
     if (Array.isArray(docs)) {
       for (const doc of docs) {
@@ -232,13 +233,11 @@ export function tenantGuard(schema: Schema): void {
         }
       }
     }
-    next();
   } as (...args: never[]) => unknown);
 
   // (e) Make aggregations tenant-safe: top-level $match + recursive join scoping + banned stages.
-  s.pre('aggregate', function preAggregate(this: ScopedAggregateThis, next: () => void) {
+  s.pre('aggregate', function preAggregate(this: ScopedAggregateThis) {
     scopePipeline.call(this);
-    next();
   } as (...args: never[]) => unknown);
 }
 

@@ -120,7 +120,7 @@ export class DisciplineRepository {
       if (value !== undefined) out[key] = value;
     }
     const doc = await this.model
-      .findByIdAndUpdate(id, out, { new: true })
+      .findByIdAndUpdate(id, out, { returnDocument: 'after' })
       .lean<DisciplineDoc>()
       .exec();
     return doc ? toDiscipline(doc) : null;
@@ -252,10 +252,11 @@ export class RankSystemRepository {
         version: version.version,
         disciplineId: version.disciplineId,
         presentation: version.presentation,
-        tracks: version.tracks,
-        ladder: version.ladder,
-        transitions: version.transitions,
-        curricula: version.curricula,
+        // Spread the engine's readonly arrays to the mutable shape mongoose 9's create() expects.
+        tracks: [...version.tracks],
+        ladder: [...version.ladder],
+        transitions: [...version.transitions],
+        curricula: [...version.curricula],
         contentHash: version.contentHash,
       });
     } catch (err) {
@@ -271,7 +272,7 @@ export class RankSystemRepository {
         $setOnInsert: { systemId: version.systemId },
         $addToSet: { versionIds: version.versionId },
       },
-      { upsert: true, new: true },
+      { upsert: true, returnDocument: 'after' },
     );
     return version;
   }
@@ -434,7 +435,7 @@ export class MemberRankStateRepository {
       if (value !== undefined) out[key] = value;
     }
     const doc = await this.model
-      .findByIdAndUpdate(id, out, { new: true })
+      .findByIdAndUpdate(id, out, { returnDocument: 'after' })
       .lean<MemberRankStateDoc>()
       .exec();
     return doc ? toMemberRankState(doc) : null;
@@ -641,7 +642,7 @@ export class GradingEventRepository {
       if (value !== undefined) out[key] = value;
     }
     const doc = await this.model
-      .findByIdAndUpdate(id, out, { new: true })
+      .findByIdAndUpdate(id, out, { returnDocument: 'after' })
       .lean<GradingEventDoc>()
       .exec();
     return doc ? toGradingEvent(doc) : null;
@@ -725,7 +726,7 @@ export class GradingResultRepository {
             notes: input.notes ?? null,
           },
         },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
       )
       .lean<GradingResultDoc>()
       .exec();
@@ -843,7 +844,7 @@ export class CurriculumItemRepository {
       if (value !== undefined) out[key] = value;
     }
     const doc = await this.model
-      .findByIdAndUpdate(id, out, { new: true })
+      .findByIdAndUpdate(id, out, { returnDocument: 'after' })
       .lean<CurriculumItemDoc>()
       .exec();
     return doc ? toCurriculumItem(doc) : null;
@@ -911,7 +912,7 @@ export class CurriculumCompletionRepository {
           itemKey: String(input.itemKey),
         },
         { $set: { completedAt: input.completedAt, markedByUserId: input.markedByUserId } },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
+        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
       )
       .lean<CurriculumCompletionDoc>()
       .exec();

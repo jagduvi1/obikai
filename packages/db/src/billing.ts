@@ -97,7 +97,7 @@ export class VatRateRepository {
     if (patch.name !== undefined) out.name = patch.name;
     if (patch.percent !== undefined) out.percent = patch.percent;
     const doc = await this.model
-      .findByIdAndUpdate(id, out, { new: true })
+      .findByIdAndUpdate(id, out, { returnDocument: 'after' })
       .lean<VatRateDoc>()
       .exec();
     return doc ? toVatRate(doc) : null;
@@ -215,7 +215,10 @@ export class PlanRepository {
     if (patch.vatRateId !== undefined) out.vatRateId = patch.vatRateId;
     if (patch.classPackCredits !== undefined) out.classPackCredits = patch.classPackCredits;
     if (patch.active !== undefined) out.active = patch.active;
-    const doc = await this.model.findByIdAndUpdate(id, out, { new: true }).lean<PlanDoc>().exec();
+    const doc = await this.model
+      .findByIdAndUpdate(id, out, { returnDocument: 'after' })
+      .lean<PlanDoc>()
+      .exec();
     return doc ? toPlan(doc) : null;
   }
 
@@ -354,7 +357,7 @@ export class EnrollmentRepository {
       if (value !== undefined) out[key] = value;
     }
     const doc = await this.model
-      .findByIdAndUpdate(id, out, { new: true })
+      .findByIdAndUpdate(id, out, { returnDocument: 'after' })
       .lean<EnrollmentDoc>()
       .exec();
     return doc ? toEnrollment(doc) : null;
@@ -646,7 +649,7 @@ export class InvoiceRepository {
         {
           $set: { status: 'open', issuedAt: opts.issuedAt, dueAt: opts.dueAt, number: opts.number },
         },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<InvoiceDoc>()
       .exec();
@@ -669,7 +672,7 @@ export class InvoiceRepository {
       .findOneAndUpdate(
         { _id: String(id), status: 'open', dunningStage: fromStage },
         { $set: patch },
-        { new: true },
+        { returnDocument: 'after' },
       )
       .lean<InvoiceDoc>()
       .exec();
@@ -702,7 +705,7 @@ export class InvoiceRepository {
       if (value !== undefined) out[key] = value;
     }
     const doc = await this.model
-      .findByIdAndUpdate(id, out, { new: true })
+      .findByIdAndUpdate(id, out, { returnDocument: 'after' })
       .lean<InvoiceDoc>()
       .exec();
     return doc ? toInvoice(doc) : null;
@@ -759,7 +762,7 @@ export class InvoiceCounterRepository {
       .findOneAndUpdate(
         { tenantId: String(tenantId), year },
         { $inc: { seq: 1 }, $setOnInsert: { tenantId, year } },
-        { upsert: true, new: true },
+        { upsert: true, returnDocument: 'after' },
       )
       .lean<InvoiceCounterDoc>()
       .exec();
