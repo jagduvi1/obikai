@@ -9,6 +9,11 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Swedish UI: member + platform complete (i18n H1, part 1).** The member PWA and the platform console
+  are now fully translated to Swedish (every UI key — progress, invoices, tenants, tenant, audit, status,
+  nav, auth). A per-app **completeness test** asserts the `sv` bundle covers every English key, so a
+  missing translation fails CI rather than silently falling back to English. Nordic siblings (nb/da/fi)
+  and the larger admin catalog follow; nb/da/fi remain English-fallback stubs pending a native pass.
 - **In-app language switcher + locale activation (i18n H2/H3).** All three SPAs (member, admin, platform)
   now ship a header **language switcher** listing the five UI locales by their endonym (English, Svenska,
   Norsk bokmål, Dansk, Suomi). The chosen language is **persisted** (localStorage) and the app now boots
