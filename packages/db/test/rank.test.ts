@@ -93,17 +93,19 @@ const version = (systemId: string, versionId: string, v: number): ProgressionSys
 
 describe('DisciplineRepository', () => {
   it('creates, lists active, and isolates per tenant', async () => {
-    await runInTenantContext(ctx('t1'), () => disciplines.create({ name: 'BJJ' }));
-    await runInTenantContext(ctx('t1'), () => disciplines.create({ name: 'Judo', active: false }));
-    await runInTenantContext(ctx('t2'), () => disciplines.create({ name: 'Karate' }));
+    await runInTenantContext(ctx('t1'), () => disciplines.create({ name: { en: 'BJJ' } }));
+    await runInTenantContext(ctx('t1'), () =>
+      disciplines.create({ name: { en: 'Judo' }, active: false }),
+    );
+    await runInTenantContext(ctx('t2'), () => disciplines.create({ name: { en: 'Karate' } }));
 
     const t1all = await runInTenantContext(ctx('t1'), () => disciplines.list());
-    expect(t1all.map((d) => d.name).sort()).toEqual(['BJJ', 'Judo']);
+    expect(t1all.map((d) => d.name.en).sort()).toEqual(['BJJ', 'Judo']);
     const t1active = await runInTenantContext(ctx('t1'), () => disciplines.list({ active: true }));
-    expect(t1active.map((d) => d.name)).toEqual(['BJJ']);
+    expect(t1active.map((d) => d.name.en)).toEqual(['BJJ']);
     // Tenant isolation: t2 never sees t1's disciplines.
     const t2all = await runInTenantContext(ctx('t2'), () => disciplines.list());
-    expect(t2all.map((d) => d.name)).toEqual(['Karate']);
+    expect(t2all.map((d) => d.name.en)).toEqual(['Karate']);
   });
 });
 
@@ -271,16 +273,20 @@ describe('CurriculumCompletionRepository (idempotent mark)', () => {
 describe('CurriculumItemRepository', () => {
   it('enforces unique itemKey per discipline within a tenant', async () => {
     await runInTenantContext(ctx('t1'), () =>
-      curriculumItems.create({ disciplineId: 'disc1', itemKey: 'armbar', label: 'Armbar' }),
+      curriculumItems.create({ disciplineId: 'disc1', itemKey: 'armbar', label: { en: 'Armbar' } }),
     );
     await expect(
       runInTenantContext(ctx('t1'), () =>
-        curriculumItems.create({ disciplineId: 'disc1', itemKey: 'armbar', label: 'Armbar 2' }),
+        curriculumItems.create({
+          disciplineId: 'disc1',
+          itemKey: 'armbar',
+          label: { en: 'Armbar 2' },
+        }),
       ),
     ).rejects.toThrow();
     // Same key under a different discipline is fine.
     const ok = await runInTenantContext(ctx('t1'), () =>
-      curriculumItems.create({ disciplineId: 'disc2', itemKey: 'armbar', label: 'Armbar' }),
+      curriculumItems.create({ disciplineId: 'disc2', itemKey: 'armbar', label: { en: 'Armbar' } }),
     );
     expect(ok.id).toBeTruthy();
   });

@@ -3,6 +3,7 @@ import type {
   Discipline,
   DisciplineCreateInput,
   DisciplineUpdateInput,
+  LocalizedString,
   PresentationStyle,
 } from '@obikai/domain';
 
@@ -30,8 +31,8 @@ export class NotFoundError extends Error {
 /** The persistence surface DisciplinesService needs — satisfied by @obikai/db's DisciplineRepository. */
 export interface DisciplinesStore {
   create(input: {
-    name: string;
-    description?: string | null;
+    name: LocalizedString;
+    description?: LocalizedString | null;
     presentation?: PresentationStyle;
     active?: boolean;
   }): Promise<Discipline>;
@@ -40,8 +41,8 @@ export interface DisciplinesStore {
   update(
     id: string,
     patch: {
-      name?: string;
-      description?: string | null;
+      name?: LocalizedString;
+      description?: LocalizedString | null;
       presentation?: PresentationStyle;
       active?: boolean;
     },

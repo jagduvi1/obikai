@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import type { AuthzActor } from '@obikai/authz';
 import { getTenantContextOrThrow } from '@obikai/db';
-import { curriculumItemCreateSchema } from '@obikai/domain';
+import { curriculumItemCreateSchema, localizedStringSchema } from '@obikai/domain';
 import { z } from 'zod';
 import {
   type CurriculumItemUpdateInput,
@@ -46,8 +46,8 @@ function translate(error: unknown): never {
 
 const itemUpdateSchema = z
   .object({
-    label: z.string().min(1),
-    description: z.string().nullable(),
+    label: localizedStringSchema,
+    description: localizedStringSchema.nullable(),
     mediaRef: z.string().min(1).nullable(),
   })
   .partial();

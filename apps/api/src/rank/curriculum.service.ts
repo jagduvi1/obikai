@@ -3,6 +3,7 @@ import type {
   CurriculumCompletion,
   CurriculumItem,
   CurriculumItemCreateInput,
+  LocalizedString,
 } from '@obikai/domain';
 
 /**
@@ -31,15 +32,19 @@ export interface CurriculumItemsStore {
   create(input: {
     disciplineId: string;
     itemKey: string;
-    label: string;
-    description?: string | null;
+    label: LocalizedString;
+    description?: LocalizedString | null;
     mediaRef?: string | null;
   }): Promise<CurriculumItem>;
   findById(id: string): Promise<CurriculumItem | null>;
   list(opts?: { disciplineId?: string }): Promise<CurriculumItem[]>;
   update(
     id: string,
-    patch: { label?: string; description?: string | null; mediaRef?: string | null },
+    patch: {
+      label?: LocalizedString;
+      description?: LocalizedString | null;
+      mediaRef?: string | null;
+    },
   ): Promise<CurriculumItem | null>;
 }
 
@@ -56,8 +61,8 @@ export interface CurriculumCompletionsStore {
 }
 
 export interface CurriculumItemUpdateInput {
-  label?: string;
-  description?: string | null;
+  label?: LocalizedString;
+  description?: LocalizedString | null;
   mediaRef?: string | null;
 }
 

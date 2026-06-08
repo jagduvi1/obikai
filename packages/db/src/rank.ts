@@ -7,6 +7,7 @@ import type {
   GradingEvent,
   GradingEventStatus,
   GradingResultRecord,
+  LocalizedString,
   MemberRankState,
   PresentationStyle,
   ProgressionSystem,
@@ -32,8 +33,9 @@ import { tenantGuard } from './tenant-guard.js';
 // ── Discipline ──────────────────────────────────────────────────────────────────
 export interface DisciplineDoc extends TenantScoped {
   _id: Types.ObjectId;
-  name: string;
-  description: string | null;
+  // Translatable content (i18n H4, ADR-0029) — stored as a {locale: string} map, resolved in the SPA.
+  name: LocalizedString;
+  description: LocalizedString | null;
   presentation: PresentationStyle;
   active: boolean;
   createdAt: Date;
@@ -42,15 +44,16 @@ export interface DisciplineDoc extends TenantScoped {
 
 const disciplineSchema = new Schema<DisciplineDoc>(
   {
-    name: { type: String, required: true },
-    description: { type: String, default: null },
+    // Mixed holds the LocalizedString map; we always set the whole field (create / $set), so Mixed's
+    // change-tracking caveat does not apply.
+    name: { type: Schema.Types.Mixed, required: true },
+    description: { type: Schema.Types.Mixed, default: null },
     presentation: { type: String, required: true, default: 'belt' },
     active: { type: Boolean, required: true, default: true },
   },
   { timestamps: true },
 );
 disciplineSchema.plugin(tenantGuard);
-disciplineSchema.index({ tenantId: 1, name: 1 });
 
 export const DisciplineModel: Model<DisciplineDoc> =
   (mongoose.models.Discipline as Model<DisciplineDoc> | undefined) ??
@@ -73,8 +76,8 @@ export class DisciplineRepository {
   constructor(private readonly model: Model<DisciplineDoc> = DisciplineModel) {}
 
   async create(input: {
-    name: string;
-    description?: string | null;
+    name: LocalizedString;
+    description?: LocalizedString | null;
     presentation?: PresentationStyle;
     active?: boolean;
   }): Promise<Discipline> {
@@ -94,15 +97,20 @@ export class DisciplineRepository {
 
   async list(opts: { active?: boolean } = {}): Promise<Discipline[]> {
     const filter = opts.active !== undefined ? { active: opts.active } : {};
-    const docs = await this.model.find(filter).sort({ name: 1 }).lean<DisciplineDoc[]>().exec();
+    // Sort by creation (name is now a locale map, not a sortable scalar); the SPA orders by resolved name.
+    const docs = await this.model
+      .find(filter)
+      .sort({ createdAt: 1 })
+      .lean<DisciplineDoc[]>()
+      .exec();
     return docs.map(toDiscipline);
   }
 
   async update(
     id: string,
     patch: {
-      name?: string;
-      description?: string | null;
+      name?: LocalizedString;
+      description?: LocalizedString | null;
       presentation?: PresentationStyle;
       active?: boolean;
     },
@@ -747,8 +755,9 @@ export interface CurriculumItemDoc extends TenantScoped {
   _id: Types.ObjectId;
   disciplineId: string;
   itemKey: string;
-  label: string;
-  description: string | null;
+  // Translatable content (i18n H4, ADR-0029) — a {locale: string} map, resolved in the SPA.
+  label: LocalizedString;
+  description: LocalizedString | null;
   mediaRef: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -758,8 +767,8 @@ const curriculumItemSchema = new Schema<CurriculumItemDoc>(
   {
     disciplineId: { type: String, required: true },
     itemKey: { type: String, required: true },
-    label: { type: String, required: true },
-    description: { type: String, default: null },
+    label: { type: Schema.Types.Mixed, required: true },
+    description: { type: Schema.Types.Mixed, default: null },
     mediaRef: { type: String, default: null },
   },
   { timestamps: true },
@@ -792,8 +801,8 @@ export class CurriculumItemRepository {
   async create(input: {
     disciplineId: string;
     itemKey: string;
-    label: string;
-    description?: string | null;
+    label: LocalizedString;
+    description?: LocalizedString | null;
     mediaRef?: string | null;
   }): Promise<CurriculumItem> {
     const created = await this.model.create({
@@ -823,7 +832,11 @@ export class CurriculumItemRepository {
 
   async update(
     id: string,
-    patch: { label?: string; description?: string | null; mediaRef?: string | null },
+    patch: {
+      label?: LocalizedString;
+      description?: LocalizedString | null;
+      mediaRef?: string | null;
+    },
   ): Promise<CurriculumItem | null> {
     const out: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(patch)) {
