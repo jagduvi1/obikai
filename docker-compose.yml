@@ -89,7 +89,16 @@ services:
     restart: unless-stopped
     # mongo:7 drops to the `mongodb` user (uid 999) internally; pin it explicitly.
     user: "999:999"
+    # Authentication is ON: providing root credentials makes the image start mongod with `--auth`, so
+    # the database is never reachable unauthenticated (G2). These are REQUIRED (`:?` fails fast if unset);
+    # MONGO_URI must embed the SAME credentials with `authSource=admin`. NOTE: the root user is created
+    # only on FIRST init of an empty data volume — enabling this on an existing unauthenticated volume
+    # needs a one-time manual user creation (see docs/self-host.md).
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?set MONGO_ROOT_USER in .env}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?set MONGO_ROOT_PASSWORD in .env}
     healthcheck:
+      # `ping` is allowed pre-auth even with --auth on, so the probe needs no credentials.
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
       interval: 10s
       timeout: 5s
@@ -109,9 +118,14 @@ services:
     container_name: obikai-redis
     restart: unless-stopped
     user: "999:999"
-    command: ["redis-server", "--save", "60", "1", "--appendonly", "yes"]
+    # Password-protected (G2): REQUIRED (`:?`), and REDIS_URL must embed the same password. The
+    # healthcheck authenticates with it (a bare `redis-cli ping` returns NOAUTH once requirepass is set).
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    command:
+      ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--save", "60", "1", "--appendonly", "yes"]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 5

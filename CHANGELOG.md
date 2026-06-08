@@ -9,6 +9,13 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Datastore authentication for self-host** (security hardening, audit G2). The compose `mongo` service
+  now starts with `--auth` (root credentials from `MONGO_ROOT_USER`/`MONGO_ROOT_PASSWORD`) and `redis`
+  with `--requirepass` (`REDIS_PASSWORD`) — so a default self-host is no longer reachable
+  unauthenticated. `.env.example` ships the credential vars and `MONGO_URI`/`REDIS_URL` that embed them
+  (`authSource=admin`); the redis healthcheck authenticates. A **hosted** deployment additionally fails
+  to boot if `MONGO_URI`/`REDIS_URL` carry no credentials. New `docs/self-host.md` (setup, secrets, the
+  existing-volume auth-migration note, owner bootstrap) — and the README now links it.
 - **Waivers admin UI** — the waiver-templates backend (versioned templates, signatures) had no UI. A
   Waivers page (+ nav item) lists templates with their version/status, creates a new one (title +
   markdown body + "guardian must sign for minors"), and activates/deactivates a template. Editing the
