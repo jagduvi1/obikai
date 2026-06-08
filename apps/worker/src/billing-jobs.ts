@@ -43,6 +43,8 @@ export interface DunningRunResult {
   considered: number;
   advanced: number;
   failed: number;
+  /** Advances whose follow-up notice (email) failed — the ladder still moved; counted, not retried. */
+  noticesFailed: number;
 }
 
 function errMsg(err: unknown): string {
@@ -79,31 +81,53 @@ export async function runBillingForTenant(
 }
 
 /**
+ * Side-effect to run after an invoice is successfully advanced one rung — e.g. emailing the member the
+ * overdue notice. Receives the UPDATED invoice (the value `advanceDunning` returned, carrying the new
+ * `dunningStage`). Best-effort: it runs in its own try/catch so a mail failure never rolls back the
+ * advance nor aborts the sweep.
+ */
+export type OnDunningAdvanced = (invoice: Invoice) => Promise<void>;
+
+/**
  * dunning: advance every open, past-due invoice in the CURRENT tenant one step along the ladder.
  * Per-invoice isolation; `advanceDunning` is a no-op outside the retry window, so a re-delivered job
- * cannot double-increment.
+ * cannot double-increment. When `onAdvanced` is supplied, it fires once per advanced invoice (after a
+ * successful advance) — used to send the dunning notice. A notice failure is logged and counted but
+ * does NOT mark the invoice's advance as failed: the ladder already moved and must not be retried.
  */
 export async function runDunningForTenant(
   advancer: DunningAdvancer,
   invoices: DunnableInvoiceSource,
   now: () => Date,
   log: JobLog,
+  onAdvanced?: OnDunningAdvanced,
 ): Promise<DunningRunResult> {
   const nowIso = now().toISOString();
   const dunnable = await invoices.listDunnable(nowIso);
   const actor = systemActor();
   let advanced = 0;
   let failed = 0;
+  let noticesFailed = 0;
   for (const inv of dunnable) {
+    let updated: Invoice;
     try {
-      await advancer.advanceDunning(actor, inv.id);
+      updated = await advancer.advanceDunning(actor, inv.id);
       advanced++;
     } catch (err) {
       failed++;
       log('dunning: invoice failed', { invoiceId: inv.id, error: errMsg(err) });
+      continue;
+    }
+    if (onAdvanced) {
+      try {
+        await onAdvanced(updated);
+      } catch (err) {
+        noticesFailed++;
+        log('dunning: notice failed', { invoiceId: updated.id, error: errMsg(err) });
+      }
     }
   }
-  return { considered: dunnable.length, advanced, failed };
+  return { considered: dunnable.length, advanced, failed, noticesFailed };
 }
 
 /**

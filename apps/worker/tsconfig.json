@@ -9,7 +9,9 @@
     { "path": "../../packages/authz" },
     { "path": "../../packages/billing" },
     { "path": "../../packages/config" },
-    { "path": "../../packages/db" }
+    { "path": "../../packages/db" },
+    { "path": "../../packages/notifications" },
+    { "path": "../../adapters/email-smtp" }
   ],
   "include": ["src/**/*"]
 }

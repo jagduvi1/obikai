@@ -112,7 +112,7 @@ describe('runDunningForTenant', () => {
     const { log } = makeLog();
     const r = await runDunningForTenant(advancer, invoices, NOW, log);
     expect(seen).toEqual(['x', 'y']);
-    expect(r).toEqual({ considered: 2, advanced: 2, failed: 0 });
+    expect(r).toEqual({ considered: 2, advanced: 2, failed: 0, noticesFailed: 0 });
   });
 
   it('isolates a failing invoice', async () => {
@@ -129,8 +129,72 @@ describe('runDunningForTenant', () => {
     };
     const { log, lines } = makeLog();
     const r = await runDunningForTenant(advancer, invoices, NOW, log);
-    expect(r).toEqual({ considered: 3, advanced: 2, failed: 1 });
+    expect(r).toEqual({ considered: 3, advanced: 2, failed: 1, noticesFailed: 0 });
     expect(lines[0]?.meta?.invoiceId).toBe('y');
+  });
+
+  it('runs onAdvanced once per advanced invoice with the UPDATED invoice', async () => {
+    const advancer: DunningAdvancer = {
+      // The advance bumps the ladder; return the updated invoice the notice should be built from.
+      async advanceDunning(_a, id) {
+        return { id, dunningStage: 2 } as Invoice;
+      },
+    };
+    const invoices: DunnableInvoiceSource = {
+      async listDunnable() {
+        return [inv('x'), inv('y')];
+      },
+    };
+    const notified: Invoice[] = [];
+    const { log } = makeLog();
+    const r = await runDunningForTenant(advancer, invoices, NOW, log, async (i) => {
+      notified.push(i);
+    });
+    expect(notified.map((i) => i.id)).toEqual(['x', 'y']);
+    expect(notified.every((i) => i.dunningStage === 2)).toBe(true);
+    expect(r).toEqual({ considered: 2, advanced: 2, failed: 0, noticesFailed: 0 });
+  });
+
+  it('isolates a failing notice: the advance still counts, notice failure is logged + counted', async () => {
+    const advancer: DunningAdvancer = {
+      async advanceDunning(_a, id) {
+        return inv(id);
+      },
+    };
+    const invoices: DunnableInvoiceSource = {
+      async listDunnable() {
+        return [inv('x'), inv('y'), inv('z')];
+      },
+    };
+    const { log, lines } = makeLog();
+    const r = await runDunningForTenant(advancer, invoices, NOW, log, async (i) => {
+      if (i.id === 'y') throw new Error('smtp down');
+    });
+    // The ladder advanced for all three; only the notice for 'y' failed.
+    expect(r).toEqual({ considered: 3, advanced: 3, failed: 0, noticesFailed: 1 });
+    const noticeLine = lines.find((l) => l.msg === 'dunning: notice failed');
+    expect(noticeLine?.meta?.invoiceId).toBe('y');
+  });
+
+  it('does not call onAdvanced for an invoice whose advance threw', async () => {
+    const advancer: DunningAdvancer = {
+      async advanceDunning(_a, id) {
+        if (id === 'y') throw new Error('advance failed');
+        return inv(id);
+      },
+    };
+    const invoices: DunnableInvoiceSource = {
+      async listDunnable() {
+        return [inv('x'), inv('y'), inv('z')];
+      },
+    };
+    const notified: string[] = [];
+    const { log } = makeLog();
+    const r = await runDunningForTenant(advancer, invoices, NOW, log, async (i) => {
+      notified.push(i.id);
+    });
+    expect(notified).toEqual(['x', 'z']); // 'y' never advanced → never notified
+    expect(r).toEqual({ considered: 3, advanced: 2, failed: 1, noticesFailed: 0 });
   });
 
   it('passes a full ISO timestamp to listDunnable', async () => {
