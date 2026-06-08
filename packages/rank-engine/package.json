@@ -20,7 +20,7 @@
   "dependencies": {
     "@obikai/domain": "workspace:*",
     "@js-temporal/polyfill": "catalog:",
-    "@noble/hashes": "^1.6.1",
+    "@noble/hashes": "^2.2.0",
     "decimal.js": "catalog:",
     "zod": "catalog:"
   },
