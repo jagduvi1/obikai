@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AttendanceModel } from '../src/attendance.js';
 import { IdentityModel, MembershipModel, SessionModel, UserModel } from '../src/auth.js';
+import { ConsentModel } from '../src/consent.js';
 import { eraseMemberSubject } from '../src/erasure-service.js';
 import { MemberModel } from '../src/member.js';
 import { GradingResultModel } from '../src/rank.js';
@@ -49,6 +50,7 @@ beforeEach(async () => {
     'identities',
     'sessions',
     'memberships',
+    'consents',
   ]) {
     await mongoose.connection.collection(c).deleteMany({});
   }
@@ -111,6 +113,18 @@ async function seed() {
       recordedAt: iso,
       notes: 'Aiko did great — mentions her name',
     });
+    // Consent record (keyed by the account userId) carrying Art. 7 evidence PII.
+    await ConsentModel.create({
+      subjectId: userId,
+      purpose: 'marketing-email',
+      lawfulBasis: 'consent',
+      status: 'granted',
+      policyVersion: '2026-06-01',
+      grantedAt: new Date(iso),
+      withdrawnAt: null,
+      source: 'self-service',
+      evidence: { ip: '198.51.100.9', userAgent: 'AikoBrowser/1.0' },
+    });
     return { memberId, userId };
   });
 }
@@ -166,15 +180,27 @@ describe('eraseMemberSubject', () => {
     expect(await mongoose.connection.collection('identities').countDocuments({})).toBe(0);
     expect(await mongoose.connection.collection('sessions').countDocuments({})).toBe(0);
 
-    // No raw PII (name/email/phone) survives ANYWHERE in the erased collections.
+    // Consent records (Art. 7 evidence PII) hard-deleted.
+    expect(await mongoose.connection.collection('consents').countDocuments({})).toBe(0);
+    expect(result.perModel.find((p) => p.model === 'consent')?.strategy).toBe('hard_delete');
+
+    // No raw PII (name/email/phone + consent evidence) survives ANYWHERE in the erased collections.
     const dump = JSON.stringify(
       await Promise.all(
-        ['members', 'waiversignatures', 'gradingresults', 'users'].map((c) =>
+        ['members', 'waiversignatures', 'gradingresults', 'users', 'consents'].map((c) =>
           mongoose.connection.collection(c).find({}).toArray(),
         ),
       ),
     );
-    for (const pii of ['Aiko', 'Tanaka', 'aiko@example.com', '+46700000000', '2010-01-01']) {
+    for (const pii of [
+      'Aiko',
+      'Tanaka',
+      'aiko@example.com',
+      '+46700000000',
+      '2010-01-01',
+      '198.51.100.9',
+      'AikoBrowser/1.0',
+    ]) {
       expect(dump).not.toContain(pii);
     }
 

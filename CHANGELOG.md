@@ -9,6 +9,12 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **GDPR right-to-erasure now also erases consent records (Art. 17).** A data subject's consent records
+  carry Art. 7 evidence PII (purpose + `ip`/`userAgent`/`note`) and were previously left intact by member
+  erasure. `eraseMemberSubject` now hard-deletes them (keyed by the account `userId`, tenant-scoped so it
+  never crosses tenants per ADR-0007). The erasure test seeds a consent record and asserts no consent —
+  and no consent-evidence PII — survives. (Consent *export* under Art. 15 and the tenant-global identity
+  export remain a tracked follow-up.)
 - **Swedish UI: admin complete (i18n H1, part 2).** The admin console is now fully Swedish — every
   namespace (members, disciplines, classes/programs/schedules, schedule/occurrences, locations, plans,
   waivers, billing settings, member invoices, and rank/grading). With member + platform (part 1), all
