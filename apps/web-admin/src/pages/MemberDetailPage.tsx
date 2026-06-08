@@ -118,6 +118,7 @@ export function MemberDetailPage() {
                   dateOfBirth: member.data.dateOfBirth ?? '',
                   status: member.data.status,
                   notes: member.data.notes ?? '',
+                  tags: member.data.tags.join(', '),
                 }}
                 submitLabel={t('memberForm.save')}
                 pending={update.isPending}

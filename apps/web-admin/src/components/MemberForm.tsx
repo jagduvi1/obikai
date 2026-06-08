@@ -11,6 +11,8 @@ export interface MemberFormValues {
   dateOfBirth: string;
   status: MemberStatus;
   notes: string;
+  /** Comma-separated tags while editing; split to an array on submit. */
+  tags: string;
 }
 
 const EMPTY: MemberFormValues = {
@@ -21,10 +23,19 @@ const EMPTY: MemberFormValues = {
   dateOfBirth: '',
   status: 'lead',
   notes: '',
+  tags: '',
 };
 
 /** Trim → value, or null when blank (the API treats null as "clear/unset"). */
 const orNull = (s: string): string | null => (s.trim() === '' ? null : s.trim());
+
+/** Split a comma-separated tag string into a trimmed, non-empty array (server re-normalizes/dedupes). */
+function splitTags(s: string): string[] {
+  return s
+    .split(',')
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+}
 
 /** Convert the form's string state into the validated create/update DTO shape. */
 function toInput(v: MemberFormValues): MemberCreateInput {
@@ -36,6 +47,7 @@ function toInput(v: MemberFormValues): MemberCreateInput {
     dateOfBirth: orNull(v.dateOfBirth),
     status: v.status,
     notes: orNull(v.notes),
+    tags: splitTags(v.tags),
   };
 }
 
@@ -65,6 +77,7 @@ export function MemberForm({
     dob: useId(),
     status: useId(),
     notes: useId(),
+    tags: useId(),
   };
   const [form, setForm] = useState<MemberFormValues>({ ...EMPTY, ...initial });
   const set = (k: keyof MemberFormValues) => (e: { target: { value: string } }) =>
@@ -124,6 +137,18 @@ export function MemberForm({
           </select>
         </span>
       </div>
+      <span className="field">
+        <label htmlFor={ids.tags}>{t('memberForm.tags')}</label>
+        <input
+          id={ids.tags}
+          value={form.tags}
+          onChange={set('tags')}
+          aria-describedby={`${ids.tags}-help`}
+        />
+        <small id={`${ids.tags}-help`} className="field-help">
+          {t('memberForm.tagsHelp')}
+        </small>
+      </span>
       <span className="field">
         <label htmlFor={ids.notes}>{t('memberForm.notes')}</label>
         <textarea id={ids.notes} rows={2} value={form.notes} onChange={set('notes')} />

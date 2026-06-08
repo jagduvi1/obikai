@@ -33,7 +33,8 @@ export class NotFoundError extends Error {
 export interface MembersStore {
   create(input: MemberCreateInput): Promise<Member>;
   findById(id: string): Promise<Member | null>;
-  list(opts?: { status?: MemberStatus }): Promise<Member[]>;
+  list(opts?: { status?: MemberStatus; tag?: string }): Promise<Member[]>;
+  search(query: string, limit?: number): Promise<Member[]>;
   update(id: string, patch: MemberUpdateInput): Promise<Member | null>;
   remove(id: string): Promise<boolean>;
 }
@@ -87,10 +88,20 @@ export class MembersService {
     return created;
   }
 
-  async list(actor: AuthzActor, opts: { status?: MemberStatus } = {}): Promise<Member[]> {
+  async list(
+    actor: AuthzActor,
+    opts: { status?: MemberStatus; tag?: string } = {},
+  ): Promise<Member[]> {
     if (!can(actor, { resource: 'member', action: 'list' }))
       throw new ForbiddenError('list', 'member');
     return this.store.list(opts);
+  }
+
+  /** Staff member lookup over name/email/phone (kiosk roster add, comms recipient picker). */
+  async search(actor: AuthzActor, query: string, limit?: number): Promise<Member[]> {
+    if (!can(actor, { resource: 'member', action: 'list' }))
+      throw new ForbiddenError('list', 'member');
+    return this.store.search(query, limit);
   }
 
   async get(actor: AuthzActor, id: string): Promise<Member> {

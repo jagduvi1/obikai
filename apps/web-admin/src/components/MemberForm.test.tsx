@@ -15,6 +15,7 @@ describe('MemberForm', () => {
           phone: '',
           status: 'active',
           notes: '  keen  ',
+          tags: ' competitor , kids ',
         }}
         submitLabel="Save changes"
         pending={false}
@@ -35,6 +36,7 @@ describe('MemberForm', () => {
       dateOfBirth: null,
       status: 'active',
       notes: 'keen', // trimmed
+      tags: ['competitor', 'kids'], // comma-split + trimmed
     });
   });
 

@@ -62,6 +62,7 @@ class FakeMemberStore implements MembersLinkStore {
       joinDate: null,
       emergencyContact: null,
       notes: null,
+      tags: [],
       createdAt: now,
       updatedAt: now,
       ...over,

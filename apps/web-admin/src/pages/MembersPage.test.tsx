@@ -14,11 +14,41 @@ vi.mock('../api/members', () => mocks);
 
 afterEach(() => vi.clearAllMocks());
 
+/** A full Member fixture (all required fields) with per-test overrides (branded ids loosened). */
+function member(over: Partial<Record<keyof Member, unknown>>): Member {
+  return {
+    id: 'm',
+    tenantId: 't1',
+    userId: null,
+    householdId: null,
+    firstName: 'First',
+    lastName: 'Last',
+    email: null,
+    phone: null,
+    dateOfBirth: null,
+    status: 'active',
+    joinDate: null,
+    emergencyContact: null,
+    notes: null,
+    tags: [],
+    createdAt: '2026-06-06T00:00:00.000Z',
+    updatedAt: '2026-06-06T00:00:00.000Z',
+    ...over,
+  } as Member;
+}
+
 function renderPage() {
   mocks.listMembers.mockResolvedValue([
-    { id: 'm1', firstName: 'Ada', lastName: 'Lovelace', email: 'ada@x.io', status: 'active' },
-    { id: 'm2', firstName: 'Kanō', lastName: 'Jigorō', email: null, status: 'lead' },
-  ] as Member[]);
+    member({
+      id: 'm1',
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@x.io',
+      status: 'active',
+      tags: ['competitor'],
+    }),
+    member({ id: 'm2', firstName: 'Kanō', lastName: 'Jigorō', status: 'lead', tags: ['kids'] }),
+  ]);
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>

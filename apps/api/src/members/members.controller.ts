@@ -13,6 +13,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import type { AuthzActor } from '@obikai/authz';
@@ -23,6 +24,7 @@ import {
   type MemberStatus,
   memberCreateSchema,
   memberStatusSchema,
+  memberTagsSchema,
   memberUpdateSchema,
 } from '@obikai/domain';
 import { NotificationsService } from '@obikai/notifications';
@@ -87,12 +89,29 @@ export class MembersController {
   }
 
   @Get()
-  async list(@Query('status') status?: string) {
+  async list(@Query('status') status?: string, @Query('tag') tag?: string) {
     try {
       const parsed: MemberStatus | undefined = status
         ? memberStatusSchema.parse(status)
         : undefined;
-      return await this.service.list(currentActor(), parsed ? { status: parsed } : {});
+      return await this.service.list(currentActor(), {
+        ...(parsed ? { status: parsed } : {}),
+        ...(tag ? { tag } : {}),
+      });
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  /**
+   * Free-text member lookup (kiosk roster add, comms recipient picker). Declared BEFORE `:id` so
+   * `/members/search` is not captured as a member id. Empty `q` returns [].
+   */
+  @Get('search')
+  async search(@Query('q') q?: string, @Query('limit') limit?: string) {
+    try {
+      const cap = limit ? z.coerce.number().int().min(1).max(100).parse(limit) : undefined;
+      return await this.service.search(currentActor(), q ?? '', cap);
     } catch (error) {
       translate(error);
     }
@@ -111,6 +130,17 @@ export class MembersController {
   async update(@Param('id') id: string, @Body() body: unknown, @Ip() ip: string) {
     try {
       return await this.service.update(currentActor(), id, memberUpdateSchema.parse(body), { ip });
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  /** Replace a member's tag set (segment labels). Authorized as a member update; audited as such. */
+  @Put(':id/tags')
+  async setTags(@Param('id') id: string, @Body() body: unknown, @Ip() ip: string) {
+    try {
+      const tags = memberTagsSchema.parse((body as { tags?: unknown })?.tags ?? body);
+      return await this.service.update(currentActor(), id, { tags }, { ip });
     } catch (error) {
       translate(error);
     }

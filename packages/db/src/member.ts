@@ -23,6 +23,7 @@ export interface MemberDoc extends TenantScoped {
   joinDate: string | null;
   emergencyContact: { name: string; phone: string; relation: string | null } | null;
   notes: string | null;
+  tags: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -50,6 +51,7 @@ const memberSchema = new Schema<MemberDoc>(
     joinDate: { type: String, default: null },
     emergencyContact: { type: emergencyContactSchema, default: null },
     notes: { type: String, default: null },
+    tags: { type: [String], default: [] },
   },
   { timestamps: true },
 );
@@ -62,6 +64,8 @@ memberSchema.index(
 );
 // Hot list query: members by status, alphabetical.
 memberSchema.index({ tenantId: 1, status: 1, lastName: 1 });
+// Segment query: members carrying a tag (multikey index on the array).
+memberSchema.index({ tenantId: 1, tags: 1 });
 
 export const MemberModel: Model<MemberDoc> =
   (mongoose.models.Member as Model<MemberDoc> | undefined) ??
@@ -82,6 +86,7 @@ export function toMember(doc: MemberDoc): Member {
     joinDate: doc.joinDate,
     emergencyContact: doc.emergencyContact,
     notes: doc.notes,
+    tags: doc.tags ?? [],
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };
@@ -101,7 +106,13 @@ function fields(input: MemberCreateInput): Record<string, unknown> {
     joinDate: input.joinDate ?? null,
     emergencyContact: input.emergencyContact ?? null,
     notes: input.notes ?? null,
+    tags: input.tags ?? [],
   };
+}
+
+/** Escape user input for safe use inside a RegExp (prevents ReDoS / accidental metacharacters). */
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function patchFields(patch: MemberUpdateInput): Record<string, unknown> {
@@ -133,9 +144,40 @@ export class MemberRepository {
     return doc ? toMember(doc) : null;
   }
 
-  async list(opts: { status?: MemberStatus } = {}): Promise<Member[]> {
-    const filter = opts.status ? { status: opts.status } : {};
+  async list(opts: { status?: MemberStatus; tag?: string } = {}): Promise<Member[]> {
+    const filter: Record<string, unknown> = {};
+    if (opts.status) filter.status = opts.status;
+    if (opts.tag) filter.tags = opts.tag;
     const docs = await this.model.find(filter).sort({ lastName: 1 }).lean<MemberDoc[]>().exec();
+    return docs.map(toMember);
+  }
+
+  /**
+   * List members carrying any/all of the given tags (segment resolution). Empty `tags` ⇒ empty list
+   * (never "everyone" — a segment send must be explicit about its audience).
+   */
+  async listByTags(tags: string[], match: 'any' | 'all' = 'any'): Promise<Member[]> {
+    if (tags.length === 0) return [];
+    const filter = match === 'all' ? { tags: { $all: tags } } : { tags: { $in: tags } };
+    const docs = await this.model.find(filter).sort({ lastName: 1 }).lean<MemberDoc[]>().exec();
+    return docs.map(toMember);
+  }
+
+  /**
+   * Free-text member lookup over name/email/phone (staff search, kiosk roster add). Case-insensitive
+   * substring match, tenant-scoped by the guard, capped to `limit`. Regex (not a text index) is fine at
+   * dojo scale (hundreds of members); revisit with a $text index if a tenant ever grows large.
+   */
+  async search(query: string, limit = 20): Promise<Member[]> {
+    const term = query.trim();
+    if (!term) return [];
+    const rx = new RegExp(escapeRegExp(term), 'i');
+    const docs = await this.model
+      .find({ $or: [{ firstName: rx }, { lastName: rx }, { email: rx }, { phone: rx }] })
+      .sort({ lastName: 1 })
+      .limit(limit)
+      .lean<MemberDoc[]>()
+      .exec();
     return docs.map(toMember);
   }
 

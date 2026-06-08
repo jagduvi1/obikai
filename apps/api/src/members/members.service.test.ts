@@ -32,6 +32,7 @@ class FakeStore implements MembersStore {
       joinDate: input.joinDate ?? null,
       emergencyContact: input.emergencyContact ?? null,
       notes: input.notes ?? null,
+      tags: input.tags ?? [],
       createdAt: now,
       updatedAt: now,
     };
@@ -41,9 +42,22 @@ class FakeStore implements MembersStore {
   async findById(id: string): Promise<Member | null> {
     return this.byId.get(id) ?? null;
   }
-  async list(opts: { status?: MemberStatus } = {}): Promise<Member[]> {
-    const all = [...this.byId.values()];
-    return opts.status ? all.filter((m) => m.status === opts.status) : all;
+  async list(opts: { status?: MemberStatus; tag?: string } = {}): Promise<Member[]> {
+    let all = [...this.byId.values()];
+    if (opts.status) all = all.filter((m) => m.status === opts.status);
+    if (opts.tag) all = all.filter((m) => m.tags.includes(opts.tag as string));
+    return all;
+  }
+  async search(query: string, limit = 20): Promise<Member[]> {
+    const term = query.trim().toLowerCase();
+    if (!term) return [];
+    return [...this.byId.values()]
+      .filter((m) =>
+        [m.firstName, m.lastName, m.email ?? '', m.phone ?? ''].some((f) =>
+          f.toLowerCase().includes(term),
+        ),
+      )
+      .slice(0, limit);
   }
   async update(id: string, patch: MemberUpdateInput): Promise<Member | null> {
     const cur = this.byId.get(id);
@@ -162,5 +176,21 @@ describe('MembersService RBAC', () => {
   it('does not record a delete that did not happen (missing member throws before audit)', async () => {
     await expect(svc.remove(owner, 'nope')).rejects.toBeInstanceOf(NotFoundError);
     expect(audit.entries).toHaveLength(0);
+  });
+
+  it('searches members by name (staff only)', async () => {
+    await svc.create(staff, { firstName: 'Aiko', lastName: 'Tanaka', status: 'active' });
+    await svc.create(staff, { firstName: 'Bjorn', lastName: 'Larsen', status: 'trial' });
+    const hits = await svc.search(staff, 'tana');
+    expect(hits.map((m) => m.lastName)).toEqual(['Tanaka']);
+    await expect(svc.search(member, 'tana')).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('sets and filters members by tag', async () => {
+    const a = await svc.create(staff, { firstName: 'Aiko', lastName: 'Tanaka', status: 'active' });
+    await svc.create(staff, { firstName: 'Bjorn', lastName: 'Larsen', status: 'active' });
+    await svc.update(staff, a.id, { tags: ['competitor', 'kids'] });
+    const tagged = await svc.list(staff, { tag: 'competitor' });
+    expect(tagged.map((m) => m.id)).toEqual([a.id]);
   });
 });
