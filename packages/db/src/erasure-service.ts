@@ -2,6 +2,7 @@ import type { TenantId, UserId } from '@obikai/domain';
 import type { ErasureModelResult, ErasureResult } from '@obikai/gdpr';
 import { AttendanceModel } from './attendance.js';
 import {
+  EmailVerificationTokenModel,
   IdentityModel,
   MembershipModel,
   PasswordResetTokenModel,
@@ -172,6 +173,13 @@ export async function eraseMemberSubject(input: EraseSubjectInput): Promise<Eras
       model: 'password_reset_token',
       strategy: 'hard_delete',
       affected: prt.deletedCount ?? 0,
+      retained: 0,
+    });
+    const evt = await EmailVerificationTokenModel.deleteMany({ userId: uid }).exec();
+    perModel.push({
+      model: 'email_verification_token',
+      strategy: 'hard_delete',
+      affected: evt.deletedCount ?? 0,
       retained: 0,
     });
   }

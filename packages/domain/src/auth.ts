@@ -86,6 +86,18 @@ export const passwordResetConfirmSchema = z.object({
 });
 export type PasswordResetConfirmInput = z.infer<typeof passwordResetConfirmSchema>;
 
+/** Begin email verification — only the email; the response is identical whether or not it exists. */
+export const emailVerifyRequestSchema = z.object({
+  email: z.string().email(),
+});
+export type EmailVerifyRequestInput = z.infer<typeof emailVerifyRequestSchema>;
+
+/** Complete email verification with the emailed token. */
+export const emailVerifyConfirmSchema = z.object({
+  token: z.string().min(1),
+});
+export type EmailVerifyConfirmInput = z.infer<typeof emailVerifyConfirmSchema>;
+
 /** Change the password of the authenticated account: prove the current one, set a new (strong) one. */
 export const passwordChangeSchema = z
   .object({

@@ -187,6 +187,20 @@ describe('NotificationsService', () => {
     expect(msg.text).toContain('tok-123');
   });
 
+  it('renders an email-verification message with the deep link and tags it', async () => {
+    await svc.sendEmailVerification(
+      recipient,
+      'en',
+      { verifyUrl: 'https://app.example/verify-email?token=xyz', token: 'xyz', expiresInHours: 24 },
+      ctx({ dojoName: 'Obikai' }),
+    );
+    const msg = port.sent[0]!;
+    expect(msg.subject).toBe('Confirm your email — Obikai');
+    expect(msg.text).toContain('confirm');
+    expect(msg.text).toContain('https://app.example/verify-email?token=xyz');
+    expect(msg.tags).toEqual({ kind: 'email-verification' });
+  });
+
   it('falls back to the platform default locale for an unsupported locale', async () => {
     await svc.sendReceipt(recipient, 'fi' as Locale, invoice, ctx());
     const msg = port.sent[0]!;

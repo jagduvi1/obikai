@@ -14,6 +14,8 @@ import { EmailAlreadyRegisteredError } from '@obikai/adapter-auth-local';
 import type { AppConfig } from '@obikai/config';
 import {
   DEFAULT_LOCALE,
+  emailVerifyConfirmSchema,
+  emailVerifyRequestSchema,
   loginInputSchema,
   passwordChangeSchema,
   passwordResetConfirmSchema,
@@ -24,7 +26,12 @@ import { NotificationsService } from '@obikai/notifications';
 import type { CookieOptions, Request, Response } from 'express';
 import { z } from 'zod';
 import { APP_CONFIG } from '../config.provider.js';
-import { AuthService, InvalidCredentialsError, InvalidResetTokenError } from './auth.service.js';
+import {
+  AuthService,
+  InvalidCredentialsError,
+  InvalidResetTokenError,
+  InvalidVerificationTokenError,
+} from './auth.service.js';
 import { type IssuedTokens, type SessionMeta, TokenService } from './token.service.js';
 
 /** httpOnly cookie name carrying the refresh token for browser clients. */
@@ -74,7 +81,10 @@ export class AuthController {
   ) {
     try {
       const input = registerInputSchema.parse(body);
-      return this.respond(res, await this.service.register(input, metaOf(req)));
+      const tokens = await this.service.register(input, metaOf(req));
+      // Fire off the verification email (best-effort — never blocks or fails registration).
+      await this.sendVerificationEmail(input.email);
+      return this.respond(res, tokens);
     } catch (error) {
       throw translate(error);
     }
@@ -172,6 +182,62 @@ export class AuthController {
   }
 
   /**
+   * (Re)send an email-verification link. ALWAYS 204 whether or not the email is registered (no
+   * enumeration). Sent automatically on registration too; this endpoint is the manual resend.
+   */
+  @Post('verify-email/request')
+  @HttpCode(204)
+  async requestEmailVerification(@Body() body: unknown): Promise<void> {
+    let email: string;
+    try {
+      ({ email } = emailVerifyRequestSchema.parse(body));
+    } catch (error) {
+      throw translate(error);
+    }
+    await this.sendVerificationEmail(email);
+  }
+
+  /** Confirm an email address with the emailed token. Generic 400 on a bad/expired/used token. */
+  @Post('verify-email/confirm')
+  @HttpCode(204)
+  async confirmEmailVerification(@Body() body: unknown): Promise<void> {
+    try {
+      const { token } = emailVerifyConfirmSchema.parse(body);
+      await this.service.confirmEmailVerification(token);
+    } catch (error) {
+      throw translate(error);
+    }
+  }
+
+  /**
+   * Mint + email a verification link for `email`, best-effort. Never throws (a mail/db failure must not
+   * block registration nor reveal whether the email is registered); resolves silently when the account
+   * does not exist. The link is the deep link when a public app URL is configured, else the raw token.
+   */
+  private async sendVerificationEmail(email: string): Promise<void> {
+    try {
+      const request = await this.service.requestEmailVerification(email);
+      if (!request) return;
+      const verifyUrl =
+        this.#appPublicUrl !== null
+          ? `${this.#appPublicUrl}/verify-email?token=${encodeURIComponent(request.token)}`
+          : null;
+      const expiresInHours = Math.max(
+        1,
+        Math.round((new Date(request.expiresAt).getTime() - Date.now()) / 3_600_000),
+      );
+      await this.notifications.sendEmailVerification(
+        { email: request.email },
+        DEFAULT_LOCALE,
+        { verifyUrl, token: request.token, expiresInHours },
+        { name: request.email, dojoName: this.#appName, tenantDefaultLocale: DEFAULT_LOCALE },
+      );
+    } catch {
+      // best-effort: never block registration or reveal account existence.
+    }
+  }
+
+  /**
    * Change the password of the authenticated account (E3). Authenticated by the access token directly
    * (the /auth plane is outside the tenancy middleware), so we verify the Bearer here. The current
    * password must be proven — a stolen access token alone cannot change it. On success every refresh
@@ -258,6 +324,8 @@ function translate(error: unknown): Error {
   if (error instanceof InvalidCredentialsError) return new UnauthorizedException(error.message);
   if (error instanceof InvalidResetTokenError)
     return new BadRequestException('invalid or expired reset token');
+  if (error instanceof InvalidVerificationTokenError)
+    return new BadRequestException('invalid or expired verification token');
   if (error instanceof EmailAlreadyRegisteredError)
     return new ConflictException('email already registered');
   if (error instanceof z.ZodError) return new BadRequestException(error.issues);

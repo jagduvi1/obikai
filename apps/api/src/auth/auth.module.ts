@@ -3,6 +3,7 @@ import { LocalAuthProvider } from '@obikai/adapter-auth-local';
 import type { AdapterContext } from '@obikai/adapter-contracts';
 import type { AppConfig } from '@obikai/config';
 import {
+  EmailVerificationTokenRepository,
   IdentityRepository,
   MembershipRepository,
   PasswordResetTokenRepository,
@@ -13,7 +14,7 @@ import { adapterLogger } from '../common/logging.js';
 import { APP_CONFIG } from '../config.provider.js';
 import { NotificationsModule } from '../notifications/notifications.module.js';
 import { AuthController } from './auth.controller.js';
-import { AuthService, type IdentityLookup } from './auth.service.js';
+import { AuthService, type EmailVerifier, type IdentityLookup } from './auth.service.js';
 import { DbIdentityStore } from './identity-store.js';
 import { TokenService } from './token.service.js';
 
@@ -36,6 +37,10 @@ const AUTH_ADAPTER_CONTEXT = 'AUTH_ADAPTER_CONTEXT';
     {
       provide: PasswordResetTokenRepository,
       useFactory: () => new PasswordResetTokenRepository(),
+    },
+    {
+      provide: EmailVerificationTokenRepository,
+      useFactory: () => new EmailVerificationTokenRepository(),
     },
     {
       provide: AUTH_ADAPTER_CONTEXT,
@@ -80,6 +85,7 @@ const AUTH_ADAPTER_CONTEXT = 'AUTH_ADAPTER_CONTEXT';
         tokens: TokenService,
         identities: IdentityRepository,
         resetTokens: PasswordResetTokenRepository,
+        verifyTokens: EmailVerificationTokenRepository,
         users: UserRepository,
       ) => {
         // Adapt the IdentityRepository to the AuthService's narrow IdentityLookup port (local provider).
@@ -89,14 +95,30 @@ const AUTH_ADAPTER_CONTEXT = 'AUTH_ADAPTER_CONTEXT';
             return rec ? { userId: rec.userId, email: rec.email } : null;
           },
         };
+        // Flip emailVerified across the account plane (User + local Identity) in one port.
+        const emailVerifier: EmailVerifier = {
+          markVerified: async (userId) => {
+            await users.markEmailVerified(userId);
+            await identities.markEmailVerifiedByUserId(userId, 'local');
+          },
+        };
         // UserRepository.findById returns a User (email: string) — structurally a UserLookup.
-        return new AuthService(auth, tokens, lookup, resetTokens, users);
+        return new AuthService({
+          auth,
+          tokens,
+          identities: lookup,
+          users,
+          resetTokens,
+          verifyTokens,
+          emailVerifier,
+        });
       },
       inject: [
         LocalAuthProvider,
         TokenService,
         IdentityRepository,
         PasswordResetTokenRepository,
+        EmailVerificationTokenRepository,
         UserRepository,
       ],
     },

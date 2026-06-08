@@ -9,6 +9,13 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Email verification** (account lifecycle E2). A verification email (single-use, 24h token) is sent
+  on registration and on demand via `POST /auth/verify-email/request` (always 204 — no enumeration);
+  `POST /auth/verify-email/confirm` consumes the token and flips `emailVerified` on both the User and
+  the local Identity. New tenant-global `EmailVerificationToken` collection (sha256-hashed, TTL-reaped,
+  purged on erasure), `markEmailVerified` repo methods, and `NotificationsService.sendEmailVerification`
+  + `email.verify.*` en/sv copy. `AuthService` deps were refactored to a named object as the
+  constructor grew across reset/change/verification.
 - **Password change** (account lifecycle E3). `POST /auth/password` (authenticated via the access
   token — the `/auth` plane is outside the tenancy middleware, so the controller verifies the Bearer
   itself) proves the **current** password before setting a new one (a stolen access token alone can't

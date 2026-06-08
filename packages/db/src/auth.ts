@@ -70,6 +70,14 @@ export class UserRepository {
     return doc ? toUser(doc) : null;
   }
 
+  /** Mark the account's email as verified (idempotent). Returns true if the user exists. */
+  async markEmailVerified(id: string): Promise<boolean> {
+    const res = await this.model
+      .updateOne({ _id: String(id) }, { $set: { emailVerified: true } })
+      .exec();
+    return (res.matchedCount ?? 0) > 0;
+  }
+
   /** Hard-delete a user (compensating rollback for a failed identity create; GDPR erasure). */
   async deleteById(id: string): Promise<void> {
     await this.model.deleteOne({ _id: String(id) }).exec();
@@ -156,6 +164,17 @@ export class IdentityRepository {
   ): Promise<boolean> {
     const res = await this.model
       .updateOne({ userId: String(userId), provider: String(provider) }, { $set: { passwordHash } })
+      .exec();
+    return (res.matchedCount ?? 0) > 0;
+  }
+
+  /** Mark a user's credential(s) as email-verified (idempotent). Returns true if any matched. */
+  async markEmailVerifiedByUserId(userId: string, provider = 'local'): Promise<boolean> {
+    const res = await this.model
+      .updateMany(
+        { userId: String(userId), provider: String(provider) },
+        { $set: { emailVerified: true } },
+      )
       .exec();
     return (res.matchedCount ?? 0) > 0;
   }
@@ -338,6 +357,70 @@ export class PasswordResetTokenRepository {
   }
 
   /** Invalidate every outstanding token for a user (called before issuing a new one, and on erasure). */
+  async deleteByUserId(userId: string): Promise<void> {
+    await this.model.deleteMany({ userId: String(userId) }).exec();
+  }
+}
+
+// ── Email verification token (tenant-global; single-use, time-boxed) ───────────
+export interface EmailVerificationTokenDoc {
+  _id: Types.ObjectId;
+  userId: string;
+  /** sha256(rawToken) — only the hash is stored; the raw token lives only in the emailed link. */
+  tokenHash: string;
+  expiresAt: Date;
+  usedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const emailVerificationTokenSchema = new Schema<EmailVerificationTokenDoc>(
+  {
+    userId: { type: String, required: true, index: true },
+    tokenHash: { type: String, required: true, unique: true },
+    expiresAt: { type: Date, required: true },
+    usedAt: { type: Date, default: null },
+  },
+  { timestamps: true },
+);
+// Reap tokens 24h AFTER they expire — self-host-friendly cleanup, no cron. Valid tokens stay.
+emailVerificationTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 24 * 3_600 });
+
+export const EmailVerificationTokenModel: Model<EmailVerificationTokenDoc> =
+  (mongoose.models.EmailVerificationToken as Model<EmailVerificationTokenDoc> | undefined) ??
+  mongoose.model<EmailVerificationTokenDoc>('EmailVerificationToken', emailVerificationTokenSchema);
+
+export class EmailVerificationTokenRepository {
+  constructor(
+    private readonly model: Model<EmailVerificationTokenDoc> = EmailVerificationTokenModel,
+  ) {}
+
+  async create(input: { userId: string; tokenHash: string; expiresAt: Date }): Promise<void> {
+    await this.model.create({
+      userId: input.userId,
+      tokenHash: input.tokenHash,
+      expiresAt: input.expiresAt,
+      usedAt: null,
+    });
+  }
+
+  /**
+   * Atomically consume a token: must exist, be UNUSED, and UNEXPIRED, marked used in the same op (CAS
+   * on `usedAt: null`). Returns the owning userId, or null if unknown / already used / expired.
+   */
+  async consumeIfValid(tokenHash: string, now: Date): Promise<{ userId: string } | null> {
+    const doc = await this.model
+      .findOneAndUpdate(
+        { tokenHash: String(tokenHash), usedAt: null, expiresAt: { $gt: now } },
+        { $set: { usedAt: now } },
+        { new: true },
+      )
+      .lean<EmailVerificationTokenDoc>()
+      .exec();
+    return doc ? { userId: doc.userId } : null;
+  }
+
+  /** Invalidate every outstanding token for a user (before issuing a new one, and on erasure). */
   async deleteByUserId(userId: string): Promise<void> {
     await this.model.deleteMany({ userId: String(userId) }).exec();
   }
