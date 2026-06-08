@@ -11,6 +11,12 @@ const base: Record<string, string> = {
   SMTP_HOST: 'localhost',
 };
 
+/** Authenticated datastore URIs — hosted mode requires credentials (G2). */
+const authedDb: Record<string, string> = {
+  MONGO_URI: 'mongodb://u:p@mongo:27017/obikai?authSource=admin',
+  REDIS_URL: 'redis://:p@redis:6379',
+};
+
 describe('loadConfig', () => {
   it('defaults to the self-hostable, AI-OFF, no-lock-in configuration', () => {
     const cfg = loadConfig(base);
@@ -55,13 +61,46 @@ describe('loadConfig', () => {
   });
 
   it('does not require a tenant slug for multi-tenant', () => {
-    const cfg = loadConfig({ ...base, TENANCY: 'multi', DEPLOY_MODE: 'hosted' });
+    const cfg = loadConfig({ ...base, ...authedDb, TENANCY: 'multi', DEPLOY_MODE: 'hosted' });
     expect(cfg.tenancy).toBe('multi');
   });
 });
 
+describe('datastore authentication (hosted, G2)', () => {
+  const hosted: Record<string, string> = {
+    ...base,
+    ...authedDb,
+    DEPLOY_MODE: 'hosted',
+    TENANCY: 'multi',
+  };
+
+  it('rejects an unauthenticated MongoDB URI in hosted mode', () => {
+    expect(() => loadConfig({ ...hosted, MONGO_URI: 'mongodb://mongo:27017/obikai' })).toThrow(
+      /MONGO_URI/,
+    );
+  });
+
+  it('rejects a password-less Redis URI in hosted mode', () => {
+    expect(() => loadConfig({ ...hosted, REDIS_URL: 'redis://redis:6379' })).toThrow(/REDIS_URL/);
+  });
+
+  it('accepts authenticated URIs in hosted mode', () => {
+    expect(() => loadConfig(hosted)).not.toThrow();
+  });
+
+  it('does NOT constrain datastore auth for self-host (operator owns network isolation)', () => {
+    // base has credential-less URIs + default self-host mode → must still be accepted.
+    expect(() => loadConfig(base)).not.toThrow();
+  });
+});
+
 describe('EU data-residency enforcement (hosted)', () => {
-  const hosted: Record<string, string> = { ...base, DEPLOY_MODE: 'hosted', TENANCY: 'multi' };
+  const hosted: Record<string, string> = {
+    ...base,
+    ...authedDb,
+    DEPLOY_MODE: 'hosted',
+    TENANCY: 'multi',
+  };
 
   it('the default S3_REGION is an EU/EEA region (CI drift guard)', () => {
     // No region set → schema default must remain EU, so a hosted deploy is compliant out of the box.

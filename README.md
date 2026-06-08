@@ -69,9 +69,9 @@ pnpm license:check              # AGPL-compatibility gate (also runs in CI)
 ## Self-hosting
 
 A single dojo needs: **app + MongoDB + Redis + an S3-compatible endpoint + an SMTP endpoint**
-(the last two are your own, or the bundled MinIO/Mailpit). See the self-hosting guide
-(`docs/`, forthcoming) and [docker/](docker/). One `docker compose up`; configuration is all
-env vars ([.env.example](.env.example)); telemetry is opt-in.
+(the last two are your own, or the bundled MinIO/Mailpit). See the **[self-hosting guide](docs/self-host.md)**
+and [docker/](docker/). One `docker compose up`; configuration is all env vars
+([.env.example](.env.example)); datastore auth is on by default; telemetry is opt-in.
 
 ## License
 

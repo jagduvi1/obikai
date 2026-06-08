@@ -24,6 +24,13 @@ const boolish = z
 const PLACEHOLDER_SECRET = /change.?me|replace.?me|your.?(secret|key)|placeholder|example|^$/i;
 const looksLikePlaceholder = (s: string): boolean => PLACEHOLDER_SECRET.test(s);
 
+/** True if a connection URI carries userinfo (credentials) in its authority, e.g. `scheme://user:pass@host`.
+ *  Used to reject an unauthenticated Mongo/Redis URI in hosted mode (G2). */
+function hasUriCredentials(uri: string): boolean {
+  const authority = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]*)/i.exec(uri)?.[1];
+  return authority?.includes('@') ?? false;
+}
+
 /**
  * The raw environment schema — mirrors `.env.example`. Validated once at boot (ADR-0009);
  * defaults are the self-hostable, no-lock-in, AI-OFF choices. Cross-field rules (e.g. "S3
@@ -125,6 +132,17 @@ export const EnvSchema = z
     require(!looksLikePlaceholder(
       env.DATA_MASTER_KEY,
     ), 'DATA_MASTER_KEY', 'looks like a placeholder — set a real random key (`openssl rand -hex 32`)');
+    // Datastore auth (G2): a hosted deployment must never reach an unauthenticated Mongo/Redis. The
+    // self-host compose enforces auth at the container; this catches a hosted URI that forgot to embed
+    // credentials. Self-host is exempt (the operator owns their datastore's network isolation/auth).
+    if (env.DEPLOY_MODE === 'hosted') {
+      require(hasUriCredentials(
+        env.MONGO_URI,
+      ), 'MONGO_URI', 'hosted deployments must use an authenticated MongoDB connection (embed credentials, e.g. mongodb://user:pass@host/db?authSource=admin)');
+      require(hasUriCredentials(
+        env.REDIS_URL,
+      ), 'REDIS_URL', 'hosted deployments must use a password-protected Redis connection (embed the password, e.g. redis://:pass@host:6379)');
+    }
     if (env.STORAGE_PROVIDER === 's3') {
       require(Boolean(env.S3_ENDPOINT), 'S3_ENDPOINT', 'required when STORAGE_PROVIDER=s3');
       // EU data residency (Arts. 44–49): the hosted managed service must keep member data in the
