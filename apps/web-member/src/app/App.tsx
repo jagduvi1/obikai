@@ -8,6 +8,7 @@ import { MyInvoicesPage } from '../pages/MyInvoicesPage';
 import { MyProgressPage } from '../pages/MyProgressPage';
 import { MyWaiversPage } from '../pages/MyWaiversPage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
+import { SchedulePage } from '../pages/SchedulePage';
 import { VerifyEmailPage } from '../pages/VerifyEmailPage';
 import { Layout } from './Layout';
 
@@ -36,6 +37,14 @@ export function App() {
         element={
           <RequireAuth>
             <MyProgressPage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/schedule"
+        element={
+          <RequireAuth>
+            <SchedulePage />
           </RequireAuth>
         }
       />

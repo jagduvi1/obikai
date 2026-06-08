@@ -404,6 +404,8 @@ const bookingSchema = new Schema<BookingDoc>(
 bookingSchema.plugin(tenantGuard);
 // Roster + capacity/waitlist queries: all bookings for an occurrence.
 bookingSchema.index({ tenantId: 1, occurrenceId: 1 });
+// "My bookings": a member's bookings ordered by when they booked.
+bookingSchema.index({ tenantId: 1, memberId: 1, bookedAt: 1 });
 // A member books a given occurrence at most once.
 bookingSchema.index(...tenantUniqueIndex({ occurrenceId: 1, memberId: 1 }));
 
@@ -481,6 +483,14 @@ export class BookingRepository {
   /** Count occurrence bookings in a given status (capacity check counts `booked`). */
   async countByOccurrence(occurrenceId: string, status: BookingStatus): Promise<number> {
     return this.model.countDocuments({ occurrenceId: String(occurrenceId), status }).exec();
+  }
+
+  /** A member's bookings ("my classes"), most recently booked first. Optionally filtered by status. */
+  async listByMember(memberId: string, opts: { status?: BookingStatus } = {}): Promise<Booking[]> {
+    const filter: Record<string, unknown> = { memberId: String(memberId) };
+    if (opts.status !== undefined) filter.status = opts.status;
+    const docs = await this.model.find(filter).sort({ bookedAt: -1 }).lean<BookingDoc[]>().exec();
+    return docs.map(toBooking);
   }
 
   async setStatus(id: string, status: BookingStatus): Promise<Booking | null> {

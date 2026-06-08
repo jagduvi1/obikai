@@ -25,6 +25,7 @@ export interface BookingsStore {
   }): Promise<Booking>;
   findById(id: string): Promise<Booking | null>;
   listByOccurrence(occurrenceId: string, opts?: { status?: BookingStatus }): Promise<Booking[]>;
+  listByMember(memberId: string, opts?: { status?: BookingStatus }): Promise<Booking[]>;
   countByOccurrence(occurrenceId: string, status: BookingStatus): Promise<number>;
   setStatus(id: string, status: BookingStatus): Promise<Booking | null>;
   /** Atomic compare-and-swap: promote a booking waitlisted→booked iff still waitlisted, else null. */
@@ -114,5 +115,21 @@ export class BookingsService {
     if (!can(actor, { resource: 'class', action: 'list' }))
       throw new ForbiddenError('list', 'class');
     return this.store.listByOccurrence(occurrenceId);
+  }
+
+  /**
+   * "My classes": a member's own bookings. Gated on `member:read` of the TARGET member — so a member
+   * reaches only their OWN bookings via self-access (ownerMemberId === actor.memberId), and staff
+   * reach anyone's via their member:read grant. NOT gated on `class:list`, which members hold for
+   * browsing the schedule and would otherwise leak every member's bookings to every member.
+   */
+  async listByMember(
+    actor: AuthzActor,
+    memberId: string,
+    opts: { status?: BookingStatus } = {},
+  ): Promise<Booking[]> {
+    if (!can(actor, { resource: 'member', action: 'read', ownerMemberId: memberId }))
+      throw new ForbiddenError('list', 'booking');
+    return this.store.listByMember(memberId, opts);
   }
 }

@@ -7,6 +7,18 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ## [Unreleased]
 
+### Added — Member-facing experience (§4.6)
+
+- **Class booking in the member app.** Members can now browse the upcoming class schedule and
+  book/cancel themselves from the portal (new `/schedule` page + nav, en/sv, WCAG 2.1 AA table). It
+  reuses the existing capacity→waitlist booking API and surfaces each occurrence's program, time, and
+  the member's own booking state (booked/waitlisted). New `GET /bookings?memberId=` ("my classes")
+  backs it, plus `BookingRepository.listByMember` and a `{tenantId, memberId, bookedAt}` index.
+  **Authorization note:** listing a member's bookings is gated on `member:read` of the *target*
+  member (self-access for own bookings, staff via their `member:read` grant) — deliberately **not** on
+  `class:list`, which members hold for browsing the schedule and would otherwise leak every member's
+  bookings to every member (a test pins this).
+
 ### Added — Member CRM & segmentation (§4.1)
 
 - **Member tags + dynamic segments (ADR-0030).** Members now carry dojo-defined `tags: string[]`

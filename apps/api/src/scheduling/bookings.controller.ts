@@ -5,14 +5,16 @@ import {
   Controller,
   Delete,
   ForbiddenException,
+  Get,
   HttpCode,
   NotFoundException,
   Param,
   Post,
+  Query,
 } from '@nestjs/common';
 import type { AuthzActor } from '@obikai/authz';
 import { DuplicateBookingError, getTenantContextOrThrow } from '@obikai/db';
-import { bookingCreateSchema } from '@obikai/domain';
+import { BOOKING_STATUSES, bookingCreateSchema } from '@obikai/domain';
 import { z } from 'zod';
 import { BookingsService } from './bookings.service.js';
 import { ConflictError, ForbiddenError, NotFoundError } from './scheduling.errors.js';
@@ -42,6 +44,8 @@ function translate(error: unknown): never {
   throw error;
 }
 
+const bookingStatusSchema = z.enum(BOOKING_STATUSES);
+
 @Controller('bookings')
 export class BookingsController {
   constructor(private readonly service: BookingsService) {}
@@ -50,6 +54,21 @@ export class BookingsController {
   async create(@Body() body: unknown) {
     try {
       return await this.service.create(currentActor(), bookingCreateSchema.parse(body));
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  /**
+   * "My classes": list a member's bookings (self-access for that member, RBAC 'class' for staff).
+   * `memberId` is required (the member app passes its own id from GET /me); optional `status` filter.
+   */
+  @Get()
+  async listMine(@Query('memberId') memberId?: string, @Query('status') status?: string) {
+    try {
+      if (!memberId) throw new BadRequestException('memberId is required');
+      const opts = status ? { status: bookingStatusSchema.parse(status) } : {};
+      return await this.service.listByMember(currentActor(), memberId, opts);
     } catch (error) {
       translate(error);
     }
