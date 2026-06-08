@@ -75,9 +75,36 @@ docker compose exec api node dist/cli/create-owner.js
   on the **first** init of an empty `mongo-data` volume. If you are turning auth on for a database that
   was created unauthenticated, create the user once manually (`mongosh` → `db.getSiblingDB('admin')
   .createUser(...)`) and restart with auth, or migrate to a fresh authenticated volume.
-- **Backups.** Back up the `mongo-data` (and `redis-data`) volumes regularly; `mongodump` against the
-  authenticated URI is the simplest dump. (A first-class backup job is on the roadmap.)
-- **Updates.** Pull new images (`docker-compose.prod.yml` references `ghcr.io/...`) and re-`up`. Schema
-  changes are managed as forward-only migrations in `packages/db/migrations` (via `migrate-mongo`); an
-  automatic boot-time runner is on the roadmap, so for now apply pending migrations as part of an
-  upgrade.
+## Backups
+
+A one-shot **backup** compose profile dumps the whole database (gzipped, timestamped) to the
+`mongo-backups` volume, authenticating with `MONGO_URI`:
+
+```sh
+docker compose --profile backup run --rm backup
+# → writes /backups/obikai-YYYYMMDD-HHMMSS.gz inside the mongo-backups volume
+```
+
+Schedule it from the host (cron/systemd timer) for a regular regime, and **copy archives off-box** —
+either bind-mount a host path over `/backups` in the `backup` service, or `docker run --rm -v
+obikai_mongo-backups:/b -v "$PWD":/out alpine cp /b/<file> /out`.
+
+**Restore** an archive (this **drops and replaces** the data it contains — stop the api/worker first):
+
+```sh
+docker compose run --rm --no-deps --entrypoint sh backup \
+  -c 'mongorestore --uri="$MONGO_URI" --archive=/backups/obikai-YYYYMMDD-HHMMSS.gz --gzip --drop'
+```
+
+> Redis holds only the BullMQ job queue (regenerated), so backing up `mongo-data` is what matters;
+> `redis-data` is optional.
+- **Updates.** Pull new images (`docker-compose.prod.yml` references `ghcr.io/...`) and re-`up`. Then
+  apply any pending database migrations — forward-only `migrate-mongo` migrations that ship in the api
+  image:
+
+  ```sh
+  docker compose exec api node dist/cli/migrate.js
+  ```
+
+  It is idempotent (a `changelog` collection records what is applied; a `changelog_lock` stops two
+  runners racing), so it is safe to run on every upgrade.

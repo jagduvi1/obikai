@@ -300,6 +300,55 @@ describe('WaiversService', () => {
     });
   });
 
+  describe('member waiver status (listForMember)', () => {
+    const self = actor({
+      userId: 'u2',
+      memberId: 'm1',
+      roles: [{ role: 'member', locationScope: 'ALL' }],
+    });
+
+    it('marks an active template signed once the member signs its current version', async () => {
+      const t = await svc.createTemplate(owner, sampleTemplate);
+      const before = await svc.listForMember(self, 'm1');
+      expect(before).toHaveLength(1);
+      expect(before[0]?.signed).toBe(false);
+      expect(before[0]?.signature).toBeNull();
+
+      await svc.sign(self, signInput({ templateId: t.id, memberId: 'm1' }));
+      const after = await svc.listForMember(self, 'm1');
+      expect(after[0]?.signed).toBe(true);
+      expect(after[0]?.signature?.memberId).toBe('m1');
+    });
+
+    it('re-prompts (signed=false) after the template is revised to a new version', async () => {
+      const t = await svc.createTemplate(owner, sampleTemplate);
+      await svc.sign(self, signInput({ templateId: t.id, memberId: 'm1' }));
+      // Editing the body mints v2; the v1 signature no longer satisfies the current version.
+      await svc.updateTemplate(owner, t.id, { bodyMarkdown: 'Revised body' });
+      const status = await svc.listForMember(self, 'm1');
+      expect(status[0]?.template.version).toBe(2);
+      expect(status[0]?.signed).toBe(false);
+    });
+
+    it('excludes inactive templates from the member view', async () => {
+      const t = await svc.createTemplate(owner, sampleTemplate);
+      await svc.updateTemplate(owner, t.id, { active: false });
+      expect(await svc.listForMember(self, 'm1')).toHaveLength(0);
+    });
+
+    it('lets staff read any member’s status but forbids a bare member reading another’s', async () => {
+      await svc.createTemplate(owner, sampleTemplate);
+      expect(await svc.listForMember(staff, 'm1')).toHaveLength(1);
+      await expect(svc.listForMember(self, 'm2')).rejects.toBeInstanceOf(ForbiddenError);
+    });
+
+    it('forbids a guardian with no guardianship grant (parity with signing)', async () => {
+      await svc.createTemplate(owner, sampleTemplate);
+      const guardian = actor({ userId: 'g1', roles: [{ role: 'guardian', locationScope: 'ALL' }] });
+      await expect(svc.listForMember(guardian, 'm1')).rejects.toBeInstanceOf(ForbiddenError);
+    });
+  });
+
   describe('document storage', () => {
     const selfMember = actor({
       userId: 'u2',

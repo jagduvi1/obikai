@@ -12,6 +12,8 @@
       "default": "./dist/index.js"
     }
   },
+  "//files": "Ship dist + the migrate-mongo migrations so the api image's migration runner can resolve them at runtime (apps/api/src/cli/migrate.ts).",
+  "files": ["dist", "migrations"],
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty",

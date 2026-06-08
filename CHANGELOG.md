@@ -9,6 +9,28 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ### Added — Phase 0 (Foundations)
 
+- **Member waiver-signing (member portal).** Members can now read and sign waivers digitally from the
+  member app (`/waivers`) — completing the waivers loop (admin authoring already shipped). A new
+  self-accessible endpoint `GET /waivers/status?memberId=` returns each **active** template plus whether
+  the member has signed its **current version**, computed server-side (`WaiversService.listForMember`) so
+  a member never needs the staff `waiver:list` grant and never sees inactive/old templates. Signing is a
+  **digital acknowledgement** (typed full name + explicit "I have read and agree" → immutable, dated
+  signature via the existing `POST /waivers/sign` self-access path; no document upload). A waiver revised
+  to a new version re-prompts the member to re-sign. Guardian-for-minor portal signing remains future
+  work; staff can still record those via the API. New `MemberWaiverStatus` read-model in `@obikai/domain`;
+  sv translations seeded for the new strings.
+- **Database migration runner** (audit G1). A `migrate-mongo`-backed CLI (`apps/api/src/cli/migrate.ts`)
+  that ships in the api image and applies forward-only migrations from `@obikai/db`'s `migrations/` dir,
+  resolved at runtime so it works in dev and the deployed image. Run with
+  `docker compose exec api node dist/cli/migrate.js`; idempotent (a `changelog` collection tracks applied
+  files, a `changelog_lock` stops concurrent runners). Verified end-to-end with Docker — apply +
+  idempotency + changelog against an authenticated mongo, *and* path resolution inside the built api
+  image. License gate stays green with the new dep.
+- **Mongo backups for self-host** (audit G3). An opt-in `backup` compose profile dumps the whole
+  database (gzipped, timestamped) to a `mongo-backups` volume, authenticating with `MONGO_URI`:
+  `docker compose --profile backup run --rm backup`. `docs/self-host.md` documents scheduling,
+  copying archives off-box, and the `mongorestore --drop` restore. The dump/restore roundtrip and the
+  exact compose entrypoint were verified end-to-end against an authenticated MongoDB.
 - **Publish the SPA images on release** (self-host, audit G4). The release workflow built only the
   api/worker images, so a self-host could pull the backend but **no UI** — the three front-ends
   (`obikai-web-admin`, `obikai-web-member`, `obikai-web-platform`, static Caddy-served) were validated

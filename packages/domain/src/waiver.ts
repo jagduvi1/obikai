@@ -47,6 +47,20 @@ export const waiverTemplateCreateSchema = z.object({
 });
 export type WaiverTemplateCreateInput = z.infer<typeof waiverTemplateCreateSchema>;
 
+/**
+ * A member-facing view of one active waiver template and whether THIS member has already signed its
+ * CURRENT version. Computed server-side (active templates ⋈ the member's signatures) so the member
+ * never needs the staff `waiver:list` grant and never sees inactive/old templates. A signature pinned
+ * to an older version reads as `signed: false` — the member is correctly prompted to re-sign the
+ * revised waiver.
+ */
+export interface MemberWaiverStatus {
+  readonly template: WaiverTemplate;
+  readonly signed: boolean;
+  /** The signature pinning the template's current version, when `signed` — else null. */
+  readonly signature: WaiverSignature | null;
+}
+
 export const waiverSignSchema = z.object({
   templateId: z.string().min(1),
   memberId: z.string().min(1),
