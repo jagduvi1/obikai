@@ -100,6 +100,17 @@ body {
 .auth-card h1 {
   margin: 0 0 0.5rem;
 }
+/* Forms nested in an auth-card (reset/verify/forgot pages) get the same column layout as the
+   login form, which is itself the card. */
+.auth-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.auth-aside {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+}
 .auth-card label {
   font-size: 0.85rem;
   color: var(--muted);
