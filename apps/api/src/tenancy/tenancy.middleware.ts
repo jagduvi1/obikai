@@ -1,8 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, type NestMiddleware } from '@nestjs/common';
 import type { AppConfig } from '@obikai/config';
-import { MembershipRepository, type TenantContext, runInTenantContext } from '@obikai/db';
-import { type RoleAssignment, type TenantId, brand } from '@obikai/domain';
+import {
+  GuardianshipRepository,
+  MembershipRepository,
+  type TenantContext,
+  runInTenantContext,
+} from '@obikai/db';
+import { type Guardianship, type RoleAssignment, type TenantId, brand } from '@obikai/domain';
 import type { NextFunction, Request, Response } from 'express';
 import { TokenService } from '../auth/token.service.js';
 import { APP_CONFIG } from '../config.provider.js';
@@ -19,6 +24,8 @@ import { resolveTenantFromHost } from './tenant-resolver.js';
  */
 @Injectable()
 export class TenancyMiddleware implements NestMiddleware {
+  readonly #guardianships = new GuardianshipRepository();
+
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly tokens: TokenService,
@@ -49,15 +56,27 @@ export class TenancyMiddleware implements NestMiddleware {
       }
     }
 
-    const context: TenantContext = {
+    const requestId = requestIdOf(req);
+    const base: TenantContext = {
       tenantId,
       userId,
       sessionId,
       roles,
       memberId,
-      requestId: requestIdOf(req),
+      requestId,
       tenancy: this.config.tenancy,
     };
+
+    // Load the actor's guardianship edges so `can()` honors acting-for-a-minor everywhere. The repo
+    // is tenant-guarded, so the lookup runs inside `base` (a throwaway scope); the edges then ride on
+    // the request's real context. Most actors have none — an indexed, usually-empty query.
+    let guardianships: readonly Guardianship[] = [];
+    if (userId !== null) {
+      const uid = userId;
+      guardianships = await runInTenantContext(base, () => this.#guardianships.listByGuardian(uid));
+    }
+
+    const context: TenantContext = guardianships.length > 0 ? { ...base, guardianships } : base;
     runInTenantContext(context, () => next());
   }
 

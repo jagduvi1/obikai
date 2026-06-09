@@ -34,6 +34,8 @@ function currentActor(): AuthzActor {
     userId: ctx.userId ?? 'anonymous',
     roles: ctx.roles,
     ...(ctx.memberId !== null ? { memberId: ctx.memberId } : {}),
+
+    ...(ctx.guardianships ? { guardianships: ctx.guardianships } : {}),
   };
 }
 

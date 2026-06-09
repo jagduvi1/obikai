@@ -1,6 +1,11 @@
 import type { RoleAssignment } from '@obikai/domain';
 import { describe, expect, it } from 'vitest';
-import { type AuthzActor, type GuardianshipGrant, can } from '../src/index.js';
+import {
+  type AuthzActor,
+  DEFAULT_GUARDIAN_GRANTS,
+  type GuardianshipGrant,
+  can,
+} from '../src/index.js';
 
 const role = (
   r: RoleAssignment['role'],
@@ -106,6 +111,52 @@ describe('can() — guardianship', () => {
         { guardianships: revoked },
       ),
     ).toBe(false);
+  });
+
+  it('honors guardianships carried ON THE ACTOR (how the tenancy middleware supplies them)', () => {
+    // No opts.guardianships — the edges ride on the actor (loaded into the request context).
+    const g = actor({ userId: 'u1', roles: [role('guardian')], guardianships });
+    expect(can(g, { resource: 'invoice', action: 'read', ownerMemberId: 'kid-1' })).toBe(true);
+    expect(can(g, { resource: 'invoice', action: 'read', ownerMemberId: 'kid-2' })).toBe(false);
+    // A revokedAt as an ISO STRING (the persisted shape) is honored too.
+    const revokedStr = actor({
+      userId: 'u1',
+      roles: [role('guardian')],
+      guardianships: [{ ...guardianships[0]!, revokedAt: '2026-06-01T00:00:00.000Z' }],
+    });
+    expect(can(revokedStr, { resource: 'invoice', action: 'read', ownerMemberId: 'kid-1' })).toBe(
+      false,
+    );
+  });
+
+  it('DEFAULT_GUARDIAN_GRANTS let a parent manage their kid but not delete/list others', () => {
+    const g = actor({
+      userId: 'u1',
+      roles: [role('guardian')],
+      guardianships: [
+        { guardianUserId: 'u1', minorMemberId: 'kid-1', grants: DEFAULT_GUARDIAN_GRANTS },
+      ],
+    });
+    expect(can(g, { resource: 'member', action: 'update', ownerMemberId: 'kid-1' })).toBe(true);
+    expect(can(g, { resource: 'attendance', action: 'list', ownerMemberId: 'kid-1' })).toBe(true);
+    expect(can(g, { resource: 'waiver', action: 'create', ownerMemberId: 'kid-1' })).toBe(true);
+    // Booking/cancelling the child's classes (the schedule actions) — class create/update on the edge.
+    expect(can(g, { resource: 'class', action: 'create', ownerMemberId: 'kid-1' })).toBe(true);
+    expect(can(g, { resource: 'class', action: 'update', ownerMemberId: 'kid-1' })).toBe(true);
+    expect(can(g, { resource: 'member', action: 'delete', ownerMemberId: 'kid-1' })).toBe(false);
+  });
+
+  it('the guardian BASE role grants tenant-wide reads on shared reference data only', () => {
+    // A guardian-only parent (no linked-minor edge here) can still browse the schedule, the arts the
+    // dojo offers, and announcements — the same shared, non-sensitive set a member reads.
+    const g = actor({ userId: 'u1', roles: [role('guardian')] });
+    expect(can(g, { resource: 'class', action: 'list' })).toBe(true);
+    expect(can(g, { resource: 'discipline', action: 'list' })).toBe(true);
+    expect(can(g, { resource: 'announcement', action: 'list' })).toBe(true);
+    // But NOT member-owned or staff data without a guardianship edge.
+    expect(can(g, { resource: 'member', action: 'list' })).toBe(false);
+    expect(can(g, { resource: 'invoice', action: 'list' })).toBe(false);
+    expect(can(g, { resource: 'member', action: 'read', ownerMemberId: 'kid-1' })).toBe(false);
   });
 });
 

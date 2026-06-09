@@ -22,3 +22,4 @@ export * from './waiver.js';
 export * from './rank.js';
 export * from './messaging.js';
 export * from './reporting.js';
+export * from './guardianship.js';

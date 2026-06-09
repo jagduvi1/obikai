@@ -10,7 +10,7 @@
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Tenancy } from '@obikai/config';
-import type { RoleAssignment } from '@obikai/domain';
+import type { Guardianship, RoleAssignment } from '@obikai/domain';
 import { MissingTenantContextError, PlatformContextError } from './errors.js';
 
 /**
@@ -29,6 +29,12 @@ export interface TenantContext {
   readonly roles: readonly RoleAssignment[];
   /** The actor's member id in this tenant (enables self-access in `can()`), or null. */
   readonly memberId: string | null;
+  /**
+   * Guardianship edges the actor holds in this tenant (parent → minor), loaded by the tenancy
+   * middleware so `can()` honors guardianship without per-call wiring. Optional/omitted when there
+   * are none (most actors) or outside a request (jobs/CLI).
+   */
+  readonly guardianships?: readonly Guardianship[];
   /** Correlation id for tracing/audit across the async stack. */
   readonly requestId: string;
   /** Which tenancy axis the deployment runs (single self-host vs multi hosted) — ADR-0002. */

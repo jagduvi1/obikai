@@ -35,6 +35,7 @@ function currentActor(): AuthzActor {
     userId: ctx.userId ?? 'anonymous',
     roles: ctx.roles,
     ...(ctx.memberId !== null ? { memberId: ctx.memberId } : {}),
+    ...(ctx.guardianships ? { guardianships: ctx.guardianships } : {}),
   };
 }
 
@@ -60,6 +61,22 @@ export class MeController {
   async profile() {
     try {
       return await this.members.getOwnProfile(currentActor());
+    } catch (error) {
+      translate(error);
+    }
+  }
+
+  /**
+   * The minors this actor is a guardian of (the member app's "my children" switcher). Each is fetched
+   * through `MembersService.get`, which the actor's guardianship edges authorize — so this returns
+   * exactly the children this parent may act for.
+   */
+  @Get('dependents')
+  async dependents() {
+    try {
+      const actor = currentActor();
+      const minorIds = (actor.guardianships ?? []).map((g) => g.minorMemberId);
+      return await Promise.all(minorIds.map((id) => this.members.get(actor, id)));
     } catch (error) {
       translate(error);
     }

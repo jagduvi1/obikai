@@ -11,5 +11,5 @@ export {
   type CanOptions,
   type GuardianshipGrant,
 } from './can.js';
-export { DEFAULT_ROLE_PERMISSIONS } from './catalog.js';
+export { DEFAULT_ROLE_PERMISSIONS, DEFAULT_GUARDIAN_GRANTS } from './catalog.js';
 export { canPlatform, DEFAULT_PLATFORM_PERMISSIONS, type PlatformActor } from './platform.js';

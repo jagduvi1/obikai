@@ -73,7 +73,30 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     ['discipline', ['read', 'list']],
   ]),
 
-  // A guardian's BASE permissions; access to a specific minor's records is granted by the
-  // Guardianship edge (ADR-0004), checked separately in can().
-  guardian: grant([['announcement', ['read', 'list']]]),
+  // A guardian's BASE permissions: tenant-wide read on shared, non-sensitive reference data (the
+  // class schedule, announcements, the arts the dojo offers) — exactly the member's shared-read set,
+  // so a parent can browse the schedule and label a child's progress. A specific minor's OWNED records
+  // (profile, attendance, invoices, promotions, …) are reached NOT here but via the Guardianship edge
+  // (ADR-0004), checked separately in can() and scoped to the linked minor.
+  guardian: grant([
+    ['class', ['read', 'list']],
+    ['announcement', ['read', 'list']],
+    ['discipline', ['read', 'list']],
+  ]),
 };
+
+/**
+ * The default permission set granted on a Guardianship edge — what a parent may do FOR a linked minor:
+ * everything the minor could do for themselves (view + manage their profile, progress, attendance,
+ * invoices, curriculum) plus signing the minor's waivers and booking/cancelling their classes. Scoped
+ * to the minor by `can()`'s guardianship branch (only applies when ownerMemberId === the minor).
+ */
+export const DEFAULT_GUARDIAN_GRANTS: readonly Permission[] = grant([
+  ['member', ['read', 'update']],
+  ['invoice', ['read', 'list']],
+  ['attendance', ['read', 'list']],
+  ['promotion', ['read', 'list']],
+  ['curriculum', ['read', 'list']],
+  ['waiver', ['read', 'create']],
+  ['class', ['create', 'update']],
+]);
