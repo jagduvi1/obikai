@@ -36,6 +36,7 @@ export interface AttendanceFilter {
 export interface AttendanceStore {
   record(input: AttendanceCreateInput): Promise<Attendance>;
   list(filter?: AttendanceFilter): Promise<Attendance[]>;
+  findByMemberOccurrence(memberId: string, occurrenceId: string): Promise<Attendance | null>;
   classesSinceLastPromotion(memberId: string, disciplineId: string, since: Date): Promise<number>;
 }
 
@@ -50,6 +51,14 @@ export class AttendanceService {
   async record(actor: AuthzActor, input: AttendanceCreateInput): Promise<Attendance> {
     if (!can(actor, { resource: 'attendance', action: 'create' }))
       throw new ForbiddenError('create', 'attendance');
+    // Idempotent for occurrence-based check-ins: re-marking a member already recorded for this
+    // occurrence returns the EXISTING row rather than a duplicate — so an instructor double-tapping
+    // the roster (or a "mark all present" re-run) can't inflate the attendance count that feeds the
+    // rank engine. Ad-hoc records with no occurrenceId are still recorded each time.
+    if (input.occurrenceId) {
+      const existing = await this.store.findByMemberOccurrence(input.memberId, input.occurrenceId);
+      if (existing) return existing;
+    }
     return this.store.record(input);
   }
 

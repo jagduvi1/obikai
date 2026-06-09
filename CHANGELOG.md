@@ -7,6 +7,16 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ## [Unreleased]
 
+### Added — Instructor / staff tools (§4.7 / §4.4)
+
+- **Idempotent occurrence check-in + "Mark all present" roster action.** `AttendanceService.record`
+  is now **idempotent per `(member, occurrence)`**: re-marking a member already recorded for a class
+  returns the existing row instead of a duplicate (generalizing the self-check-in guard to the
+  instructor path), so a double-tap — or a re-run of the new bulk action — can't inflate the attendance
+  count that feeds the rank engine. Ad-hoc records with no `occurrenceId` are still recorded each time.
+  The admin occurrence page gains a **"Mark all present"** button that records attendance for the whole
+  roster in one tap (safe to re-run, thanks to the idempotency); en/sv.
+
 ### Added — Reporting & analytics (§4.9)
 
 - **Action-oriented owner dashboard.** A new admin home (`/dashboard`, now the default landing) surfaces

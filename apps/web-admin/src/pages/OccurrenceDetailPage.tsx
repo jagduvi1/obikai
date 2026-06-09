@@ -91,6 +91,37 @@ export function OccurrenceDetailPage() {
     onError: () => setStatus(t('occurrence.attendanceError')),
   });
 
+  // "Mark all present" — record attendance for every member on the roster in one tap. Safe to re-run:
+  // the API is idempotent per (member, occurrence), so a second tap records no duplicates.
+  const markAll = useMutation({
+    mutationFn: async () => {
+      const ids = (bookings.data ?? [])
+        .filter((b) => ACTIVE_BOOKING_STATUSES.has(b.status))
+        .map((b) => b.memberId);
+      await Promise.all(
+        ids.map((memberId) =>
+          recordAttendance({
+            memberId,
+            occurrenceId: id,
+            programId: occurrence.data?.programId ?? null,
+            disciplineId: occProgram?.disciplineId ?? null,
+            method: 'instructor',
+          }),
+        ),
+      );
+      return ids;
+    },
+    onSuccess: (ids) => {
+      setMarked((prev) => {
+        const next = new Set(prev);
+        for (const i of ids) next.add(i);
+        return next;
+      });
+      setStatus(t('occurrence.allMarked', { count: ids.length }));
+    },
+    onError: () => setStatus(t('occurrence.attendanceError')),
+  });
+
   const bookedMemberIds = new Set(
     (bookings.data ?? [])
       .filter((b) => ACTIVE_BOOKING_STATUSES.has(b.status))
@@ -175,6 +206,11 @@ export function OccurrenceDetailPage() {
 
             {bookings.data && bookings.data.length === 0 && (
               <p className="muted">{t('occurrence.emptyRoster')}</p>
+            )}
+            {bookings.data && bookings.data.length > 0 && !isCancelled && (
+              <button type="button" onClick={() => markAll.mutate()} disabled={markAll.isPending}>
+                {t('occurrence.markAllPresent')}
+              </button>
             )}
             {bookings.data && bookings.data.length > 0 && (
               <table className="data-table">
