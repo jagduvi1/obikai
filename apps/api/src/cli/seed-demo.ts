@@ -68,6 +68,24 @@ async function loginFor(email: string, password: string): Promise<string> {
   return user.id;
 }
 
+/**
+ * Ensure a staff/instructor LOGIN exists for a role (a User + Identity + an active Membership carrying
+ * the role, no member record — they administer rather than train). Idempotent: re-running reuses the
+ * existing login and skips if a membership is already present, so this can run on a populated dojo to
+ * back-fill test accounts. Must run inside a tenant context (Membership is tenant-scoped).
+ */
+async function ensureStaffLogin(
+  email: string,
+  role: 'instructor' | 'staff',
+  password: string,
+): Promise<string> {
+  const userId = await loginFor(email, password);
+  const memberships = new MembershipRepository();
+  if (await memberships.findByUserId(userId)) return userId;
+  await memberships.create({ userId, roles: [{ role, locationScope: 'ALL' }], status: 'active' });
+  return userId;
+}
+
 export async function seedDemo(
   config: AppConfig,
   logger: Logger = new Logger('seed-demo'),
@@ -100,6 +118,13 @@ export async function seedDemo(
     };
 
     await runInTenantContext(ctx, async () => {
+      // Staff/instructor test logins — ensured idempotently BEFORE the demo-data skip below, so a
+      // re-run back-fills them onto an already-seeded dojo. (admin app: owner@ does everything;
+      // instructor@ awards rank but not billing; staff@ runs billing but not rank decisions.)
+      await ensureStaffLogin('instructor@example.com', 'instructor', 'change-me-please-12');
+      await ensureStaffLogin('staff@example.com', 'staff', 'change-me-please-12');
+      logger.log('Ensured staff logins (instructor@, staff@ / change-me-please-12).');
+
       const members = new MemberRepository();
       if ((await members.list()).length > 5) {
         logger.warn('dojo already has demo members — skipping seed (drop the DB to re-seed).');

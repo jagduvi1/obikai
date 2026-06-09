@@ -34,11 +34,12 @@ independently via [Changesets](https://github.com/changesets/changesets).
 ### Added — Developer / self-host tooling
 
 - **Seeded example dojo (`node dist/cli/seed-demo.js`).** A one-command demo tenant with locations + VAT,
-  two disciplines and rank ladders, members with logins, **parents linked to their children**
-  (guardian-only and member-also-parent), rank states + promotions, programs/schedules/occurrences,
-  bookings, historical attendance, plans/enrollments (MRR), paid + overdue invoices, and a signed waiver
-  — so the whole product can be explored and tested with realistic data. Coarse-idempotent (skips if the
-  tenant already has members).
+  two disciplines and rank ladders, members with logins, **instructor + staff logins** (to exercise the
+  role matrix), **parents linked to their children** (guardian-only and member-also-parent), rank states
+  + promotions, programs/schedules/occurrences, bookings, historical attendance, plans/enrollments (MRR),
+  paid + overdue invoices, and a signed waiver — so the whole product can be explored and tested with
+  realistic data. Coarse-idempotent (skips the demo data if the tenant already has members; the
+  instructor/staff logins are ensured on every run, so a re-run back-fills them).
 - **Local web overlay (`docker-compose.web.yml`).** Brings up the three SPAs (admin / member / platform)
   behind Caddy on `:8081`–`:8083`, same-origin-proxying `/api` to the api container, for one-command
   full-stack local testing alongside the base compose stack.
