@@ -1,11 +1,12 @@
 import type { Discipline, EligibilityResult, MemberRankState, Promotion } from '@obikai/domain';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { renderWithSubject } from '../test/render';
 import { MyProgressPage } from './MyProgressPage';
 
 vi.mock('../api/member-data', () => ({
   getMe: vi.fn().mockResolvedValue({ userId: 'u1', memberId: 'm1', roles: [] }),
+  getDependents: vi.fn().mockResolvedValue([]),
   myRankStates: vi.fn().mockResolvedValue([{ id: 'rs1', disciplineId: 'd1' } as MemberRankState]),
   myDisciplines: vi.fn().mockResolvedValue([{ id: 'd1', name: { en: 'BJJ' } } as Discipline]),
   myEligibility: vi.fn().mockResolvedValue({
@@ -46,12 +47,7 @@ vi.mock('../api/member-data', () => ({
 }));
 
 function renderPage() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MyProgressPage />
-    </QueryClientProvider>,
-  );
+  return renderWithSubject(<MyProgressPage />);
 }
 
 describe('MyProgressPage', () => {

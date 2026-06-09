@@ -4,12 +4,12 @@ import { useTranslation } from 'react-i18next';
 import {
   bookOccurrence,
   cancelBooking,
-  getMe,
   listOccurrences,
   listPrograms,
   myBookings,
   selfCheckIn,
 } from '../api/member-data';
+import { useSubject } from '../subject/subject-context';
 
 const DAYS_AHEAD = 14;
 // Mirror of the server's check-in window (check-in.service.ts) so the button only shows when it works.
@@ -30,15 +30,23 @@ function checkInOpen(o: ClassOccurrence, nowMs: number): boolean {
 }
 
 /**
- * "Book a class" (§4.6) — the member browses upcoming occurrences and books/cancels themselves. The
- * booking API already enforces capacity → waitlist; here we surface each occurrence's state and the
- * member's own booking. Self-access: every call is scoped to the logged-in member's id (GET /me).
+ * "Book a class" (§4.6) — browse upcoming occurrences and book/cancel for the active subject (yourself,
+ * or a child you guardian). The booking API enforces capacity → waitlist; here we surface each
+ * occurrence's state and the subject's booking. Booking is scoped to the active subject's member id;
+ * self check-in is offered only for your own record (see `canSelfCheckIn`).
  */
 export function SchedulePage() {
   const { t, i18n } = useTranslation();
   const qc = useQueryClient();
-  const me = useQuery({ queryKey: ['me'], queryFn: getMe });
-  const memberId = me.data?.memberId ?? null;
+  const {
+    activeMemberId: memberId,
+    active,
+    loading: subjectLoading,
+    isError: subjectError,
+  } = useSubject();
+  // Self check-in is the logged-in member putting themselves on the mat; a parent can't self-check-in
+  // a child (a different endpoint/role), so the button only appears when viewing your own record.
+  const canSelfCheckIn = active ? active.isSelf : false;
 
   const now = new Date();
   const from = now.toISOString();
@@ -77,8 +85,8 @@ export function SchedulePage() {
     .filter((o) => o.status !== 'cancelled')
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 
-  const loading = me.isLoading || occurrences.isLoading || programs.isLoading;
-  const errored = me.isError || occurrences.isError || programs.isError;
+  const loading = subjectLoading || occurrences.isLoading || programs.isLoading;
+  const errored = subjectError || occurrences.isError || programs.isError;
 
   return (
     <section aria-labelledby="schedule-heading">
@@ -109,7 +117,7 @@ export function SchedulePage() {
             {upcoming.map((o) => {
               const booking = liveBookingFor(bookings.data ?? [], o.id);
               const pending = book.isPending || cancel.isPending || checkIn.isPending;
-              const canCheckIn = !!booking && checkInOpen(o, now.getTime());
+              const canCheckIn = canSelfCheckIn && !!booking && checkInOpen(o, now.getTime());
               return (
                 <tr key={o.id}>
                   <td>{programName(o.programId)}</td>

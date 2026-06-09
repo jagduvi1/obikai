@@ -1,21 +1,15 @@
 import { DEFAULT_LOCALE, type Locale, resolveLocalized } from '@obikai/domain';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import {
-  getMe,
-  myDisciplines,
-  myEligibility,
-  myPromotions,
-  myRankStates,
-} from '../api/member-data';
+import { myDisciplines, myEligibility, myPromotions, myRankStates } from '../api/member-data';
 import { MyEligibility } from '../components/MyEligibility';
+import { useSubject } from '../subject/subject-context';
 
-/** "My progress": the member's own rank eligibility per discipline + their promotion history. */
+/** "My progress": the active subject's rank eligibility per discipline + their promotion history. */
 export function MyProgressPage() {
   const { t, i18n } = useTranslation();
   const viewer = (i18n.resolvedLanguage ?? i18n.language) as Locale;
-  const me = useQuery({ queryKey: ['me'], queryFn: getMe });
-  const memberId = me.data?.memberId ?? null;
+  const { activeMemberId: memberId, loading: subjectLoading, isError: subjectError } = useSubject();
 
   const rankStates = useQuery({
     queryKey: ['myRankStates', memberId],
@@ -34,8 +28,8 @@ export function MyProgressPage() {
   return (
     <section aria-labelledby="progress-heading">
       <h1 id="progress-heading">{t('progress.title')}</h1>
-      {(me.isLoading || rankStates.isLoading) && <p>{t('progress.loading')}</p>}
-      {me.isError && <p className="form-error">{t('progress.error')}</p>}
+      {(subjectLoading || rankStates.isLoading) && <p>{t('progress.loading')}</p>}
+      {(subjectError || rankStates.isError) && <p className="form-error">{t('progress.error')}</p>}
       {memberId && rankStates.data && rankStates.data.length === 0 && (
         <p className="muted">{t('progress.notEnrolled')}</p>
       )}

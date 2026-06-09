@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../auth/auth-context';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { SubjectSwitcher } from '../components/SubjectSwitcher';
 
 /** Member app shell: skip link, labelled nav, main landmark (WCAG 2.1 AA). */
 export function Layout({ children }: { children: ReactNode }) {
@@ -23,6 +24,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <NavLink to="/waivers">{t('nav.waivers')}</NavLink>
           <NavLink to="/profile">{t('nav.profile')}</NavLink>
         </nav>
+        <SubjectSwitcher />
         <LanguageSwitcher />
         <button type="button" className="link-button" onClick={() => void logout()}>
           {t('app.signOut')}

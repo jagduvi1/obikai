@@ -1,17 +1,18 @@
-import type { MemberWaiverStatus } from '@obikai/domain';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import type { Member, MemberWaiverStatus } from '@obikai/domain';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderWithSubject } from '../test/render';
 import { MyWaiversPage } from './MyWaiversPage';
 
-const { getMe, myWaiverStatus, signWaiver } = vi.hoisted(() => ({
+const { getMe, getDependents, myWaiverStatus, signWaiver } = vi.hoisted(() => ({
   getMe: vi.fn(),
+  getDependents: vi.fn(),
   myWaiverStatus: vi.fn(),
   signWaiver: vi.fn(),
 }));
 
-vi.mock('../api/member-data', () => ({ getMe, myWaiverStatus, signWaiver }));
+vi.mock('../api/member-data', () => ({ getMe, getDependents, myWaiverStatus, signWaiver }));
 
 /** A pending (unsigned) active template, version 1. */
 // Branded IDs (WaiverTemplateId etc.) are nominal, so the fixtures use an `as` assertion — the same
@@ -65,18 +66,18 @@ const signedWaiver = () =>
   }) as MemberWaiverStatus;
 
 function renderPage() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <MyWaiversPage />
-    </QueryClientProvider>,
-  );
+  return renderWithSubject(<MyWaiversPage />);
 }
+
+/** A child the signed-in user guardians (for the guardian-signs-on-behalf test). */
+const child = () => ({ id: 'kid1', firstName: 'Wilma', lastName: 'Karlsson' }) as unknown as Member;
 
 describe('MyWaiversPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     getMe.mockResolvedValue({ userId: 'u1', memberId: 'm1', roles: [] });
+    getDependents.mockResolvedValue([]);
   });
 
   it('shows pending waivers with a sign form and signed waivers as history', async () => {
@@ -130,5 +131,29 @@ describe('MyWaiversPage', () => {
     myWaiverStatus.mockResolvedValue([signedWaiver()]);
     renderPage();
     expect(await screen.findByText(/signed all current waivers/i)).toBeInTheDocument();
+  });
+
+  it('a guardian-only parent signs a child waiver AS a guardian signature', async () => {
+    // No own member record; the only subject is the linked child → the page acts for the child.
+    getMe.mockResolvedValue({ userId: 'u1', memberId: null, roles: [] });
+    getDependents.mockResolvedValue([child()]);
+    myWaiverStatus.mockResolvedValue([pendingWaiver()]);
+    signWaiver.mockResolvedValue({ id: 'ws10' });
+    const user = userEvent.setup();
+    renderPage();
+
+    const signButton = await screen.findByRole('button', { name: /sign waiver/i });
+    await user.type(screen.getByLabelText(/your full name/i), 'Pernilla Karlsson');
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(signButton);
+    await waitFor(() =>
+      expect(signWaiver).toHaveBeenCalledWith({
+        templateId: 'wt1',
+        memberId: 'kid1',
+        signedByName: 'Pernilla Karlsson',
+        isGuardian: true,
+        guardianForMemberId: 'kid1',
+      }),
+    );
   });
 });
