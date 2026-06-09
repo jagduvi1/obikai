@@ -20,6 +20,13 @@ export interface AuthzActor {
   /** The actor's own member id in this tenant, if they are a member (enables self-access). */
   readonly memberId?: string;
   readonly roles: readonly RoleAssignment[];
+  /**
+   * Guardianship edges this actor holds (parent → minor), loaded into the request context. When set,
+   * they enable acting on a linked minor's records (branch 3). Carried on the actor so `can()` honors
+   * guardianship everywhere without threading it through every call site; `opts.guardianships` remains
+   * for direct/unit-test use.
+   */
+  readonly guardianships?: readonly GuardianshipGrant[];
 }
 
 export interface AuthzTarget {
@@ -36,7 +43,9 @@ export interface GuardianshipGrant {
   readonly guardianUserId: string;
   readonly minorMemberId: string;
   readonly grants: readonly Permission[];
-  readonly revokedAt?: Date | null;
+  /** A revoked edge is ignored. Date (callers) or ISO string (the persisted domain record) — the
+   * `!= null` check is type-agnostic, so the loaded `Guardianship[]` assigns directly to the actor. */
+  readonly revokedAt?: Date | string | null;
 }
 
 export interface CanOptions {
@@ -111,8 +120,10 @@ export function can(actor: AuthzActor, target: AuthzTarget, opts: CanOptions = {
   }
 
   // 3) Guardianship: a guardian may act on a linked, non-revoked minor per the granted permissions.
-  if (ownerMemberId !== undefined && opts.guardianships) {
-    for (const g of opts.guardianships) {
+  // Prefer the edges carried on the actor (loaded by the tenancy middleware); fall back to opts.
+  const guardianships = actor.guardianships ?? opts.guardianships;
+  if (ownerMemberId !== undefined && guardianships) {
+    for (const g of guardianships) {
       if (g.guardianUserId !== actor.userId || g.minorMemberId !== ownerMemberId) continue;
       if (g.revokedAt != null) continue;
       if (hasPermission(g.grants, resource, action)) return true;

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getMyProfile, updateMyProfile } from '../api/member-data';
+import { useSubject } from '../subject/subject-context';
 
 /** Trim → value, or null when blank (the API treats null as "clear/unset"). */
 const orNull = (s: string): string | null => (s.trim() === '' ? null : s.trim());
@@ -129,16 +130,28 @@ function ProfileForm({ member }: { member: Member }) {
   );
 }
 
-/** "My profile" (§4.6) — the member edits their own contact + emergency-contact details. */
+/**
+ * "My profile" (§4.6) — the signed-in member edits their OWN contact + emergency-contact details.
+ * This is "your account", so it is NOT subject-switched: a parent edits their child's details from the
+ * child's records elsewhere, not here. A guardian-only account (no own member record) sees a short note
+ * instead — they are a parent contact, not a club member.
+ */
 export function ProfilePage() {
   const { t } = useTranslation();
-  const profile = useQuery({ queryKey: ['myProfile'], queryFn: getMyProfile });
+  const { selfMemberId, loading: subjectLoading } = useSubject();
+  const isMember = selfMemberId !== null;
+  const profile = useQuery({
+    queryKey: ['myProfile'],
+    queryFn: getMyProfile,
+    enabled: isMember,
+  });
 
   return (
     <section aria-labelledby="profile-heading">
       <h1 id="profile-heading">{t('profile.title')}</h1>
-      {profile.isLoading && <p>{t('profile.loading')}</p>}
-      {profile.isError && (
+      {!subjectLoading && !isMember && <p className="muted">{t('profile.guardianOnly')}</p>}
+      {isMember && profile.isLoading && <p>{t('profile.loading')}</p>}
+      {isMember && profile.isError && (
         <p role="alert" className="form-error">
           {t('profile.error')}
         </p>

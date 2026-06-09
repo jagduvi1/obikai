@@ -45,7 +45,11 @@ export class BookingsService {
   private authorize(actor: AuthzActor, memberId: string, action: 'create' | 'update'): void {
     const selfService = actor.memberId !== undefined && actor.memberId === memberId;
     if (selfService) return;
-    if (!can(actor, { resource: 'class', action })) throw new ForbiddenError(action, 'class');
+    // Staff via tenant-wide RBAC 'class'; a guardian via their per-minor grant — ownerMemberId scopes
+    // can()'s guardianship branch to the linked child (branch 1's role grant ignores ownerMemberId, so
+    // staff/owner are unaffected). Lets a parent book/cancel their child's classes.
+    if (!can(actor, { resource: 'class', action, ownerMemberId: memberId }))
+      throw new ForbiddenError(action, 'class');
   }
 
   /** Book a member onto an occurrence: 'booked' if capacity remains, else 'waitlisted'. */

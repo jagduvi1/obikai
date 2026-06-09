@@ -1,0 +1,64 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Obikai — LOCAL full-stack web overlay. Brings the three SPAs (admin / member /
+# platform) up alongside the base api/worker/mongo/redis so you can click through
+# the WHOLE app locally — no Traefik needed.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.override.yml \
+#                  -f docker-compose.web.yml --profile local up -d --build
+#
+# Each SPA image serves its static bundle on :8080; we bind-mount a local Caddyfile
+# (docker/web/Caddyfile.local) that ALSO reverse-proxies /api → the api service, so
+# the browser sees one origin (the SPA's api-client default base `/api` just works).
+#
+# URLs once up:
+#   admin    → http://localhost:8081
+#   member   → http://localhost:8082
+#   platform → http://localhost:8083
+#   api      → http://localhost:3000   (mailpit http://localhost:8025, minio http://localhost:9001)
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+  web-admin:
+    image: obikai-web-admin
+    container_name: obikai-web-admin
+    build:
+      context: .
+      dockerfile: docker/web-admin.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./docker/web/Caddyfile.local:/etc/caddy/Caddyfile:ro
+    ports:
+      - "8081:8080"
+
+  web-member:
+    image: obikai-web-member
+    container_name: obikai-web-member
+    build:
+      context: .
+      dockerfile: docker/web-member.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./docker/web/Caddyfile.local:/etc/caddy/Caddyfile:ro
+    ports:
+      - "8082:8080"
+
+  web-platform:
+    image: obikai-web-platform
+    container_name: obikai-web-platform
+    build:
+      context: .
+      dockerfile: docker/web-platform.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    volumes:
+      - ./docker/web/Caddyfile.local:/etc/caddy/Caddyfile:ro
+    ports:
+      - "8083:8080"

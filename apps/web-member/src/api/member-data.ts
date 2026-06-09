@@ -33,6 +33,15 @@ export function getMe(): Promise<Me> {
   return api.get<Me>('/me');
 }
 
+/**
+ * The minors this signed-in user is a guardian of (GET /me/dependents). Each is a full Member the
+ * guardian may act for; the member app's subject-switcher lets a parent pick one to view/manage. A
+ * non-guardian gets an empty list.
+ */
+export function getDependents(): Promise<Member[]> {
+  return api.get<Member[]>('/me/dependents');
+}
+
 /** The member's own data — all reachable via the api's self-access checks (ownerMemberId). */
 export function myRankStates(memberId: string): Promise<MemberRankState[]> {
   return api.get<MemberRankState[]>(`/rank-states?memberId=${encodeURIComponent(memberId)}`);

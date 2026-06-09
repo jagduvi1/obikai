@@ -1,12 +1,13 @@
 import type { Booking, ClassOccurrence, Program } from '@obikai/domain';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderWithSubject } from '../test/render';
 import { SchedulePage } from './SchedulePage';
 
 const {
   getMe,
+  getDependents,
   listPrograms,
   listOccurrences,
   myBookings,
@@ -15,6 +16,7 @@ const {
   selfCheckIn,
 } = vi.hoisted(() => ({
   getMe: vi.fn(),
+  getDependents: vi.fn(),
   listPrograms: vi.fn(),
   listOccurrences: vi.fn(),
   myBookings: vi.fn(),
@@ -25,6 +27,7 @@ const {
 
 vi.mock('../api/member-data', () => ({
   getMe,
+  getDependents,
   listPrograms,
   listOccurrences,
   myBookings,
@@ -64,18 +67,15 @@ const booking = (over: Partial<Booking> = {}) =>
   }) as Booking;
 
 function renderPage() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <SchedulePage />
-    </QueryClientProvider>,
-  );
+  return renderWithSubject(<SchedulePage />);
 }
 
 describe('SchedulePage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     getMe.mockResolvedValue({ userId: 'u1', memberId: 'm1', roles: [] });
+    getDependents.mockResolvedValue([]);
     listPrograms.mockResolvedValue([program()]);
     listOccurrences.mockResolvedValue([occurrence()]);
   });

@@ -2,17 +2,25 @@ import type { MemberWaiverStatus } from '@obikai/domain';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getMe, myWaiverStatus, signWaiver } from '../api/member-data';
+import { myWaiverStatus, signWaiver } from '../api/member-data';
+import { useSubject } from '../subject/subject-context';
 
 /**
- * "Waivers": the member reads each active waiver and signs it digitally (a typed full name + an
- * explicit "I agree" — no uploaded document). The signature is dated and immutable server-side; if a
- * waiver is later revised, it reappears here for the member to re-sign (ADR-0014, scope §4.10).
+ * "Waivers": the active subject's waivers. A member reads each active waiver and signs it digitally (a
+ * typed full name + an explicit "I agree" — no uploaded document); a parent does the same FOR a child
+ * (the signature is recorded as a guardian signature). The signature is dated and immutable
+ * server-side; if a waiver is later revised, it reappears here to re-sign (ADR-0014, scope §4.10).
  */
 export function MyWaiversPage() {
   const { t } = useTranslation();
-  const me = useQuery({ queryKey: ['me'], queryFn: getMe });
-  const memberId = me.data?.memberId ?? null;
+  const {
+    activeMemberId: memberId,
+    active,
+    loading: subjectLoading,
+    isError: subjectError,
+  } = useSubject();
+  // When a parent views a child, the signature is a guardian signature (legal record), not self-signed.
+  const asGuardian = active ? !active.isSelf : false;
   const status = useQuery({
     queryKey: ['myWaiverStatus', memberId],
     queryFn: () => myWaiverStatus(memberId as string),
@@ -27,8 +35,8 @@ export function MyWaiversPage() {
       <h1 id="waivers-heading">{t('waivers.title')}</h1>
       <p className="muted">{t('waivers.intro')}</p>
 
-      {(me.isLoading || status.isLoading) && <p>{t('waivers.loading')}</p>}
-      {(me.isError || status.isError) && <p className="form-error">{t('waivers.error')}</p>}
+      {(subjectLoading || status.isLoading) && <p>{t('waivers.loading')}</p>}
+      {(subjectError || status.isError) && <p className="form-error">{t('waivers.error')}</p>}
 
       {status.data && status.data.length === 0 && <p className="muted">{t('waivers.none')}</p>}
       {status.data && status.data.length > 0 && pending.length === 0 && (
@@ -39,7 +47,12 @@ export function MyWaiversPage() {
         <section aria-label={t('waivers.actionNeeded')}>
           <h2>{t('waivers.actionNeeded')}</h2>
           {pending.map((w) => (
-            <WaiverSignForm key={w.template.id} waiver={w} memberId={memberId as string} />
+            <WaiverSignForm
+              key={w.template.id}
+              waiver={w}
+              memberId={memberId as string}
+              asGuardian={asGuardian}
+            />
           ))}
         </section>
       )}
@@ -90,7 +103,15 @@ function WaiverBody({ body }: { body: string }) {
 }
 
 /** One pending waiver: its text + a digital-acknowledgement form (typed name + agree → sign). */
-function WaiverSignForm({ waiver, memberId }: { waiver: MemberWaiverStatus; memberId: string }) {
+function WaiverSignForm({
+  waiver,
+  memberId,
+  asGuardian,
+}: {
+  waiver: MemberWaiverStatus;
+  memberId: string;
+  asGuardian: boolean;
+}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const titleId = useId();
@@ -105,7 +126,10 @@ function WaiverSignForm({ waiver, memberId }: { waiver: MemberWaiverStatus; memb
         templateId: waiver.template.id,
         memberId,
         signedByName: name.trim(),
-        isGuardian: false,
+        // A parent signs on the child's behalf → recorded as a guardian signature (the child is the
+        // member the waiver covers). A member signs their own.
+        isGuardian: asGuardian,
+        ...(asGuardian ? { guardianForMemberId: memberId } : {}),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['myWaiverStatus', memberId] });

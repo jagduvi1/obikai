@@ -23,6 +23,10 @@ const en = {
     waivers: 'Waivers',
     profile: 'My profile',
   },
+  viewer: {
+    label: 'Viewing',
+    me: 'Me',
+  },
   login: {
     title: 'Sign in',
     email: 'Email',
@@ -125,6 +129,8 @@ const en = {
     loading: 'Loading…',
     error: 'Could not load your profile.',
     saveError: 'Could not save your profile. Check the fields and try again.',
+    guardianOnly:
+      'You are a guardian account, not a club member, so you have no personal profile here. Use the switcher at the top to view and manage your children.',
   },
   waivers: {
     title: 'Waivers',
@@ -165,6 +171,10 @@ const sv = {
     invoices: 'Mina fakturor',
     waivers: 'Avtal',
     profile: 'Min profil',
+  },
+  viewer: {
+    label: 'Visar',
+    me: 'Jag',
   },
   progress: {
     title: 'Mina framsteg',
@@ -235,6 +245,8 @@ const sv = {
     loading: 'Läser in…',
     error: 'Kunde inte läsa in din profil.',
     saveError: 'Kunde inte spara din profil. Kontrollera fälten och försök igen.',
+    guardianOnly:
+      'Du är ett vårdnadshavarkonto, inte en klubbmedlem, så du har ingen egen profil här. Använd växlaren högst upp för att visa och hantera dina barn.',
   },
   waivers: {
     ...en.waivers,

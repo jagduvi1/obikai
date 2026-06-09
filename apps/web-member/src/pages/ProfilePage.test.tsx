@@ -1,15 +1,17 @@
 import type { Member } from '@obikai/domain';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderWithSubject } from '../test/render';
 import { ProfilePage } from './ProfilePage';
 
-const { getMyProfile, updateMyProfile } = vi.hoisted(() => ({
+const { getMe, getDependents, getMyProfile, updateMyProfile } = vi.hoisted(() => ({
+  getMe: vi.fn(),
+  getDependents: vi.fn(),
   getMyProfile: vi.fn(),
   updateMyProfile: vi.fn(),
 }));
-vi.mock('../api/member-data', () => ({ getMyProfile, updateMyProfile }));
+vi.mock('../api/member-data', () => ({ getMe, getDependents, getMyProfile, updateMyProfile }));
 
 const member = (over: Partial<Record<keyof Member, unknown>> = {}): Member =>
   ({
@@ -33,16 +35,16 @@ const member = (over: Partial<Record<keyof Member, unknown>> = {}): Member =>
   }) as Member;
 
 function renderPage() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={qc}>
-      <ProfilePage />
-    </QueryClientProvider>,
-  );
+  return renderWithSubject(<ProfilePage />);
 }
 
 describe('ProfilePage', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    getMe.mockResolvedValue({ userId: 'u1', memberId: 'm1', roles: [] });
+    getDependents.mockResolvedValue([]);
+  });
 
   it('pre-fills from the loaded profile and saves the edited contact fields', async () => {
     getMyProfile.mockResolvedValue(member());
@@ -65,5 +67,14 @@ describe('ProfilePage', () => {
       phone: '555-1',
       emergencyContact: null,
     });
+  });
+
+  it('shows a guardian-only note (no profile fetch) for a non-member parent account', async () => {
+    getMe.mockResolvedValue({ userId: 'u1', memberId: null, roles: [] });
+    getDependents.mockResolvedValue([]);
+    renderPage();
+
+    expect(await screen.findByText(/guardian account, not a club member/i)).toBeInTheDocument();
+    expect(getMyProfile).not.toHaveBeenCalled();
   });
 });

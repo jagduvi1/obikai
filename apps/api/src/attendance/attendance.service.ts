@@ -63,11 +63,14 @@ export class AttendanceService {
   }
 
   async list(actor: AuthzActor, filter: AttendanceFilter = {}): Promise<Attendance[]> {
-    // A member may always list their OWN attendance; otherwise the role catalog must grant 'list'.
-    if (
-      !this.isSelf(actor, filter.memberId) &&
-      !can(actor, { resource: 'attendance', action: 'list' })
-    ) {
+    // When scoped to one member, that member (self-access) or their guardian (the guardianship edge)
+    // may list it — both flow through can() with ownerMemberId. Otherwise (tenant-wide listing) the
+    // role catalog must grant 'list'. Passing ownerMemberId never widens a role grant (branch 1
+    // ignores it), so staff/owner are unaffected.
+    const scopedToMember =
+      filter.memberId !== undefined &&
+      can(actor, { resource: 'attendance', action: 'list', ownerMemberId: filter.memberId });
+    if (!scopedToMember && !can(actor, { resource: 'attendance', action: 'list' })) {
       throw new ForbiddenError('list', 'attendance');
     }
     return this.store.list(filter);

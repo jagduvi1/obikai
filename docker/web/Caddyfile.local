@@ -1,0 +1,28 @@
+# Local-dev Caddyfile for the web SPAs (bind-mounted over the image's production Caddyfile).
+#
+# Production serves the SPA behind Traefik, which routes same-origin `/api` to the api service. There
+# is no Traefik locally, so this config does that proxying itself: each SPA container serves its static
+# bundle AND reverse-proxies `/api/*` to the `api` service — so from the browser everything is one
+# origin (the SPA's api-client default base `/api` works, and same-origin requests satisfy CSP).
+#
+# This file is intentionally permissive (no strict CSP/HSTS) — it is for LOCAL TESTING only.
+{
+	auto_https off
+	admin off
+}
+
+:8080 {
+	encode gzip
+
+	# API calls → the api service (strips the `/api` prefix the SPA adds).
+	handle_path /api/* {
+		reverse_proxy api:3000
+	}
+
+	# Everything else → the SPA static bundle with history-API fallback.
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -12,13 +12,20 @@ import { ProfilePage } from '../pages/ProfilePage';
 import { ResetPasswordPage } from '../pages/ResetPasswordPage';
 import { SchedulePage } from '../pages/SchedulePage';
 import { VerifyEmailPage } from '../pages/VerifyEmailPage';
+import { SubjectProvider } from '../subject/subject-context';
 import { Layout } from './Layout';
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { status } = useAuth();
   if (status === 'loading') return <p className="centered">…</p>;
   if (status === 'anonymous') return <Navigate to="/login" replace />;
-  return <Layout>{children}</Layout>;
+  // SubjectProvider lives inside the authenticated shell so it only loads /me + /me/dependents once
+  // signed in; the chosen subject persists across the per-route remount via sessionStorage.
+  return (
+    <SubjectProvider>
+      <Layout>{children}</Layout>
+    </SubjectProvider>
+  );
 }
 
 export function App() {

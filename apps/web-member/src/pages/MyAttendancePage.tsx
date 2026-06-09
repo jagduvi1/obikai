@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { getMe, myAttendance } from '../api/member-data';
+import { myAttendance } from '../api/member-data';
+import { useSubject } from '../subject/subject-context';
 
-/** "My attendance": the member's own check-in history (self-access GET /attendance?memberId=own). */
+/** "My attendance": the active subject's check-in history (GET /attendance?memberId=…). */
 export function MyAttendancePage() {
   const { t, i18n } = useTranslation();
-  const me = useQuery({ queryKey: ['me'], queryFn: getMe });
-  const memberId = me.data?.memberId ?? null;
+  const { activeMemberId: memberId, loading: subjectLoading, isError: subjectError } = useSubject();
   const attendance = useQuery({
     queryKey: ['myAttendance', memberId],
     queryFn: () => myAttendance(memberId as string),
@@ -16,8 +16,8 @@ export function MyAttendancePage() {
   return (
     <section aria-labelledby="att-heading">
       <h1 id="att-heading">{t('attendance.title')}</h1>
-      {(me.isLoading || attendance.isLoading) && <p>{t('attendance.loading')}</p>}
-      {(me.isError || attendance.isError) && (
+      {(subjectLoading || attendance.isLoading) && <p>{t('attendance.loading')}</p>}
+      {(subjectError || attendance.isError) && (
         <p role="alert" className="form-error">
           {t('attendance.error')}
         </p>

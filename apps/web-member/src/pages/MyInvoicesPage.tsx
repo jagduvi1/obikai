@@ -1,7 +1,8 @@
 import type { Money } from '@obikai/domain';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { getMe, myInvoices } from '../api/member-data';
+import { myInvoices } from '../api/member-data';
+import { useSubject } from '../subject/subject-context';
 
 /** Format integer-minor-unit Money with the active locale (e.g. 49900 SEK → "499,00 kr"). */
 function formatMoney(m: Money, locale: string): string {
@@ -10,11 +11,10 @@ function formatMoney(m: Money, locale: string): string {
   );
 }
 
-/** "My invoices": the member's own billing history (self-access GET /invoices?memberId=own). */
+/** "My invoices": the active subject's billing history (GET /invoices?memberId=…). */
 export function MyInvoicesPage() {
   const { t, i18n } = useTranslation();
-  const me = useQuery({ queryKey: ['me'], queryFn: getMe });
-  const memberId = me.data?.memberId ?? null;
+  const { activeMemberId: memberId, loading: subjectLoading, isError: subjectError } = useSubject();
   const invoices = useQuery({
     queryKey: ['myInvoices', memberId],
     queryFn: () => myInvoices(memberId as string),
@@ -24,8 +24,8 @@ export function MyInvoicesPage() {
   return (
     <section aria-labelledby="inv-heading">
       <h1 id="inv-heading">{t('invoices.title')}</h1>
-      {(me.isLoading || invoices.isLoading) && <p>{t('invoices.loading')}</p>}
-      {(me.isError || invoices.isError) && <p className="form-error">{t('invoices.error')}</p>}
+      {(subjectLoading || invoices.isLoading) && <p>{t('invoices.loading')}</p>}
+      {(subjectError || invoices.isError) && <p className="form-error">{t('invoices.error')}</p>}
       {invoices.data && invoices.data.length === 0 && (
         <p className="muted">{t('invoices.empty')}</p>
       )}
