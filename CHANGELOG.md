@@ -7,6 +7,42 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ## [Unreleased]
 
+### Added — Parents & guardians (§4.10, ADR-0032)
+
+- **Guardianship: a parent can manage their children — including a parent who is not a member.** A new
+  tenant-scoped **`Guardianship`** edge links a guardian (a login) to a minor member, carrying a
+  constrained permission set (`DEFAULT_GUARDIAN_GRANTS`: read/update the child's profile; read their
+  invoices, attendance, promotions, curriculum; sign their waivers; book/cancel their classes). The
+  tenancy middleware loads a request actor's active edges onto the `AuthzActor`, so `can()` honors
+  "acting for a linked minor" everywhere — scoped to that child, never a blanket grant. One parent may
+  link to **several** children. The `guardian` base role also gains tenant-wide **read** on shared
+  reference data (schedule, disciplines, announcements), the same set a member has, so a guardian-only
+  parent can browse classes and label a child's progress. `GET /me/dependents` returns the children a
+  parent may act for.
+- **Member app: a "Viewing" switcher to move between yourself and your children.** The member PWA now
+  has a notion of the active **subject** — whose data the pages show. A parent (member or not) picks a
+  child from a header switcher (shown only when there's more than one subject) and every page —
+  progress, attendance, invoices, waivers, schedule/booking — reflects that child; the choice persists
+  across navigation. Signing a child's waiver is recorded as a **guardian signature**. Self check-in is
+  shown only for your own record; "My profile" stays your own account (a guardian-only parent sees a
+  short explanatory note). en/sv; accessible labelled `<select>`.
+- **Authorization fixes so the per-child grants actually apply:** `AttendanceService.list` and
+  `BookingsService.authorize` now pass `ownerMemberId`, letting the guardianship branch grant a parent
+  their child's attendance and class booking/cancellation (passing `ownerMemberId` never widens a role
+  grant, so staff/owner are unchanged).
+
+### Added — Developer / self-host tooling
+
+- **Seeded example dojo (`node dist/cli/seed-demo.js`).** A one-command demo tenant with locations + VAT,
+  two disciplines and rank ladders, members with logins, **parents linked to their children**
+  (guardian-only and member-also-parent), rank states + promotions, programs/schedules/occurrences,
+  bookings, historical attendance, plans/enrollments (MRR), paid + overdue invoices, and a signed waiver
+  — so the whole product can be explored and tested with realistic data. Coarse-idempotent (skips if the
+  tenant already has members).
+- **Local web overlay (`docker-compose.web.yml`).** Brings up the three SPAs (admin / member / platform)
+  behind Caddy on `:8081`–`:8083`, same-origin-proxying `/api` to the api container, for one-command
+  full-stack local testing alongside the base compose stack.
+
 ### Added — Instructor / staff tools (§4.7 / §4.4)
 
 - **Idempotent occurrence check-in + "Mark all present" roster action.** `AttendanceService.record`
