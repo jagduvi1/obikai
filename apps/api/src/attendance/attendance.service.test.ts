@@ -38,6 +38,11 @@ class FakeStore implements AttendanceStore {
         (filter.disciplineId === undefined || r.disciplineId === filter.disciplineId),
     );
   }
+  async findByMemberOccurrence(memberId: string, occurrenceId: string): Promise<Attendance | null> {
+    return (
+      this.rows.find((r) => r.memberId === memberId && r.occurrenceId === occurrenceId) ?? null
+    );
+  }
   async classesSinceLastPromotion(
     memberId: string,
     disciplineId: string,
@@ -80,6 +85,27 @@ describe('AttendanceService RBAC', () => {
   it('lets front-desk staff record attendance', async () => {
     const created = await svc.record(staff, sample);
     expect(created.disciplineId).toBe('bjj');
+  });
+
+  it('is idempotent for occurrence check-ins (a re-mark returns the existing row)', async () => {
+    const first = await svc.record(instructor, {
+      memberId: 'm1',
+      occurrenceId: 'occ1',
+      method: 'instructor',
+    });
+    const again = await svc.record(instructor, {
+      memberId: 'm1',
+      occurrenceId: 'occ1',
+      method: 'instructor',
+    });
+    expect(again.id).toBe(first.id); // same row, no duplicate
+    expect(await svc.list(instructor, { memberId: 'm1' })).toHaveLength(1);
+  });
+
+  it('still records each ad-hoc attendance with no occurrence (not idempotent)', async () => {
+    await svc.record(staff, sample);
+    await svc.record(staff, sample);
+    expect(await svc.list(staff, { memberId: 'm1' })).toHaveLength(2);
   });
 
   it('forbids a bare actor (no roles) from recording or listing', async () => {
