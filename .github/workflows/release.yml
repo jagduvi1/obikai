@@ -55,7 +55,7 @@ jobs:
       REDIS_URL: redis://localhost:6379
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
@@ -123,7 +123,7 @@ jobs:
             args: ''
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup QEMU (multi-arch emulation)
         uses: docker/setup-qemu-action@v3
