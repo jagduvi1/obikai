@@ -41,7 +41,7 @@
     "@obikai/adapter-storage-s3": "workspace:*",
     "@obikai/adapter-vat": "workspace:*",
     "@obikai/i18n": "workspace:*",
-    "express-rate-limit": "^7.4.1",
+    "express-rate-limit": "^8.5.2",
     "helmet": "^8.0.0",
     "jose": "^6.2.3",
     "migrate-mongo": "^14.0.7",
