@@ -1,0 +1,95 @@
+/* ============================================================
+   Obikai — Color tokens
+   Dark-first. Values lifted verbatim from the product apps
+   (apps/web-{admin,member,platform}/src/styles.css).
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Base neutrals (the dark dojo palette) ---- */
+  --color-bg: #0f1216; /* app background — near-black blue */
+  --color-surface: #181d23; /* cards, headers, raised panels */
+  --color-surface-2: #20262e; /* hover / nested surface */
+  --color-border: #2a3138; /* hairline dividers, input borders */
+  --color-border-2: #3a434d; /* stronger border / focus ring base */
+  --color-text: #e8ecf1; /* primary text */
+  --color-muted: #9aa6b2; /* secondary text, labels, captions */
+  --color-faint: #6b7682; /* disabled text, placeholders */
+
+  /* ---- Brand accents ---- */
+  --color-accent: #4f9dff; /* primary blue — member & admin */
+  --color-accent-hover: #6fb0ff;
+  --color-accent-press: #3d86e6;
+  --color-accent-quiet: #1b3a5c; /* tinted fill behind accent text */
+  --color-platform: #b48cff; /* platform / operator surface accent */
+  --color-platform-quiet: #352a52;
+
+  /* ---- Functional / semantic ---- */
+  --color-error: #ff6b6b;
+  --color-error-quiet: #3a2030;
+  --color-success: #5fd07a;
+  --color-success-quiet: #15431f;
+  --color-warning: #ffd24d;
+  --color-warning-quiet: #4a3a12;
+  --color-focus: #ffd24d; /* WCAG 2.4.7 keyboard focus ring */
+
+  /* ---- On-color text (text placed on a filled accent) ---- */
+  --color-on-accent: #001022;
+  --color-on-light: #0f1216;
+
+  /* ---- Eligibility status (the rank engine's vocabulary) ---- */
+  --status-ready-bg: #15431f;
+  --status-ready-fg: #7ff0a0;
+  --status-close-bg: #4a3a12;
+  --status-close-fg: #ffd24d;
+  --status-notYet-bg: #3a2030;
+  --status-notYet-fg: #ff9bb0;
+
+  /* ---- Member lifecycle status ---- */
+  --member-lead: #b48cff;
+  --member-trial: #4f9dff;
+  --member-active: #5fd07a;
+  --member-frozen: #9aa6b2;
+  --member-cancelled: #ff6b6b;
+
+  /* ============================================================
+     Belt spectrum — "belt is a presentation type, not an
+     assumption". These render rank chips for belt-based arts.
+
+     BJJ kids (IBJJF, ages 4-15) progress through 4 solid families,
+     each with 3 variants: /white split → solid → /black split.
+     "Split" belts are two-tone — use CSS gradients at point of use.
+     Adult belts follow (blue → purple → brown → black).
+     High-grade coral and red belts cap the system (7th–10th dan).
+     ============================================================ */
+
+  /* Solid belt colors */
+  --belt-white: #e8ecf1;
+  --belt-grey: #8b939c; /* IBJJF grey (kids) */
+  --belt-yellow: #f4d35e;
+  --belt-orange: #f08c3a;
+  --belt-green: #4caf6d;
+  --belt-blue: #4f9dff;
+  --belt-purple: #9b6bd6;
+  --belt-brown: #8a5a3c;
+  --belt-red: #e0524d; /* kids red-family variants + 9th/10th dan */
+  --belt-black: #14181d;
+  --belt-coral: #c0392b; /* 7th-dan red/black + 8th-dan red/white coral */
+
+  /* Grading stripes / tabs that appear on the right end of a belt */
+  --belt-stripe: #d9b44a;
+
+  /* ============================================================
+     Semantic aliases — author UI against these, not raw values.
+     ============================================================ */
+  --surface-app: var(--color-bg);
+  --surface-card: var(--color-surface);
+  --surface-raised: var(--color-surface-2);
+  --text-body: var(--color-text);
+  --text-muted: var(--color-muted);
+  --text-disabled: var(--color-faint);
+  --border-hairline: var(--color-border);
+  --border-strong: var(--color-border-2);
+  --action-primary: var(--color-accent);
+}

@@ -1,3 +1,4 @@
+import { BrandLockup } from '@obikai/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
@@ -17,7 +18,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {t('app.skipToContent')}
       </a>
       <header className="app-header">
-        <span className="app-title">{t('app.title')}</span>
+        <BrandLockup />
         <nav aria-label={t('nav.dashboard')} className="app-nav">
           <NavLink to="/dashboard">{t('nav.dashboardLink')}</NavLink>
           <NavLink to="/members">{t('nav.members')}</NavLink>

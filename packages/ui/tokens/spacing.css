@@ -1,0 +1,47 @@
+/* ============================================================
+   Obikai — Spacing, radii, shadows, motion
+   Derived from the product's rem-based rhythm (0.25 / 0.5 /
+   0.75 / 1 / 1.5rem) and its radius set (6 / 10 / 12 / 999px).
+   ============================================================ */
+
+:root {
+  /* ---- Spacing scale (4px base) ---- */
+  --space-0: 0;
+  --space-1: 0.25rem; /* 4 */
+  --space-2: 0.5rem; /* 8 */
+  --space-3: 0.75rem; /* 12 — default control padding */
+  --space-4: 1rem; /* 16 */
+  --space-5: 1.5rem; /* 24 — section gap, page padding */
+  --space-6: 2rem; /* 32 — card padding (auth) */
+  --space-7: 3rem; /* 48 */
+  --space-8: 4rem; /* 64 */
+
+  /* ---- Radii ---- */
+  --radius-sm: 6px; /* inputs, buttons */
+  --radius-md: 10px; /* rank sections, panels */
+  --radius-lg: 12px; /* cards, auth card */
+  --radius-pill: 999px; /* badges, chips, belt tags */
+
+  /* ---- Borders ---- */
+  --border-width: 1px;
+  --border: var(--border-width) solid var(--color-border);
+
+  /* ---- Elevation (dark UI: subtle, low-spread) ---- */
+  --shadow-none: none;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 18px 50px rgba(0, 0, 0, 0.55);
+  --ring-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus) 55%, transparent);
+
+  /* ---- Layout ---- */
+  --container: 1100px; /* .app-main max-width */
+  --container-narrow: 640px; /* stacked forms */
+  --header-h: 57px;
+
+  /* ---- Motion ---- */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* @kind other */
+  --dur-fast: 120ms; /* @kind other */
+  --dur-base: 180ms; /* @kind other */
+  --dur-slow: 260ms; /* @kind other */
+}

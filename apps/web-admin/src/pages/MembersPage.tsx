@@ -1,3 +1,4 @@
+import { Avatar, Badge } from '@obikai/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -94,12 +95,17 @@ export function MembersPage() {
             {data.map((m) => (
               <tr key={m.id}>
                 <td>
-                  <Link to={`/members/${m.id}`}>
-                    {m.firstName} {m.lastName}
-                  </Link>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <Avatar name={`${m.firstName} ${m.lastName}`} size={28} aria-hidden />
+                    <Link to={`/members/${m.id}`}>
+                      {m.firstName} {m.lastName}
+                    </Link>
+                  </span>
                 </td>
                 <td>{m.email ?? '—'}</td>
-                <td>{m.status}</td>
+                <td>
+                  <Badge tone={m.status}>{m.status}</Badge>
+                </td>
                 <td>{m.tags.length > 0 ? m.tags.join(', ') : '—'}</td>
               </tr>
             ))}

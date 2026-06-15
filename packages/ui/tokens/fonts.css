@@ -1,0 +1,24 @@
+/* ============================================================
+   Obikai — Webfonts
+   Zen Kaku Gothic New (OFL) — the display face. Designed by
+   Yoshimichi Ohira; full Japanese glyph coverage so rank terms
+   (級 / 段) and discipline names render natively. Display duty
+   ONLY: headings, heroes, the wordmark. Body stays system-ui.
+   License: assets/fonts/OFL-ZenKakuGothicNew.txt
+   ============================================================ */
+
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  src: url("../assets/fonts/ZenKakuGothicNew-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Zen Kaku Gothic New";
+  src: url("../assets/fonts/ZenKakuGothicNew-Black.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}

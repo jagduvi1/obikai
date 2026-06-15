@@ -27,3 +27,6 @@ pnpm-debug.log*
 
 # Local data volumes (self-host bring-up)
 .data/
+
+# Design handoff bundles (extracted into packages/ui; never commit the raw archive)
+*.zip

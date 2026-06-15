@@ -24,6 +24,15 @@ Installable via `public/manifest.webmanifest`; `public/sw.js` is a minimal netwo
 worker (registered in production) for an offline app-shell fallback. API calls are never cached. A
 richer precaching strategy (workbox) can replace it later.
 
+## Design
+
+Phone-first, wearing the Obikai design system (`@obikai/ui`, ADR-0033):
+`main.tsx` imports `@obikai/ui/styles.css` (tokens + the Zen Kaku Gothic New
+display font); `src/styles.css` adds the mobile shell — a slim brand header, a
+scrollable main, and a bottom tab bar (text-only tabs, ≥44px touch targets; the
+product ships no icon set). Booking/invoice status render as `Badge`s; tables
+tighten under 700px. Dark-only; author against the CSS custom properties.
+
 ## Conventions
 
 Same as web-admin: access token in memory + httpOnly refresh cookie (shared client), TanStack Query

@@ -7,6 +7,29 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ## [Unreleased]
 
+### Added — Design system (`@obikai/ui`, ADR-0033)
+
+- **A shared design-system package.** The Claude Design handoff (tokens, the Zen Kaku Gothic New
+  display font (OFL), the brand mark, and 11 React component primitives — Button, TextField, Select,
+  Badge, StatCard, Avatar, BeltChip, CriteriaMeter, CriterionTag, ClassCard, InvoiceDocument) is now a
+  single source of truth in **`packages/ui`**, consumed as source by the three frontends. Components are
+  strict TypeScript, styled purely with the design tokens; it depends only on `react` (a framework-light
+  leaf in the boundaries graph). `<BrandMark>` / `<BrandLockup>` inline the obi-knot mark.
+- **The three frontends now wear the real visual language** (visual-only reskin; routing, data flow,
+  i18n, and all tests unchanged). Each app imports `@obikai/ui/styles.css` for the tokens, font, and
+  base element styling, then layers its own shell:
+  - **web-admin** — a brand-locked top-nav console (active-tab accent underline), token-based tables,
+    stat cards, grading/criteria, forms and auth; member rows gain an initials `Avatar` + lifecycle
+    `Badge`.
+  - **web-member** — re-cast as a **phone-first app**: a slim brand header, a scrollable main, and a
+    bottom tab bar (text-only tabs, ≥44px targets); booking/invoice status render as `Badge`s; tables
+    tighten under 700px.
+  - **web-platform** — inherits the foundation and swaps the accent to the brand **violet** to set the
+    operator console apart; the amber focus ring is unchanged.
+- **Dark-only, sentence case, no emoji, borders define cards, no gradients (except the functional belt
+  bands)** — the design invariants hold; paper invoices remain the one light surface
+  (`InvoiceDocument variant="paper"`). "Belt is a presentation type, not an assumption."
+
 ### Added — Parents & guardians (§4.10, ADR-0032)
 
 - **Guardianship: a parent can manage their children — including a parent who is not a member.** A new

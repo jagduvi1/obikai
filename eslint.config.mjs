@@ -18,6 +18,7 @@ const elements = [
   { type: 'db', pattern: 'packages/db/**' },
   { type: 'gdpr', pattern: 'packages/gdpr/**' },
   { type: 'i18n', pattern: 'packages/i18n/**' },
+  { type: 'ui', pattern: 'packages/ui/**' },
   { type: 'notifications', pattern: 'packages/notifications/**' },
   { type: 'test-utils', pattern: 'packages/test-utils/**' },
   { type: 'adapter-impl', pattern: 'adapters/**' },
@@ -26,7 +27,11 @@ const elements = [
 
 export default [
   {
-    files: ['packages/*/src/**/*.ts', 'adapters/*/src/**/*.ts', 'apps/*/src/**/*.ts'],
+    files: [
+      'packages/*/src/**/*.{ts,tsx}',
+      'adapters/*/src/**/*.{ts,tsx}',
+      'apps/*/src/**/*.{ts,tsx}',
+    ],
     ignores: ['**/dist/**', '**/node_modules/**', '**/*.tsbuildinfo', '**/test/**'],
     languageOptions: {
       parser: tsParser,
@@ -58,6 +63,9 @@ export default [
             { from: 'config', allow: ['domain'] },
             { from: 'authz', allow: ['domain'] },
             { from: 'i18n', allow: ['domain'] },
+            // The shared design-system UI package is a framework-light leaf: React components
+            // styled purely with token CSS. It depends on nothing in the workspace.
+            { from: 'ui', allow: [] },
             // Transactional email rendering: pure, framework-free; depends only on the email port
             // contract, domain types, and the i18n catalogs. Used by both api and worker.
             { from: 'notifications', allow: ['domain', 'adapter-contracts', 'i18n'] },
@@ -80,6 +88,7 @@ export default [
                 'db',
                 'gdpr',
                 'i18n',
+                'ui',
                 'notifications',
                 'adapter-impl',
                 'test-utils',
