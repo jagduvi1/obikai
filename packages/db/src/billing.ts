@@ -107,6 +107,17 @@ export class VatRateRepository {
     const res = await this.model.deleteOne({ _id: String(id) }).exec();
     return (res.deletedCount ?? 0) > 0;
   }
+
+  /**
+   * True if any Plan references this VAT rate. Deleting an in-use rate would dangle `plan.vatRateId`,
+   * making `BillingService.resolveVatPercent` throw on the next recurring run — silently breaking
+   * billing for the affected members (the worker catches it as a per-enrollment `failed`). The service
+   * blocks deletion on this (audit B-vatdelete). Tenant-scoped by the guard.
+   */
+  async isReferencedByPlan(id: string): Promise<boolean> {
+    const count = await PlanModel.countDocuments({ vatRateId: String(id) }).exec();
+    return count > 0;
+  }
 }
 
 // ── Plan ─────────────────────────────────────────────────────────────────────--
@@ -263,6 +274,10 @@ const enrollmentSchema = new Schema<EnrollmentDoc>(
 enrollmentSchema.plugin(tenantGuard);
 // Hot query: a member's enrollments within a tenant.
 enrollmentSchema.index({ tenantId: 1, memberId: 1 });
+// The billing-tick candidate sweep (`listDueForBilling`): active + started enrollments. Without this
+// the per-tenant fan-out scans every enrollment each tick (audit B-index). status equality leads,
+// then startDate range.
+enrollmentSchema.index({ tenantId: 1, status: 1, startDate: 1 });
 
 export const EnrollmentModel: Model<EnrollmentDoc> =
   (mongoose.models.Enrollment as Model<EnrollmentDoc> | undefined) ??

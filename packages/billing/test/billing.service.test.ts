@@ -372,6 +372,28 @@ describe('BillingService.recordPaymentResult', () => {
     });
     expect((await invoices.findById(issued.id))?.status).toBe('paid');
   });
+  it('does NOT close the invoice on an under-payment, then closes it once fully covered', async () => {
+    const { svc, invoices } = makeService();
+    const issued = await svc.issueInvoiceForEnrollment(owner, 'enr1');
+    const half = money(Math.floor(issued.total.amountMinor / 2), issued.total.currency);
+    const rest = money(issued.total.amountMinor - half.amountMinor, issued.total.currency);
+    // A partial 'succeeded' amount must leave the invoice OPEN (it must not silently under-collect).
+    await svc.recordPaymentResult(owner, {
+      invoiceId: issued.id,
+      amount: half,
+      status: 'succeeded',
+      idempotencyKey: 'part-1',
+    });
+    expect((await invoices.findById(issued.id))?.status).toBe('open');
+    // The remaining amount brings the sum of succeeded payments up to the total → paid.
+    await svc.recordPaymentResult(owner, {
+      invoiceId: issued.id,
+      amount: rest,
+      status: 'succeeded',
+      idempotencyKey: 'part-2',
+    });
+    expect((await invoices.findById(issued.id))?.status).toBe('paid');
+  });
   it('is a no-op on a replayed idempotencyKey (no second attempt)', async () => {
     const { svc } = makeService();
     const issued = await svc.issueInvoiceForEnrollment(owner, 'enr1');
