@@ -55,9 +55,11 @@ const schema = new Schema<ConsentDoc>(
   { timestamps: { createdAt: true, updatedAt: false } },
 );
 schema.plugin(tenantGuard);
-// Every read is "this subject's consents" / "this subject's consent for purpose X".
-schema.index({ tenantId: 1, subjectId: 1, createdAt: 1 });
-schema.index({ tenantId: 1, subjectId: 1, purpose: 1, createdAt: -1 });
+// Every read is "this subject's consents" / "this subject's consent for purpose X". The trailing `_id`
+// gives a deterministic tiebreak so a same-millisecond grant+withdraw resolves to the true latest row
+// (createdAt alone is not monotonic; the audit/consent contrast — audit uses a monotonic seq).
+schema.index({ tenantId: 1, subjectId: 1, createdAt: 1, _id: 1 });
+schema.index({ tenantId: 1, subjectId: 1, purpose: 1, createdAt: -1, _id: -1 });
 
 export const ConsentModel: Model<ConsentDoc> =
   (mongoose.models.Consent as Model<ConsentDoc> | undefined) ??
@@ -108,7 +110,7 @@ export class ConsentRepository implements ConsentRepositoryPort {
   async listForSubject(_tenantId: TenantId, subjectId: UserId): Promise<readonly ConsentRecord[]> {
     const docs = await this.model
       .find({ subjectId: String(subjectId) })
-      .sort({ createdAt: 1 })
+      .sort({ createdAt: 1, _id: 1 })
       .lean<ConsentDoc[]>()
       .exec();
     return docs.map(toRecord);
@@ -125,7 +127,7 @@ export class ConsentRepository implements ConsentRepositoryPort {
   ): Promise<ConsentStatus | null> {
     const doc = await this.model
       .findOne({ subjectId: String(subjectId), purpose })
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .lean<ConsentDoc>()
       .exec();
     return doc ? doc.status : null;
@@ -145,7 +147,7 @@ export class ConsentRepository implements ConsentRepositoryPort {
   ): Promise<ConsentRecord | null> {
     const current = await this.model
       .findOne({ subjectId: String(subjectId), purpose })
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .lean<ConsentDoc>()
       .exec();
     if (!current || current.status !== 'granted') return null;

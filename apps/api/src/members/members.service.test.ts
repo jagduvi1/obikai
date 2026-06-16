@@ -142,6 +142,29 @@ describe('MembersService RBAC', () => {
     );
   });
 
+  it('blocks a member (self-access) from setting staff-managed fields via the broad update', async () => {
+    const created = await svc.create(staff, sample);
+    const self = actor({
+      userId: 'u2',
+      memberId: created.id,
+      roles: [{ role: 'member', locationScope: 'ALL' }],
+    });
+    // Profile-safe fields via self-access are allowed.
+    const ok = await svc.update(self, created.id, { phone: '555-1' });
+    expect(ok.phone).toBe('555-1');
+    // …but staff-managed fields are refused (the self-escalation the audit flagged).
+    await expect(svc.update(self, created.id, { status: 'active' })).rejects.toBeInstanceOf(
+      ForbiddenError,
+    );
+    await expect(svc.update(self, created.id, { tags: [] })).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      svc.update(self, created.id, { householdId: 'other-family' }),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    // Staff keep full control over the broad fields.
+    const byStaff = await svc.update(staff, created.id, { status: 'frozen', tags: ['x'] });
+    expect(byStaff.status).toBe('frozen');
+  });
+
   it('audits every member mutation (create/update/delete) with actor, target, and ip (H9)', async () => {
     const created = await svc.create(staff, sample, { ip: '203.0.113.9' });
     await svc.update(staff, created.id, { status: 'frozen' }, { ip: '203.0.113.9' });

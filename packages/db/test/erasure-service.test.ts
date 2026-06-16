@@ -11,7 +11,10 @@ import { AttendanceModel } from '../src/attendance.js';
 import { IdentityModel, MembershipModel, SessionModel, UserModel } from '../src/auth.js';
 import { ConsentModel } from '../src/consent.js';
 import { eraseMemberSubject } from '../src/erasure-service.js';
+import { GuardianshipModel } from '../src/guardianship.js';
+import { HouseholdModel } from '../src/household.js';
 import { MemberModel } from '../src/member.js';
+import { MessageLogModel } from '../src/message-log.js';
 import { GradingResultModel } from '../src/rank.js';
 import { BookingModel } from '../src/scheduling.js';
 import { type TenantContext, runInTenantContext } from '../src/tenant-context.js';
@@ -51,6 +54,9 @@ beforeEach(async () => {
     'sessions',
     'memberships',
     'consents',
+    'messagelogs',
+    'guardianships',
+    'households',
   ]) {
     await mongoose.connection.collection(c).deleteMany({});
   }
@@ -206,6 +212,66 @@ describe('eraseMemberSubject', () => {
 
     expect(result.subjectId).toBe(memberId);
     expect(result.perModel.find((p) => p.model === 'member')?.strategy).toBe('anonymize');
+  });
+
+  it('erases message history, guardianship edges, and household payer linkage', async () => {
+    const { memberId, userId } = await seed();
+    await runInTenantContext(ctx('t1'), async () => {
+      await MessageLogModel.create({
+        broadcastId: 'b1',
+        memberId,
+        channel: 'email',
+        category: 'marketing',
+        subject: 'Summer camp — Aiko',
+        status: 'sent',
+      });
+      // The subject as a minor (a guardian links to them) AND as a guardian (links to another minor).
+      await GuardianshipModel.create({ guardianUserId: 'guardian-u', minorMemberId: memberId });
+      await GuardianshipModel.create({ guardianUserId: userId, minorMemberId: 'other-minor' });
+      await HouseholdModel.create({ name: 'Tanaka', payerMemberId: memberId, payerUserId: userId });
+    });
+
+    await runInTenantContext(ctx('t1'), () =>
+      eraseMemberSubject({ tenantId: 't1', memberId, userId, storageDelete: async () => {}, now: 1 }),
+    );
+
+    expect(await mongoose.connection.collection('messagelogs').countDocuments({})).toBe(0);
+    // Both the minor-side and guardian-side edges for the subject are gone.
+    expect(await mongoose.connection.collection('guardianships').countDocuments({})).toBe(0);
+    // The household survives (other members may remain) but the subject's payer links are dropped.
+    const hh = await mongoose.connection.collection('households').findOne({});
+    expect(hh?.name).toBe('Tanaka');
+    expect(hh?.payerMemberId).toBeNull();
+    expect(hh?.payerUserId).toBeNull();
+  });
+
+  it('keeps the shared account for a cross-training student with a membership in another tenant', async () => {
+    const { memberId, userId } = await seed();
+    // The same login also trains at tenant t2 (raw insert: a different tenant's membership).
+    await mongoose.connection.collection('memberships').insertOne({
+      tenantId: 't2',
+      userId,
+      memberId: 'm-t2',
+      roles: [],
+      status: 'active',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const result = await runInTenantContext(ctx('t1'), () =>
+      eraseMemberSubject({ tenantId: 't1', memberId, userId, storageDelete: async () => {}, now: 1 }),
+    );
+
+    // The t1 member is still anonymized and its footprint gone…
+    const member = await mongoose.connection.collection('members').findOne({});
+    expect(member?.firstName).toBe('[erased]');
+    expect(await mongoose.connection.collection('memberships').countDocuments({ tenantId: 't1' })).toBe(0);
+    // …but the SHARED login survives so t2 isn't locked out: email intact, credentials + sessions kept.
+    const account = await mongoose.connection.collection('users').findOne({});
+    expect(account?.email).toBe('aiko@example.com');
+    expect(await mongoose.connection.collection('identities').countDocuments({})).toBe(1);
+    expect(await mongoose.connection.collection('sessions').countDocuments({})).toBe(1);
+    expect(result.perModel.find((p) => p.model === 'user')?.strategy).toBe('retain');
   });
 
   it('erases a member with no linked account (skips the identity step)', async () => {

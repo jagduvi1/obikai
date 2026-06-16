@@ -4,9 +4,12 @@ import type {
   CurriculumCompletion,
   Enrollment,
   GradingResultRecord,
+  Guardianship,
+  Household,
   Invoice,
   Member,
   MemberRankState,
+  MessageLog,
   PaymentAttempt,
   Promotion,
   WaiverSignature,
@@ -21,7 +24,10 @@ import {
   toInvoice,
   toPaymentAttempt,
 } from './billing.js';
+import { GuardianshipModel, toGuardianship } from './guardianship.js';
+import { HouseholdModel, toHousehold } from './household.js';
 import { MemberModel, toMember } from './member.js';
+import { MessageLogModel, toMessageLog } from './message-log.js';
 import {
   CurriculumCompletionModel,
   GradingResultModel,
@@ -305,6 +311,58 @@ export function buildRopaRegistry(): RopaRegistry {
     anonymize: (w) => ({ ...w, signedByName: '[erased]', ip: null }),
   };
 
+  const messageLog: ProcessingRecord<MessageLog> = {
+    model: 'messageLog',
+    purpose: 'Broadcast / message delivery log (who was messaged, and why one was skipped)',
+    lawfulBasis: 'legitimate_interests',
+    role: 'controller',
+    retention: UNTIL_ERASURE,
+    erasure: 'hard_delete',
+    findBySubject: byMember<MessageLog>(MessageLogModel as never, toMessageLog as never),
+    toExport: (m) =>
+      pick(m, ['broadcastId', 'channel', 'category', 'subject', 'status', 'createdAt']),
+  };
+
+  const guardianship: ProcessingRecord<Guardianship> = {
+    model: 'guardianship',
+    purpose: 'Parent/guardian → minor delegation (who may act for this member)',
+    lawfulBasis: 'contract',
+    role: 'controller',
+    retention: UNTIL_ERASURE,
+    erasure: 'hard_delete',
+    // Member-keyed via the MINOR side (the member's guardians); the erasure service also removes the
+    // guardian side (guardianUserId == the subject's account). EXPORT is handled wholly in the export
+    // service's userId step instead (one combined section spanning both sides), so no `toExport` here —
+    // the registry loop would otherwise emit a duplicate, half-populated 'guardianship' section.
+    findBySubject: async (_t, subjectId) => {
+      const docs = await GuardianshipModel.find({ minorMemberId: String(subjectId) })
+        .lean()
+        .exec();
+      return (docs as never[]).map((d) => toGuardianship(d as never));
+    },
+  };
+
+  const household: ProcessingRecord<Household> = {
+    model: 'household',
+    purpose: 'Billing / family unit (the payer relationship)',
+    lawfulBasis: 'contract',
+    role: 'controller',
+    retention: UNTIL_ERASURE,
+    // A household belongs to the family — other members may remain after this subject is erased — so
+    // erasure drops only the subject's payer LINKAGE, never the shared household name (other members'
+    // data). Found via the payer side; the member's own `householdId` link lives on the (anonymized)
+    // Member root.
+    erasure: 'anonymize',
+    findBySubject: async (_t, subjectId) => {
+      const docs = await HouseholdModel.find({ payerMemberId: String(subjectId) })
+        .lean()
+        .exec();
+      return (docs as never[]).map((d) => toHousehold(d as never));
+    },
+    toExport: (h) => pick(h, ['name', 'payerMemberId', 'createdAt']),
+    anonymize: (h) => ({ ...h, payerMemberId: null, payerUserId: null }),
+  };
+
   // Register each individually so each keeps its own `ProcessingRecord<T>` type (a heterogeneous
   // array would collapse the generic to a union and break the per-record `toExport`/`anonymize` types).
   registry.register(member);
@@ -318,6 +376,9 @@ export function buildRopaRegistry(): RopaRegistry {
   registry.register(gradingResult);
   registry.register(curriculumCompletion);
   registry.register(waiver);
+  registry.register(messageLog);
+  registry.register(guardianship);
+  registry.register(household);
   return registry;
 }
 
@@ -334,4 +395,7 @@ export const ROPA_REGISTERED_MODELS = [
   'gradingResult',
   'curriculumCompletion',
   'waiverSignature',
+  'messageLog',
+  'guardianship',
+  'household',
 ] as const;

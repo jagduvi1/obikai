@@ -64,12 +64,18 @@ async function bootstrap(): Promise<void> {
     logger.log(`CORS enabled for ${corsOrigins.length} origin(s)`);
   }
 
-  // Coarse brute-force + scrypt-CPU-amplification guard on the unauthenticated auth endpoints
-  // (ADR-0012 review fix). Keyed by client IP (req.ip is reliable once trust proxy is set).
-  app.use(
-    '/auth',
-    rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: true, legacyHeaders: false }),
-  );
+  // Coarse brute-force + scrypt-CPU-amplification guard on the UNAUTHENTICATED, scrypt-running,
+  // account-creating endpoints (ADR-0012 review fix). Keyed by client IP (req.ip is reliable once
+  // trust proxy is set). `/invites/accept` runs scrypt + creates an account on every valid token, the
+  // same exposure as `/auth`, so it gets the same budget (a separate limiter instance per prefix).
+  const sensitiveRouteLimit = {
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+  } as const;
+  app.use('/auth', rateLimit(sensitiveRouteLimit));
+  app.use('/invites', rateLimit(sensitiveRouteLimit));
 
   // Graceful shutdown: stop accepting connections, let in-flight requests drain, close Mongo cleanly
   // (truncated billing/PII writes otherwise) so deploys/rescheduling are zero-downtime-safe.

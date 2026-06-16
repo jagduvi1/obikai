@@ -9,7 +9,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SessionModel, UserModel } from '../src/auth.js';
 import { ConsentModel } from '../src/consent.js';
 import { buildExportBundle } from '../src/export-service.js';
+import { GuardianshipModel } from '../src/guardianship.js';
+import { HouseholdModel } from '../src/household.js';
 import { MemberModel } from '../src/member.js';
+import { MessageLogModel } from '../src/message-log.js';
 import { buildRopaRegistry } from '../src/ropa.js';
 import { BookingModel } from '../src/scheduling.js';
 import { type TenantContext, runInTenantContext } from '../src/tenant-context.js';
@@ -38,7 +41,16 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const c of ['members', 'bookings', 'users', 'sessions', 'consents']) {
+  for (const c of [
+    'members',
+    'bookings',
+    'users',
+    'sessions',
+    'consents',
+    'messagelogs',
+    'guardianships',
+    'households',
+  ]) {
     await mongoose.connection.collection(c).deleteMany({});
   }
 });
@@ -115,6 +127,42 @@ describe('buildExportBundle', () => {
     expect(JSON.stringify(bundle)).not.toContain('secret-hash');
     expect(bundle.schemaVersion).toBe('obikai-export-v1');
     expect(bundle.subjectId).toBe(memberId);
+  });
+
+  it('includes message history, guardianship edges (both sides), and household in the export', async () => {
+    const user = await UserModel.create({ email: 'p@example.com', emailLower: 'p@example.com' });
+    const userId = user._id.toString();
+    const memberId = await runInTenantContext(ctx('t1'), async () => {
+      const m = await MemberModel.create({ firstName: 'Pat', lastName: 'P', status: 'active', userId });
+      const id = m._id.toString();
+      await MessageLogModel.create({
+        broadcastId: 'b1',
+        memberId: id,
+        channel: 'email',
+        category: 'marketing',
+        subject: 'Welcome',
+        status: 'sent',
+      });
+      await GuardianshipModel.create({ guardianUserId: 'other-guardian', minorMemberId: id });
+      await GuardianshipModel.create({ guardianUserId: userId, minorMemberId: 'a-minor' });
+      await HouseholdModel.create({ name: 'P Family', payerMemberId: id, payerUserId: userId });
+      return id;
+    });
+
+    const bundle = await runInTenantContext(ctx('t1'), () =>
+      buildExportBundle(registry, { tenantId: 't1', memberId, userId, now: 1 }),
+    );
+    const byModel = new Map(bundle.sections.map((s) => [s.model, s]));
+
+    expect(byModel.get('messageLog')?.records[0]).toMatchObject({ subject: 'Welcome' });
+    // The minor-side (this member's guardians) flows through the ROPA registry…
+    const guardianSection = byModel.get('guardianship');
+    expect(guardianSection).toBeDefined();
+    // …and BOTH the minor-side (guardianUserId 'other-guardian') and the guardian-side ('a-minor') appear.
+    const dump = JSON.stringify(guardianSection?.records);
+    expect(dump).toContain('other-guardian');
+    expect(dump).toContain('a-minor');
+    expect(byModel.get('household')?.records[0]).toMatchObject({ name: 'P Family' });
   });
 
   it('omits empty sections and still includes identity when the member has no other data', async () => {

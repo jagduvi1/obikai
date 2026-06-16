@@ -326,6 +326,10 @@ function translate(error: unknown): Error {
     return new BadRequestException('invalid or expired reset token');
   if (error instanceof InvalidVerificationTokenError)
     return new BadRequestException('invalid or expired verification token');
+  // DELIBERATE, documented exception to the no-enumeration stance kept elsewhere (login/forgot/verify
+  // return identical responses): immediate self-registration cannot both create+sign-in AND hide that
+  // the email exists. The exposure is bounded by the per-IP `/auth` rate limiter (main.ts) and is a
+  // generally-accepted limitation of registration endpoints. See SECURITY.md.
   if (error instanceof EmailAlreadyRegisteredError)
     return new ConflictException('email already registered');
   if (error instanceof z.ZodError) return new BadRequestException(error.issues);

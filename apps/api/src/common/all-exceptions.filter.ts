@@ -52,6 +52,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return;
     }
 
+    // A malformed `:id` path param (not a valid ObjectId) surfaces as a Mongoose CastError on nearly
+    // every id-based route. The resource cannot exist, so map it to a clean 404 rather than leaking a
+    // 500 (matched by name to avoid a mongoose import in this framework-light filter).
+    if (exception instanceof Error && exception.name === 'CastError') {
+      res.status(404).json({ statusCode: 404, message: 'Not found', requestId });
+      return;
+    }
+
     // Unmapped error → 500. Log everything; return nothing sensitive.
     jsonLine('error', 'unhandled exception', {
       ...base,
