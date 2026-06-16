@@ -247,6 +247,13 @@ export interface ClassOccurrenceDoc extends TenantScoped {
   endsAt: string;
   capacity: number;
   status: OccurrenceStatus;
+  /**
+   * Denormalized count of 'booked' seats — the atomic capacity gate. A booking acquires a seat with a
+   * conditional `$inc` (bookedCount < capacity); a cancel that frees a 'booked' seat either promotes a
+   * waitlisted booking into it (count unchanged) or releases it (`$inc -1`). This single-document CAS
+   * is what makes capacity race-safe (count-then-insert could overfill — audit C-booking).
+   */
+  bookedCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -260,6 +267,7 @@ const classOccurrenceSchema = new Schema<ClassOccurrenceDoc>(
     endsAt: { type: String, required: true },
     capacity: { type: Number, required: true },
     status: { type: String, required: true, default: 'scheduled' },
+    bookedCount: { type: Number, required: true, default: 0, min: 0 },
   },
   { timestamps: true },
 );
@@ -359,6 +367,7 @@ export class ClassOccurrenceRepository {
               endsAt: row.endsAt,
               capacity: row.capacity,
               status: 'scheduled',
+              bookedCount: 0,
             },
           },
           upsert: true,
@@ -374,6 +383,34 @@ export class ClassOccurrenceRepository {
       .lean<ClassOccurrenceDoc>()
       .exec();
     return doc ? toClassOccurrence(doc) : null;
+  }
+
+  /**
+   * Atomically claim ONE 'booked' seat iff the occurrence is scheduled and has capacity left
+   * (bookedCount < capacity), via a single-document compare-and-swap. Returns true if a seat was
+   * acquired, false if full/cancelled — so concurrent bookings for the last seat can never overfill
+   * (the count-then-insert path could; audit C-booking). Same CAS idiom as `promoteIfWaitlisted`.
+   */
+  async tryReserveSeat(id: string): Promise<boolean> {
+    const doc = await this.model
+      .findOneAndUpdate(
+        { _id: String(id), status: 'scheduled', $expr: { $lt: ['$bookedCount', '$capacity'] } },
+        { $inc: { bookedCount: 1 } },
+        { returnDocument: 'after' },
+      )
+      .lean<ClassOccurrenceDoc>()
+      .exec();
+    return doc !== null;
+  }
+
+  /**
+   * Release one previously-claimed seat (floored at 0). Used when a cancelled 'booked' seat is filled
+   * by no waitlisted booking, or to roll back a reserved seat after a duplicate-booking race.
+   */
+  async releaseSeat(id: string): Promise<void> {
+    await this.model
+      .updateOne({ _id: String(id), bookedCount: { $gt: 0 } }, { $inc: { bookedCount: -1 } })
+      .exec();
   }
 }
 

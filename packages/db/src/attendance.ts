@@ -42,8 +42,14 @@ const attendanceSchema = new Schema<AttendanceDoc>(
 attendanceSchema.plugin(tenantGuard);
 // Drives `classesSinceLastPromotion` (member + discipline range count) and the member-history list.
 attendanceSchema.index({ tenantId: 1, memberId: 1, disciplineId: 1, occurredAt: 1 });
-// Per-occurrence attendance: roster "who attended" + the self-check-in idempotency lookup.
-attendanceSchema.index({ tenantId: 1, occurrenceId: 1, memberId: 1 });
+// Per-occurrence attendance: roster "who attended" + the check-in idempotency lookup. PARTIAL UNIQUE —
+// at most ONE row per (occurrence, member), so the find-then-record soft check in self check-in /
+// "mark all present" can't be raced past into a duplicate (audit C-attendance). The partial filter
+// exempts ad-hoc rows (occurrenceId null), which legitimately have no occurrence to dedupe on.
+attendanceSchema.index(
+  { tenantId: 1, occurrenceId: 1, memberId: 1 },
+  { unique: true, partialFilterExpression: { occurrenceId: { $type: 'string' } } },
+);
 
 export const AttendanceModel: Model<AttendanceDoc> =
   (mongoose.models.Attendance as Model<AttendanceDoc> | undefined) ??
@@ -91,8 +97,20 @@ export class AttendanceRepository {
   constructor(private readonly model: Model<AttendanceDoc> = AttendanceModel) {}
 
   async record(input: AttendanceCreateInput): Promise<Attendance> {
-    const created = await this.model.create(fields(input));
-    return toAttendance(created.toObject() as unknown as AttendanceDoc);
+    try {
+      const created = await this.model.create(fields(input));
+      return toAttendance(created.toObject() as unknown as AttendanceDoc);
+    } catch (err) {
+      // The partial-unique {tenantId, occurrenceId, memberId} index is the hard backstop the soft
+      // find-then-record check can race past. On a concurrent duplicate (11000) for an occurrence
+      // check-in, return the existing row so the operation stays idempotent (a double-tap / "mark all
+      // present" re-run records exactly one row) instead of surfacing a 500.
+      if ((err as { code?: number }).code === 11000 && input.occurrenceId) {
+        const existing = await this.findByMemberOccurrence(input.memberId, input.occurrenceId);
+        if (existing) return existing;
+      }
+      throw err;
+    }
   }
 
   async list(filter: AttendanceFilter = {}): Promise<Attendance[]> {

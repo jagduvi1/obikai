@@ -69,11 +69,24 @@ class FakeBookingsStore implements BookingsStore {
   }
 }
 
-/** A single fixed occurrence with configurable capacity/status. */
+/**
+ * A single fixed occurrence with configurable capacity/status, plus an in-memory seat counter that
+ * mirrors ClassOccurrenceRepository's atomic CAS (tryReserveSeat / releaseSeat). The seat counter — not
+ * a count of booking rows — is the capacity gate, so capacity can never be overfilled.
+ */
 function occurrenceLookup(occ: ClassOccurrence): OccurrenceLookup {
+  let bookedCount = 0;
   return {
     async findById(id: string) {
       return id === occ.id ? occ : null;
+    },
+    async tryReserveSeat(id: string) {
+      if (id !== occ.id || occ.status !== 'scheduled' || bookedCount >= occ.capacity) return false;
+      bookedCount += 1;
+      return true;
+    },
+    async releaseSeat(id: string) {
+      if (id === occ.id && bookedCount > 0) bookedCount -= 1;
     },
   };
 }
@@ -190,6 +203,19 @@ describe('BookingsService capacity + waitlist', () => {
     await svc.cancel(staff, a.id);
     const again = await svc.create(staff, { occurrenceId: 'occ1', memberId: 'm1' });
     expect(again.status).toBe('booked');
+  });
+
+  it('claims a seat atomically — never overfills capacity, and frees the seat on cancel', async () => {
+    // A single-seat occurrence: the seat-claim CAS is the gate, so the 2nd booking waitlists even
+    // though a naive count-then-insert could let both confirm under concurrency (audit C-booking).
+    const single = new BookingsService(store, occurrenceLookup(occ({ capacity: 1 })));
+    const a = await single.create(staff, { occurrenceId: 'occ1', memberId: 'm1' });
+    const b = await single.create(staff, { occurrenceId: 'occ1', memberId: 'm2' });
+    expect(a.status).toBe('booked');
+    expect(b.status).toBe('waitlisted');
+    // Cancelling the booked seat promotes the waitlisted booking into it (seat stays filled, not lost).
+    await single.cancel(staff, a.id);
+    expect((await store.findById(b.id))?.status).toBe('booked');
   });
 });
 
