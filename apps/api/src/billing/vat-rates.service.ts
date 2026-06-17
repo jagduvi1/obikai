@@ -23,6 +23,14 @@ export class NotFoundError extends Error {
   }
 }
 
+/** Raised when deleting a VAT rate still referenced by one or more plans (would break their billing). */
+export class VatRateInUseError extends Error {
+  constructor(id: string) {
+    super(`vat rate ${id} is in use by one or more plans and cannot be deleted`);
+    this.name = 'VatRateInUseError';
+  }
+}
+
 /** The persistence surface VatRatesService needs — satisfied by @obikai/db's VatRateRepository. */
 export interface VatRatesStore {
   create(input: { name: string; percent: number }): Promise<VatRate>;
@@ -30,6 +38,8 @@ export interface VatRatesStore {
   list(): Promise<VatRate[]>;
   update(id: string, patch: { name?: string; percent?: number }): Promise<VatRate | null>;
   remove(id: string): Promise<boolean>;
+  /** True if any plan references this VAT rate (deletion guard). */
+  isReferencedByPlan(id: string): Promise<boolean>;
 }
 
 export class VatRatesService {
@@ -70,6 +80,9 @@ export class VatRatesService {
   async remove(actor: AuthzActor, id: string): Promise<void> {
     if (!can(actor, { resource: 'tenantSettings', action: 'delete' }))
       throw new ForbiddenError('delete', 'tenantSettings');
+    // Referential-integrity guard: a rate still attached to a plan must not be deleted, or that plan's
+    // recurring invoices would fail to resolve a VAT percent on the next billing run.
+    if (await this.store.isReferencedByPlan(id)) throw new VatRateInUseError(id);
     const ok = await this.store.remove(id);
     if (!ok) throw new NotFoundError('vatRate', id);
   }

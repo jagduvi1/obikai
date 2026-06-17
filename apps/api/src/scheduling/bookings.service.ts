@@ -10,9 +10,13 @@ import { ConflictError, ForbiddenError, NotFoundError } from './scheduling.error
  * waitlist; cancelling a 'booked' seat promotes the oldest waitlisted booking.
  */
 
-/** The occurrence lookup the booking flow needs (capacity + cancelled-state guard). */
+/** The occurrence lookup the booking flow needs (capacity + cancelled-state guard + seat CAS). */
 export interface OccurrenceLookup {
   findById(id: string): Promise<ClassOccurrence | null>;
+  /** Atomically claim a seat iff capacity remains (bookedCount < capacity). True = seat acquired. */
+  tryReserveSeat(id: string): Promise<boolean>;
+  /** Release one previously-claimed seat (floored at 0). */
+  releaseSeat(id: string): Promise<void>;
 }
 
 /** The persistence surface BookingsService needs — satisfied by @obikai/db's BookingRepository. */
@@ -72,15 +76,25 @@ export class BookingsService {
       );
     }
 
-    const bookedCount = await this.store.countByOccurrence(input.occurrenceId, 'booked');
-    const status: BookingStatus = bookedCount < occurrence.capacity ? 'booked' : 'waitlisted';
+    // Atomically claim a seat (bookedCount < capacity) on the occurrence document itself, rather than
+    // count-then-insert — two members racing for the last seat can otherwise BOTH read "space left" and
+    // both confirm, overfilling capacity (audit C-booking). If no seat, waitlist.
+    const gotSeat = await this.occurrences.tryReserveSeat(input.occurrenceId);
+    const status: BookingStatus = gotSeat ? 'booked' : 'waitlisted';
 
-    return this.store.create({
-      occurrenceId: input.occurrenceId,
-      memberId: input.memberId,
-      status,
-      bookedAt: new Date().toISOString(),
-    });
+    try {
+      return await this.store.create({
+        occurrenceId: input.occurrenceId,
+        memberId: input.memberId,
+        status,
+        bookedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      // A concurrent duplicate (the unique {occurrenceId, memberId} index races past the soft check):
+      // give the reserved seat back so it isn't leaked, then surface the conflict.
+      if (gotSeat) await this.occurrences.releaseSeat(input.occurrenceId);
+      throw err;
+    }
   }
 
   /**
@@ -107,9 +121,16 @@ export class BookingsService {
       const waitlisted = await this.store.listByOccurrence(existing.occurrenceId, {
         status: 'waitlisted',
       });
+      let promoted = false;
       for (const candidate of waitlisted) {
-        if (await this.store.promoteIfWaitlisted(candidate.id)) break;
+        if (await this.store.promoteIfWaitlisted(candidate.id)) {
+          promoted = true;
+          break;
+        }
       }
+      // A promotion re-fills the freed seat (bookedCount unchanged); if no one was waitlisted, the seat
+      // is genuinely freed, so decrement the occupancy counter.
+      if (!promoted) await this.occurrences.releaseSeat(existing.occurrenceId);
     }
 
     return cancelled;

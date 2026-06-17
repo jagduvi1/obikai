@@ -38,6 +38,7 @@ import { InvoicesService } from './invoices.service.js';
           invoices: new InvoiceRepository(),
           payments: new PaymentAttemptRepository(),
           counters: new InvoiceCounterRepository(),
+          billingProfiles: new BillingProfileRepository(),
         }),
     },
   ],

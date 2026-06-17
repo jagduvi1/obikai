@@ -44,6 +44,9 @@ export const EnvSchema = z
     BASE_DOMAIN: z.string().min(1).default('localhost'),
     SELF_HOST_TENANT_SLUG: z.string().min(1).optional(),
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).default(1),
+    // Comma-separated allow-list of SPA origins for CORS (credentials mode forbids "*"). Empty/unset =
+    // same-origin only. Validated here (ADR-0009) instead of being read raw at the api bootstrap.
+    CORS_ORIGINS: z.string().optional(),
     // Product/platform display name used in account-level emails (e.g. password reset) where there is
     // no single dojo. Public, non-secret.
     APP_NAME: z.string().min(1).default('Obikai'),
@@ -171,6 +174,11 @@ export const EnvSchema = z
       require(Boolean(
         env.STRIPE_SECRET_KEY,
       ), 'STRIPE_SECRET_KEY', 'required when PAYMENT_PROVIDER=stripe');
+      // Webhook signature verification is mandatory — payment state is webhook-driven and never
+      // trusted from the client (invariant 9). Booting Stripe without it would accept unverified events.
+      require(Boolean(
+        env.STRIPE_WEBHOOK_SECRET,
+      ), 'STRIPE_WEBHOOK_SECRET', 'required when PAYMENT_PROVIDER=stripe (webhook signature verification, invariant 9)');
     }
     if (env.AI_PROVIDER === 'anthropic') {
       require(Boolean(

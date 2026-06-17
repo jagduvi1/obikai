@@ -13,3 +13,11 @@ the signed-in user has platform access is decided by the api, not the UI.
 
 Dev: `pnpm --filter @obikai/web-platform dev` (port 5175; proxies `/api` → `localhost:3000`).
 Bootstrap a platform admin with the api CLI: `obikai grant-platform-admin <email>`.
+
+## Design
+
+Wears the Obikai design system (`@obikai/ui`, ADR-0033) but swaps the accent to
+the brand **violet** (`--color-platform`) to set the operator console apart from
+the member/admin blue; the amber focus ring is unchanged. `main.tsx` imports
+`@obikai/ui/styles.css`; `src/styles.css` overrides `--color-accent` and styles
+the top-nav shell. Author against the CSS custom properties — never hard-code hex.

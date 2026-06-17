@@ -34,3 +34,12 @@ supersession in both). Keep them short; put detail in code and `docs/`.
 | [0023](0023-platform-audit-log.md) | Platform audit log (append-only, hash-chained) | Accepted |
 | [0024](0024-platform-admin-ui.md) | Platform-admin UI (`web-platform`) | Accepted |
 | [0025](0025-vat-validation.md) | VAT-number validation (format + VIES) | Accepted |
+| [0026](0026-gdpr-wiring-and-per-tenant-audit.md) | GDPR wiring & per-tenant audit log | Accepted |
+| [0027](0027-bearer-token-hashing.md) | Bearer-token hashing (scrypt today, argon2id target) | Accepted |
+| [0028](0028-deny-by-default-install-scripts.md) | Deny-by-default dependency install scripts | Accepted |
+| [0029](0029-translatable-rank-curriculum-content.md) | Translatable rank/curriculum content | Accepted |
+| [0030](0030-member-tags-and-segments.md) | Member tags & segments | Accepted |
+| [0031](0031-member-broadcast-messaging.md) | Member broadcast messaging (consent split) | Accepted |
+| [0032](0032-guardianship-and-member-app-subjects.md) | Guardianship & member-app subject switcher | Accepted |
+| [0033](0033-design-system-ui-package.md) | Shared design-system package (`@obikai/ui`) | Accepted |
+| [0034](0034-erasure-via-member-anonymization.md) | Erasure via member-root anonymization (supersedes 0007's mechanism) | Accepted |

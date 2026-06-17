@@ -1,76 +1,80 @@
+/* ============================================================
+   Obikai web-platform — the operator / tenant-management console.
+
+   Foundation (tokens, the Zen Kaku display font, base element
+   styling, the amber focus ring) comes from `@obikai/ui/styles.css`,
+   imported first in main.tsx. The platform surface is set apart from
+   the member/admin blue by swapping the accent to the brand VIOLET
+   (--color-platform). Everything else follows the same dark
+   instrument language; never hard-code hex.
+   ============================================================ */
+
 :root {
-  --bg: #0f1216;
-  --surface: #181d23;
-  --border: #2a3138;
-  --text: #e8ecf1;
-  --muted: #9aa6b2;
-  --accent: #b48cff;
-  --error: #ff6b6b;
-  --focus: #ffd24d;
-  color-scheme: dark;
-}
-
-* {
-  box-sizing: border-box;
-}
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.5;
-}
-
-:focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  /* Platform identity: violet accent in place of the product blue. The amber
+     focus ring is unchanged (consistent across surfaces). */
+  --color-accent: var(--color-platform);
+  --color-accent-hover: #c6a6ff;
+  --color-accent-press: #9f73f0;
+  --color-accent-quiet: var(--color-platform-quiet);
 }
 
 .skip-link {
   position: absolute;
   left: -9999px;
   top: 0;
-  background: var(--accent);
-  color: #000;
-  padding: 0.5rem 1rem;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  padding: var(--space-2) var(--space-4);
+  border-radius: 0 0 var(--radius-sm) 0;
   z-index: 10;
+  font-weight: var(--weight-semibold);
 }
 .skip-link:focus {
   left: 0;
 }
 
+/* ---- Shell ---- */
 .app-header {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding: 0.75rem 1.5rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: var(--border);
+  background: var(--color-surface);
 }
-.app-title {
-  font-weight: 700;
+.app-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
 }
 .app-nav a {
-  color: var(--muted);
+  color: var(--text-muted);
   text-decoration: none;
-  margin-right: 1rem;
+  font-size: var(--text-sm);
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+.app-nav a:hover {
+  color: var(--text-body);
 }
 .app-nav a[aria-current="page"] {
-  color: var(--text);
-  font-weight: 600;
+  color: var(--text-body);
+  font-weight: var(--weight-semibold);
+  border-bottom-color: var(--color-accent);
 }
-.link-button {
-  margin-left: auto;
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  cursor: pointer;
+/* Header language control — a small bordered chip (matches the design app shell). */
+.language-switcher {
+  background: var(--color-bg);
+  color: var(--text-body);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+  font-size: var(--text-sm);
 }
 .app-main {
-  padding: 1.5rem;
-  max-width: 1100px;
+  padding: var(--space-5);
+  max-width: var(--container);
   margin: 0 auto;
 }
 .centered {
@@ -79,94 +83,126 @@ body {
   min-height: 60vh;
 }
 
+/* ---- Buttons ---- */
+.link-button {
+  margin-left: auto;
+  background: none;
+  border: 1px solid var(--color-border-2);
+  color: var(--text-body);
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+.link-button:hover {
+  background: var(--color-surface-2);
+}
+.auth-card button,
+.app-main button[type="submit"] {
+  margin-top: var(--space-3);
+  padding: 0.6rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-standard);
+}
+.auth-card button:hover,
+.app-main button[type="submit"]:hover {
+  background: var(--color-accent-hover);
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Auth ---- */
 .auth-shell {
   display: grid;
   place-items: center;
   min-height: 100vh;
-  padding: 1.5rem;
+  padding: var(--space-5);
 }
 .auth-card {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
   width: 100%;
   max-width: 360px;
-  padding: 2rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  padding: var(--space-6);
+  background: var(--color-surface);
+  border: var(--border);
+  border-radius: var(--radius-lg);
 }
 .auth-card h1 {
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--space-2);
 }
 .auth-card label {
-  font-size: 0.85rem;
-  color: var(--muted);
+  font: var(--font-label);
+  color: var(--text-muted);
 }
 .auth-card input {
-  padding: 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
-}
-.auth-card button,
-.app-main button[type="submit"] {
-  margin-top: 0.75rem;
-  padding: 0.6rem;
-  border: none;
-  border-radius: 6px;
-  background: var(--accent);
-  color: #001;
-  font-weight: 600;
-  cursor: pointer;
-}
-button:disabled {
-  opacity: 0.6;
-  cursor: progress;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--text-body);
+  font: inherit;
 }
 
 .form-error {
-  color: var(--error);
+  color: var(--color-error);
 }
 .muted {
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
+/* ---- Tables ---- */
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 1rem;
+  margin-top: var(--space-4);
 }
 .data-table th,
 .data-table td {
   text-align: left;
   padding: 0.6rem 0.75rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: var(--border);
 }
 .data-table th {
-  color: var(--muted);
-  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-caps);
 }
+.data-table tbody tr:hover {
+  background: color-mix(in srgb, var(--color-surface) 60%, transparent);
+}
+/* IDs / org-nos / codes render in monospace (locale-neutral identifiers). */
 .data-table code {
+  font-family: var(--font-mono);
   font-size: 0.85em;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
+/* ---- Tenant detail metadata ---- */
 .meta {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.75rem 1.5rem;
-  margin: 1rem 0;
+  margin: var(--space-4) 0;
 }
 .meta dt {
-  font-size: 0.8rem;
-  color: var(--muted);
+  font: var(--font-label);
+  color: var(--text-muted);
 }
 .meta dd {
   margin: 0.15rem 0 0;
-  font-size: 1.4rem;
-  font-weight: 600;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
 }

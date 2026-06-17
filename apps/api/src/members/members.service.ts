@@ -16,6 +16,13 @@ import type {
  * the request's TenantContext (ADR-0004); this layer decides WHAT the actor may do (ADR-0004 can()).
  */
 
+/**
+ * Member fields that only STAFF (a role-based `member:update` grant) may change — not a member via
+ * self-access nor a guardian via a per-child grant. Mirrors the exclusions documented on
+ * `memberProfileUpdateSchema` (@obikai/domain): the self-service profile schema omits exactly these.
+ */
+const STAFF_MANAGED_MEMBER_FIELDS = ['status', 'tags', 'notes', 'householdId', 'joinDate'] as const;
+
 export class ForbiddenError extends Error {
   constructor(action: string, resource: string) {
     super(`forbidden: ${action} on ${resource}`);
@@ -123,8 +130,26 @@ export class MembersService {
   ): Promise<Member> {
     const existing = await this.store.findById(id);
     if (!existing) throw new NotFoundError('member', id);
+    // ownerMemberId admits self-access (a member editing their own record) and guardianship (a parent
+    // editing a linked minor). Both are legitimate, but NEITHER may set staff-managed fields.
     if (!can(actor, { resource: 'member', action: 'update', ownerMemberId: existing.id })) {
       throw new ForbiddenError('update', 'member');
+    }
+    // The broad patch (status/tags/notes/householdId/joinDate) requires a ROLE-based grant. A member's
+    // self-access — or a guardian's per-child grant — authorizes only the profile-safe subset. Without
+    // this split, can()'s self-access branch would let a member self-promote their status, drop their
+    // own segment tags, or re-point their householdId to another family's billing unit (audit H1).
+    const hasStaffGrant = can(actor, { resource: 'member', action: 'update' });
+    if (!hasStaffGrant) {
+      const attempted = STAFF_MANAGED_MEMBER_FIELDS.filter((f) => f in patch);
+      if (attempted.length > 0) {
+        // Reject (don't silently drop) so the caller learns the field was refused; self-service should
+        // use PATCH /me/profile (the narrow MemberProfileUpdateInput schema) instead.
+        throw new ForbiddenError(
+          `update staff-managed field(s): ${attempted.join(', ')}`,
+          'member',
+        );
+      }
     }
     const updated = await this.store.update(id, patch);
     if (!updated) throw new NotFoundError('member', id);

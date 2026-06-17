@@ -6,6 +6,9 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './app/App';
 import { AuthProvider } from './auth/auth-context';
 import './i18n';
+// Shared design-system tokens + font + base element styling. Imported first so the
+// app's own styles.css can layer surface-specific rules on top of the foundation.
+import '@obikai/ui/styles.css';
 import './styles.css';
 
 configureApiBase(import.meta.env.VITE_API_URL ?? '/api');

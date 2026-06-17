@@ -18,7 +18,7 @@
  * (wired as `pnpm verify:purity`).
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -76,6 +76,33 @@ function runtimeDependencyNames(pkg) {
   return [...names].sort();
 }
 
+/**
+ * Map every workspace package NAME → its package.json path, by scanning the workspace roots. Lets us
+ * follow `@obikai/*` deps into their manifests and walk the TRANSITIVE closure (a forbidden dep
+ * introduced under @obikai/domain must fail too — the ADRs say "the engine's dependency CLOSURE").
+ * @returns {Map<string, string>}
+ */
+function buildWorkspaceRegistry() {
+  /** @type {Map<string, string>} */
+  const registry = new Map();
+  for (const root of ['packages', 'adapters', 'apps']) {
+    const rootDir = join(REPO_ROOT, root);
+    if (!existsSync(rootDir)) continue;
+    for (const entry of readdirSync(rootDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const manifest = join(rootDir, entry.name, 'package.json');
+      if (!existsSync(manifest)) continue;
+      try {
+        const name = readJson(manifest).name;
+        if (typeof name === 'string') registry.set(name, manifest);
+      } catch {
+        // ignore an unreadable manifest; the closure walk fails closed elsewhere if it matters
+      }
+    }
+  }
+  return registry;
+}
+
 function main() {
   /** @type {Record<string, unknown>} */
   let pkg;
@@ -91,22 +118,57 @@ function main() {
     return;
   }
 
-  const deps = runtimeDependencyNames(pkg);
+  const registry = buildWorkspaceRegistry();
 
+  // BFS the TRANSITIVE runtime-dependency closure starting at the rank engine, following @obikai/*
+  // workspace deps into their manifests. Every dep name in the closure is checked against FORBIDDEN;
+  // every @obikai/* in the closure must be the single allowed workspace dep.
   /** @type {string[]} */
   const violations = [];
-  for (const name of deps) {
-    if (FORBIDDEN.test(name)) {
-      violations.push(`${name}: matches forbidden DB/framework/AI pattern`);
-      continue;
-    }
-    if (name.startsWith('@obikai/') && !ALLOWED_OBIKAI.has(name)) {
-      violations.push(`${name}: rank-engine may depend only on @obikai/domain (ADR-0003)`);
+  /** @type {Set<string>} */
+  const scanned = new Set();
+  /** @type {Set<string>} */
+  const closure = new Set();
+  /** @type {Array<{ name: string; pkg: Record<string, unknown> }>} */
+  const queue = [{ name: '@obikai/rank-engine', pkg }];
+
+  while (queue.length > 0) {
+    const node = /** @type {{ name: string; pkg: Record<string, unknown> }} */ (queue.shift());
+    if (scanned.has(node.name)) continue;
+    scanned.add(node.name);
+    for (const name of runtimeDependencyNames(node.pkg)) {
+      closure.add(name);
+      if (FORBIDDEN.test(name)) {
+        violations.push(`${name}: matches forbidden DB/framework/AI pattern (via ${node.name})`);
+        continue;
+      }
+      if (name.startsWith('@obikai/')) {
+        if (!ALLOWED_OBIKAI.has(name)) {
+          violations.push(
+            `${name}: rank-engine closure may contain only @obikai/domain (ADR-0003) (via ${node.name})`,
+          );
+          continue;
+        }
+        // Recurse into the allowed workspace dep so ITS transitive deps are scanned too.
+        const manifest = registry.get(name);
+        if (manifest && !scanned.has(name)) {
+          try {
+            queue.push({ name, pkg: readJson(manifest) });
+          } catch (e) {
+            violations.push(
+              `${name}: cannot read manifest to verify its closure (failing closed): ${
+                e instanceof Error ? e.message : String(e)
+              }`,
+            );
+          }
+        }
+      }
     }
   }
 
+  const deps = [...closure].sort();
   process.stdout.write(
-    `assert-rank-engine-purity (ADR-0003/0005) — packages/rank-engine\n  runtime deps scanned: ${deps.length}\n  deps: ${deps.join(', ') || '(none)'}\n`,
+    `assert-rank-engine-purity (ADR-0003/0005) — packages/rank-engine (transitive closure)\n  packages walked: ${[...scanned].join(', ')}\n  closure deps scanned: ${deps.length}\n  deps: ${deps.join(', ') || '(none)'}\n`,
   );
 
   if (violations.length > 0) {

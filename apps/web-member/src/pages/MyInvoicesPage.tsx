@@ -1,4 +1,5 @@
 import type { Money } from '@obikai/domain';
+import { Badge, type BadgeTone } from '@obikai/ui';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { myInvoices } from '../api/member-data';
@@ -9,6 +10,14 @@ function formatMoney(m: Money, locale: string): string {
   return new Intl.NumberFormat(locale, { style: 'currency', currency: m.currency }).format(
     m.amountMinor / 100,
   );
+}
+
+/** Map an invoice status to a Badge tone (color + word). */
+function invoiceTone(status: string): BadgeTone {
+  if (status === 'paid') return 'ready';
+  if (status === 'open') return 'accent';
+  if (status === 'void' || status === 'uncollectible') return 'cancelled';
+  return 'neutral'; // draft
 }
 
 /** "My invoices": the active subject's billing history (GET /invoices?memberId=…). */
@@ -43,7 +52,9 @@ export function MyInvoicesPage() {
             {invoices.data.map((inv) => (
               <tr key={inv.id}>
                 <td>{inv.number ?? '—'}</td>
-                <td>{inv.status}</td>
+                <td>
+                  <Badge tone={invoiceTone(inv.status)}>{inv.status}</Badge>
+                </td>
                 <td>{formatMoney(inv.total, i18n.language)}</td>
                 <td>{inv.dueAt ? new Date(inv.dueAt).toLocaleDateString(i18n.language) : '—'}</td>
               </tr>

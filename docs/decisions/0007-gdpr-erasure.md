@@ -1,6 +1,9 @@
 # 0007 — GDPR erasure: pseudonymize-by-reference + per-subject crypto-shred
 
-**Status:** Accepted · 2026-06-06
+**Status:** Accepted · 2026-06-06 · **Mechanism superseded by
+[ADR-0034](0034-erasure-via-member-anonymization.md)** (erasure ships as member-root anonymization;
+crypto-shred deferred). The accountability GOALS below — ROPA-driven, reaches every store, executable —
+still hold.
 
 ## Context
 

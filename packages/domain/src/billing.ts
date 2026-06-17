@@ -92,6 +92,24 @@ export interface InvoiceLine {
   readonly lineTotal: Money;
 }
 
+/**
+ * The seller's legal/VAT identity, SNAPSHOTTED onto the invoice at issue time (ADR-0013/0018). An
+ * issued invoice is legally immutable, so it must carry its own copy of the seller block — editing the
+ * tenant billing profile afterwards must never rewrite an already-issued, retained invoice. (Current
+ * payment instructions / footer are rendered from the live profile, not snapshotted.)
+ */
+export interface InvoiceSeller {
+  readonly legalName: string;
+  readonly vatId: string | null;
+  readonly registrationNumber: string | null;
+  readonly addressLine1: string | null;
+  readonly addressLine2: string | null;
+  readonly postalCode: string | null;
+  readonly city: string | null;
+  readonly country: string | null;
+  readonly email: string | null;
+}
+
 export interface Invoice {
   readonly id: InvoiceId;
   readonly tenantId: TenantId;
@@ -116,6 +134,8 @@ export interface Invoice {
   readonly total: Money;
   /** True for intra-EU B2B reverse charge (no VAT charged; note printed). */
   readonly reverseCharge: boolean;
+  /** Seller legal/VAT identity, snapshotted at issue time (null on a still-draft invoice). */
+  readonly seller: InvoiceSeller | null;
   readonly sellerVatId: string | null;
   readonly buyerVatId: string | null;
   readonly issuedAt: string | null;

@@ -107,14 +107,25 @@ export class BillingProfileRepository {
 
   /** Create-or-replace the current tenant's profile (PUT semantics). Idempotent per tenant. */
   async upsert(input: BillingProfileInput): Promise<TenantBillingProfile> {
-    const doc = await this.model
-      .findOneAndUpdate(
-        {},
-        { $set: toSetFields(input) },
-        { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
-      )
-      .lean<BillingProfileDoc>()
-      .exec();
-    return toBillingProfile(doc as BillingProfileDoc);
+    // Two concurrent FIRST upserts can both miss the doc and both attempt the insert; one wins and the
+    // other hits the unique {tenantId} index (E11000). Retry once — the row now exists, so the upsert
+    // resolves to a plain update (audit B-upsert).
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const doc = await this.model
+          .findOneAndUpdate(
+            {},
+            { $set: toSetFields(input) },
+            { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
+          )
+          .lean<BillingProfileDoc>()
+          .exec();
+        return toBillingProfile(doc as BillingProfileDoc);
+      } catch (err) {
+        if ((err as { code?: number }).code === 11000 && attempt === 0) continue;
+        throw err;
+      }
+    }
+    throw new Error('billing profile upsert failed'); // unreachable: the loop returns or throws
   }
 }

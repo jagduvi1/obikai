@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   ForbiddenException,
@@ -15,7 +16,12 @@ import type { AuthzActor } from '@obikai/authz';
 import { getTenantContextOrThrow } from '@obikai/db';
 import { vatRateCreateSchema } from '@obikai/domain';
 import { z } from 'zod';
-import { ForbiddenError, NotFoundError, VatRatesService } from './vat-rates.service.js';
+import {
+  ForbiddenError,
+  NotFoundError,
+  VatRateInUseError,
+  VatRatesService,
+} from './vat-rates.service.js';
 
 /**
  * VAT rate REST endpoints (ADR-0013). The actor is derived from the request's TenantContext
@@ -34,6 +40,7 @@ function currentActor(): AuthzActor {
 function translate(error: unknown): never {
   if (error instanceof ForbiddenError) throw new ForbiddenException(error.message);
   if (error instanceof NotFoundError) throw new NotFoundException(error.message);
+  if (error instanceof VatRateInUseError) throw new ConflictException(error.message);
   if (error instanceof z.ZodError) throw new BadRequestException(error.issues);
   throw error;
 }

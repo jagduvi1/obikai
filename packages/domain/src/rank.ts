@@ -77,7 +77,6 @@ export type CriterionLeaf =
   | {
       readonly type: 'passedGradingEvent';
       readonly enforcement: Enforcement;
-      readonly sinceStepId?: StepId;
     }
   | {
       readonly type: 'manualInstructorSignOff';

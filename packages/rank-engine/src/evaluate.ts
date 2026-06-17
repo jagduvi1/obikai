@@ -163,7 +163,13 @@ function evaluateLeaf(leaf: CriterionLeaf, env: EvalEnv): CriterionEvaluation {
 
 interface NodeEval {
   readonly satisfied: boolean;
-  readonly blockingRequired: readonly CriterionLeafType[];
+  /**
+   * The ACTUAL unmet-required leaf evaluations gating this node (not just their types). anyOf-aware: a
+   * satisfied branch contributes none. Carried as evaluations (not a type list) so the close/notYet
+   * bucket is computed over the real blockers — never re-selected by criterion TYPE, which could pull
+   * in an unmet leaf from a *satisfied* anyOf branch that happens to share a type with a real blocker.
+   */
+  readonly blockingRequired: readonly CriterionEvaluation[];
   readonly evaluations: readonly CriterionEvaluation[];
 }
 
@@ -188,7 +194,7 @@ function evaluateNode(node: PromotionCriterion, env: EvalEnv): NodeEval {
   const ev = evaluateLeaf(node, env);
   return {
     satisfied: ev.satisfied,
-    blockingRequired: ev.enforcement === 'required' && !ev.satisfied ? [ev.type] : [],
+    blockingRequired: ev.enforcement === 'required' && !ev.satisfied ? [ev] : [],
     evaluations: [ev],
   };
 }
@@ -201,8 +207,10 @@ function evaluateStep(
 ): StepEligibility {
   const stepIndex = new Map(version.ladder.map((s) => [s.id, s] as const));
   const node = evaluateNode(step.criteria, { input, ctx, stepIndex, targetStepId: step.id });
-  // `blockingRequired` respects anyOf (a satisfied branch clears the other branch's required leaves).
-  const unmetRequired = dedupe(node.blockingRequired);
+  // The actual unmet-required leaf evaluations gating this step (anyOf-aware — a satisfied branch
+  // clears the other branch's required leaves). The displayed type list derives from these.
+  const blocking = node.blockingRequired;
+  const unmetRequired = dedupe(blocking.map((e) => e.type));
   const unmetAdvisory = dedupe(
     node.evaluations.filter((e) => e.enforcement === 'advisory' && !e.satisfied).map((e) => e.type),
   );
@@ -210,16 +218,16 @@ function evaluateStep(
   if (unmetRequired.length === 0) {
     status = 'ready'; // all required met — advisory criteria never block readiness
   } else {
-    const blocking = node.evaluations.filter(
-      (e) => !e.satisfied && e.enforcement === 'required' && unmetRequired.includes(e.type),
-    );
-    const minFraction = blocking.length
-      ? Math.min(...blocking.map((e) => e.progress.fractionComplete))
-      : 0;
+    // close/notYet from the REAL blockers' progress (never a satisfied anyOf branch's stale leaf).
+    const minFraction = Math.min(...blocking.map((e) => e.progress.fractionComplete));
     status = minFraction >= 0.5 ? 'close' : 'notYet';
   }
-  // Canonical ordering so the snapshot is a pure function of content, not input order.
-  const criteria = [...node.evaluations].sort((a, b) => a.type.localeCompare(b.type));
+  // Canonical ordering so the snapshot is a pure function of content, not input order. Code-point
+  // comparison (NOT localeCompare) keeps it locale-independent — the engine forbids ambient locale
+  // (ADR-0005); the type keys are ASCII identifiers so code-point order is stable across hosts.
+  const criteria = [...node.evaluations].sort((a, b) =>
+    a.type < b.type ? -1 : a.type > b.type ? 1 : 0,
+  );
   return { stepId: step.id, status, criteria, unmetRequired, unmetAdvisory };
 }
 

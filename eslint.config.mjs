@@ -18,6 +18,8 @@ const elements = [
   { type: 'db', pattern: 'packages/db/**' },
   { type: 'gdpr', pattern: 'packages/gdpr/**' },
   { type: 'i18n', pattern: 'packages/i18n/**' },
+  { type: 'billing', pattern: 'packages/billing/**' },
+  { type: 'ui', pattern: 'packages/ui/**' },
   { type: 'notifications', pattern: 'packages/notifications/**' },
   { type: 'test-utils', pattern: 'packages/test-utils/**' },
   { type: 'adapter-impl', pattern: 'adapters/**' },
@@ -26,7 +28,11 @@ const elements = [
 
 export default [
   {
-    files: ['packages/*/src/**/*.ts', 'adapters/*/src/**/*.ts', 'apps/*/src/**/*.ts'],
+    files: [
+      'packages/*/src/**/*.{ts,tsx}',
+      'adapters/*/src/**/*.{ts,tsx}',
+      'apps/*/src/**/*.{ts,tsx}',
+    ],
     ignores: ['**/dist/**', '**/node_modules/**', '**/*.tsbuildinfo', '**/test/**'],
     languageOptions: {
       parser: tsParser,
@@ -36,10 +42,14 @@ export default [
     settings: {
       'boundaries/include': ['packages/*/src/**/*', 'adapters/*/src/**/*', 'apps/*/src/**/*'],
       'boundaries/elements': elements,
+      // Resolve `@obikai/*` to package SOURCE (not the built dist) so the import TARGET lands inside
+      // `boundaries/include` and is classified as its element — otherwise every inter-package import
+      // resolves to dist (outside the include) as "unknown" and the rule silently never fires, making
+      // the whole layering gate inert (audit arch-boundaries). The paths live in tsconfig.eslint.json.
       'import/resolver': {
         typescript: {
           alwaysTryTypes: true,
-          project: ['packages/*/tsconfig.json', 'adapters/*/tsconfig.json', 'apps/*/tsconfig.json'],
+          project: './tsconfig.eslint.json',
         },
       },
     },
@@ -58,6 +68,9 @@ export default [
             { from: 'config', allow: ['domain'] },
             { from: 'authz', allow: ['domain'] },
             { from: 'i18n', allow: ['domain'] },
+            // The shared design-system UI package is a framework-light leaf: React components
+            // styled purely with token CSS. It depends on nothing in the workspace.
+            { from: 'ui', allow: [] },
             // Transactional email rendering: pure, framework-free; depends only on the email port
             // contract, domain types, and the i18n catalogs. Used by both api and worker.
             { from: 'notifications', allow: ['domain', 'adapter-contracts', 'i18n'] },
@@ -66,6 +79,8 @@ export default [
             // its pure hash-chain primitives. gdpr is a DB-free leaf (domain + adapter-contracts only),
             // so db→gdpr is acyclic; gdpr never imports db. See ADR-0026.
             { from: 'db', allow: ['domain', 'config', 'gdpr'] },
+            // Billing orchestration: pure money/lifecycle logic over the domain helpers + authz.
+            { from: 'billing', allow: ['domain', 'authz'] },
             { from: 'adapter-impl', allow: ['adapter-contracts', 'domain', 'config'] },
             { from: 'test-utils', allow: ['domain', 'adapter-contracts', 'rank-engine', 'config'] },
             {
@@ -80,6 +95,8 @@ export default [
                 'db',
                 'gdpr',
                 'i18n',
+                'billing',
+                'ui',
                 'notifications',
                 'adapter-impl',
                 'test-utils',

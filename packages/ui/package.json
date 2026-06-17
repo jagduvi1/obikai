@@ -1,0 +1,26 @@
+{
+  "name": "@obikai/ui",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "description": "Obikai design system — token CSS, the Zen Kaku Gothic New display font (OFL), the brand mark, and React component primitives. Consumed as source by the frontend apps.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./styles.css",
+    "./tokens/*": "./tokens/*"
+  },
+  "types": "./src/index.ts",
+  "files": ["src", "tokens", "styles.css", "assets"],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check ."
+  },
+  "peerDependencies": {
+    "react": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "typescript": "catalog:"
+  }
+}

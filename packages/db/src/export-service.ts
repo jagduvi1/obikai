@@ -7,6 +7,7 @@ import {
 } from '@obikai/gdpr';
 import { SessionModel, UserModel } from './auth.js';
 import { ConsentModel } from './consent.js';
+import { GuardianshipModel } from './guardianship.js';
 
 /**
  * Data-subject export (GDPR Art. 15/20, audit H7). Walks the ROPA registry — for every exportable
@@ -97,6 +98,27 @@ export async function buildExportBundle(
         withdrawnAt: c.withdrawnAt ? c.withdrawnAt.toISOString() : null,
         source: c.source,
         evidence: c.evidence ?? null,
+      })),
+    });
+  }
+
+  // 4. Guardianship edges (Art. 15), BOTH sides in one section: where the subject is the MINOR
+  // (minorMemberId == memberId — their guardians) and where the subject is the GUARDIAN
+  // (guardianUserId == userId — minors they may act for). Spans member + account keys, so it is handled
+  // here rather than in the member-keyed registry loop. Tenant-scoped to the request tenant.
+  const guardianOr: Record<string, unknown>[] = [{ guardianUserId: String(userId) }];
+  if (memberId) guardianOr.push({ minorMemberId: String(memberId) });
+  const guardianEdges = await GuardianshipModel.find({ $or: guardianOr }).lean().exec();
+  if (guardianEdges.length > 0) {
+    sections.push({
+      model: 'guardianship',
+      purpose: 'Guardian delegation — this subject as guardian and/or as minor',
+      records: guardianEdges.map((g) => ({
+        guardianUserId: g.guardianUserId,
+        minorMemberId: g.minorMemberId,
+        grants: g.grants,
+        revokedAt: g.revokedAt ? g.revokedAt.toISOString() : null,
+        createdAt: g.createdAt.toISOString(),
       })),
     });
   }

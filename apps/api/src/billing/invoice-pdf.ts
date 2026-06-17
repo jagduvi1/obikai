@@ -1,4 +1,4 @@
-import type { Invoice, Money, TenantBillingProfile } from '@obikai/domain';
+import type { Invoice, InvoiceSeller, Money, TenantBillingProfile } from '@obikai/domain';
 import { PDFDocument, type PDFFont, type PDFPage, StandardFonts, rgb } from 'pdf-lib';
 
 /**
@@ -30,8 +30,9 @@ export function formatDate(iso: string | null): string {
   return iso ? iso.slice(0, 10) : '—';
 }
 
-/** The seller address block as ordered, non-empty lines. */
-export function sellerLines(seller: TenantBillingProfile | null): string[] {
+/** The seller address block as ordered, non-empty lines. Accepts the invoice's snapshotted seller
+ *  identity (preferred for issued invoices) or the live tenant profile (drafts). */
+export function sellerLines(seller: InvoiceSeller | null): string[] {
   if (!seller) return ['Seller details not configured'];
   const cityLine = [seller.postalCode, seller.city].filter(Boolean).join(' ');
   return [
@@ -111,7 +112,9 @@ export async function renderInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arr
   const c = new Cursor(page, font, bold, A4[1] - MARGIN);
 
   // ── Seller block ───────────────────────────────────────────────────────────
-  const lines = sellerLines(seller);
+  // Prefer the invoice's issue-time SNAPSHOT (immutable, legally retained); fall back to the live
+  // tenant profile for a still-draft invoice that has no snapshot yet (ADR-0013/0018).
+  const lines = sellerLines(invoice.seller ?? seller);
   c.text(lines[0] ?? '', { size: 16, bold: true });
   c.move(18);
   for (const line of lines.slice(1)) {

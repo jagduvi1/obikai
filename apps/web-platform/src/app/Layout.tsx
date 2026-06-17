@@ -1,3 +1,4 @@
+import { BrandLockup, SourceFooter } from '@obikai/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
@@ -14,7 +15,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {t('app.skipToContent')}
       </a>
       <header className="app-header">
-        <span className="app-title">{t('app.title')}</span>
+        <BrandLockup />
         <nav aria-label={t('nav.dashboard')} className="app-nav">
           <NavLink to="/tenants">{t('nav.tenants')}</NavLink>
           <NavLink to="/audit">{t('nav.audit')}</NavLink>
@@ -27,6 +28,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <main id="main" className="app-main" tabIndex={-1}>
         {children}
       </main>
+      <SourceFooter />
     </>
   );
 }

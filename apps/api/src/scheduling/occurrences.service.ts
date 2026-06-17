@@ -98,8 +98,11 @@ export class OccurrencesService {
       startTime: schedule.startTime,
       durationMin: schedule.durationMin,
       timezone: schedule.timezone,
-      // Anchor the series at the horizon start (local date) — COUNT/UNTIL still bound it absolutely.
-      seriesStart: localDateString(from, schedule.timezone),
+      // Anchor the series at the schedule's IMMUTABLE creation date, NOT the rolling horizon `from`.
+      // The anchor must be horizon-independent or COUNT restarts every materialization (a bounded
+      // series never terminates) and INTERVAL>1 parity shifts with each run (audit C1/C2). `from`/`to`
+      // only filter which already-anchored instances are emitted.
+      seriesStart: localDateString(schedule.createdAt, schedule.timezone),
       from,
       to: opts.to,
     });

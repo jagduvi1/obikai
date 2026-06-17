@@ -12,7 +12,10 @@ import {
 } from './auth.js';
 import { EnrollmentModel } from './billing.js';
 import { ConsentModel } from './consent.js';
+import { GuardianshipModel } from './guardianship.js';
+import { HouseholdModel } from './household.js';
 import { MemberModel } from './member.js';
+import { MessageLogModel } from './message-log.js';
 import {
   CurriculumCompletionModel,
   GradingResultModel,
@@ -68,7 +71,25 @@ const HARD_DELETE_MODELS: ReadonlyArray<readonly [string, DeletableModel]> = [
   ['curriculumCompletion', CurriculumCompletionModel as unknown as DeletableModel],
   ['membership', MembershipModel as unknown as DeletableModel],
   ['memberInviteToken', MemberInviteTokenModel as unknown as DeletableModel],
+  // The subject's broadcast/message delivery history (memberId-keyed PII: subject lines, status).
+  ['messageLog', MessageLogModel as unknown as DeletableModel],
 ];
+
+/**
+ * Count the subject's ACTIVE login-account memberships in OTHER tenants, via the raw driver collection
+ * (the guarded model would force the current tenant). A cross-training student (ADR-0004: one
+ * tenant-global identity, many per-tenant memberships) must NOT have their shared account/credentials
+ * destroyed when a single dojo erases its membership — that would lock them out of the other dojos.
+ */
+async function countOtherTenantMemberships(
+  userId: string,
+  currentTenantId: string,
+): Promise<number> {
+  return MembershipModel.collection.countDocuments({
+    userId: String(userId),
+    tenantId: { $ne: String(currentTenantId) },
+  });
+}
 
 export async function eraseMemberSubject(input: EraseSubjectInput): Promise<ErasureResult> {
   const { tenantId, memberId, userId, storageDelete, now } = input;
@@ -110,8 +131,17 @@ export async function eraseMemberSubject(input: EraseSubjectInput): Promise<Eras
     .select('documentStorageKey')
     .lean()
     .exec();
+  // A storage failure must NOT abort the run before the PII columns + member root are anonymized
+  // (that would leave raw PII behind). The blob delete is idempotent and re-runnable, so swallow the
+  // error here; the row is anonymized below regardless, and erasure can be safely re-invoked.
+  let blobDeleteFailures = 0;
   for (const w of waivers as { documentStorageKey: string | null }[]) {
-    if (w.documentStorageKey) await storageDelete(w.documentStorageKey);
+    if (!w.documentStorageKey) continue;
+    try {
+      await storageDelete(w.documentStorageKey);
+    } catch {
+      blobDeleteFailures += 1;
+    }
   }
   const wr = await WaiverSignatureModel.updateMany(
     { memberId: mid },
@@ -121,6 +151,31 @@ export async function eraseMemberSubject(input: EraseSubjectInput): Promise<Eras
     model: 'waiverSignature',
     strategy: 'crypto_shred',
     affected: wr.modifiedCount ?? 0,
+    // Blobs whose storage delete failed (pointer already nulled) — non-zero means a safe re-run is due.
+    retained: blobDeleteFailures,
+  });
+
+  // Guardianship: drop the MINOR-side edges that reference the erased member (the subject's guardians).
+  // The guardian-side edges (where the subject is the guardian) are account-keyed and removed in the
+  // userId block below. Both are tenant-scoped, so this only touches the current tenant.
+  const gm = await GuardianshipModel.deleteMany({ minorMemberId: mid }).exec();
+  perModel.push({
+    model: 'guardianship',
+    strategy: 'hard_delete',
+    affected: gm.deletedCount ?? 0,
+    retained: 0,
+  });
+
+  // Household: a family/billing unit other members may still belong to — drop only the subject's payer
+  // LINKAGE, never the shared household name (other members' data).
+  const hh = await HouseholdModel.updateMany(
+    { payerMemberId: mid },
+    { $set: { payerMemberId: null } },
+  ).exec();
+  perModel.push({
+    model: 'household',
+    strategy: 'anonymize',
+    affected: hh.modifiedCount ?? 0,
     retained: 0,
   });
 
@@ -148,49 +203,14 @@ export async function eraseMemberSubject(input: EraseSubjectInput): Promise<Eras
     retained: 0,
   });
 
-  // 5. Tenant-global identity: anonymize the account email (unique placeholder keeps the index valid)
-  //    and hard-delete credentials + sessions so the account can never authenticate again.
+  // 5. Account-keyed data. Split into (a) TENANT-SCOPED records that are always erased for this tenant,
+  //    and (b) the TENANT-GLOBAL shared identity, which is only destroyed when the subject has no
+  //    membership in any OTHER tenant (a cross-training student keeps their shared login — ADR-0004).
   if (userId) {
     const uid = String(userId);
-    const placeholder = `erased+${uid}@erased.invalid`;
-    await UserModel.updateOne(
-      { _id: uid },
-      { $set: { email: placeholder, emailLower: placeholder } },
-    ).exec();
-    perModel.push({ model: 'user', strategy: 'anonymize', affected: 1, retained: 0 });
-    const ir = await IdentityModel.deleteMany({ userId: uid }).exec();
-    perModel.push({
-      model: 'identity',
-      strategy: 'hard_delete',
-      affected: ir.deletedCount ?? 0,
-      retained: 0,
-    });
-    const sr = await SessionModel.deleteMany({ userId: uid }).exec();
-    perModel.push({
-      model: 'session',
-      strategy: 'hard_delete',
-      affected: sr.deletedCount ?? 0,
-      retained: 0,
-    });
-    const prt = await PasswordResetTokenModel.deleteMany({ userId: uid }).exec();
-    perModel.push({
-      model: 'password_reset_token',
-      strategy: 'hard_delete',
-      affected: prt.deletedCount ?? 0,
-      retained: 0,
-    });
-    const evt = await EmailVerificationTokenModel.deleteMany({ userId: uid }).exec();
-    perModel.push({
-      model: 'email_verification_token',
-      strategy: 'hard_delete',
-      affected: evt.deletedCount ?? 0,
-      retained: 0,
-    });
 
-    // Consent records (Art. 7 evidence: purpose + ip/userAgent/note) are the subject's own PII and are
-    // keyed by the account `userId`. Hard-delete them — once the subject is erased there is no
-    // processing left to demonstrate a lawful basis for. They are tenant-SCOPED (tenantGuard), so this
-    // runs under the caller's tenant context and never crosses tenants (ADR-0007).
+    // (a) Tenant-scoped, always erased for THIS tenant (runs under the caller's tenant context).
+    // Consent (Art. 7 evidence) is the subject's own PII keyed by userId.
     const cons = await ConsentModel.deleteMany({ subjectId: uid }).exec();
     perModel.push({
       model: 'consent',
@@ -198,6 +218,71 @@ export async function eraseMemberSubject(input: EraseSubjectInput): Promise<Eras
       affected: cons.deletedCount ?? 0,
       retained: 0,
     });
+    // Guardian-side guardianship edges (the subject acting FOR others) in this tenant.
+    const gge = await GuardianshipModel.deleteMany({ guardianUserId: uid }).exec();
+    perModel.push({
+      model: 'guardianship',
+      strategy: 'hard_delete',
+      affected: gge.deletedCount ?? 0,
+      retained: 0,
+    });
+    // Household payer-USER linkage in this tenant (name retained for remaining members).
+    const hhu = await HouseholdModel.updateMany(
+      { payerUserId: uid },
+      { $set: { payerUserId: null } },
+    ).exec();
+    perModel.push({
+      model: 'household',
+      strategy: 'anonymize',
+      affected: hhu.modifiedCount ?? 0,
+      retained: 0,
+    });
+
+    // (b) Tenant-global shared identity. Destroying it locks the account out of EVERY tenant, so guard
+    // against the cross-training case (ADR-0004: one login, many per-tenant memberships).
+    const otherMemberships = await countOtherTenantMemberships(uid, tenantId);
+    if (otherMemberships === 0) {
+      // No other dojo relies on this login — lock it FIRST (delete credentials + sessions so a partial
+      // run can never leave a loginable account), then anonymize the email.
+      const ir = await IdentityModel.deleteMany({ userId: uid }).exec();
+      perModel.push({
+        model: 'identity',
+        strategy: 'hard_delete',
+        affected: ir.deletedCount ?? 0,
+        retained: 0,
+      });
+      const sr = await SessionModel.deleteMany({ userId: uid }).exec();
+      perModel.push({
+        model: 'session',
+        strategy: 'hard_delete',
+        affected: sr.deletedCount ?? 0,
+        retained: 0,
+      });
+      const prt = await PasswordResetTokenModel.deleteMany({ userId: uid }).exec();
+      perModel.push({
+        model: 'password_reset_token',
+        strategy: 'hard_delete',
+        affected: prt.deletedCount ?? 0,
+        retained: 0,
+      });
+      const evt = await EmailVerificationTokenModel.deleteMany({ userId: uid }).exec();
+      perModel.push({
+        model: 'email_verification_token',
+        strategy: 'hard_delete',
+        affected: evt.deletedCount ?? 0,
+        retained: 0,
+      });
+      const placeholder = `erased+${uid}@erased.invalid`;
+      await UserModel.updateOne(
+        { _id: uid },
+        { $set: { email: placeholder, emailLower: placeholder } },
+      ).exec();
+      perModel.push({ model: 'user', strategy: 'anonymize', affected: 1, retained: 0 });
+    } else {
+      // Cross-training student: another tenant is still the controller of this shared account, so leave
+      // the User/Identity/Session intact. This tenant's footprint + membership are already erased above.
+      perModel.push({ model: 'user', strategy: 'retain', affected: 0, retained: otherMemberships });
+    }
   }
 
   return {

@@ -7,6 +7,60 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ## [Unreleased]
 
+### Fixed / Security — whole-repo audit remediation
+
+A multi-agent audit (14 risk dimensions, adversarially verified) drove this fix sweep. Every confirmed
+DEFECT — security, GDPR-completeness, concurrency, billing-correctness, rank-engine, architecture, docs —
+is addressed; the remaining items are net-new Phase-1 features tracked separately.
+
+- **Security/authz:** members can no longer self-escalate staff-managed fields (`status`/`tags`/`notes`/
+  `householdId`) via `PATCH /members/:id` — self/guardian access is limited to the profile-safe subset.
+  `/invites` is rate-limited; a malformed `:id` returns 404 (not a leaky 500); `STRIPE_WEBHOOK_SECRET`
+  is required when the Stripe provider is selected.
+- **GDPR:** data-subject export + erasure now reach MessageLog, Guardianship and Household; a real ROPA
+  CI guard fails the build if any persisted model is unregistered/unclassified; erasure no longer
+  destroys a cross-training student's shared login, wraps blob deletes safely, and locks the account
+  before anonymizing; consent current-state ordering is deterministic. ADR-0034 records the shipped
+  member-anonymization mechanism (supersedes ADR-0007's).
+- **Concurrency:** booking capacity is race-safe via an atomic seat-claim CAS (no overfill); attendance
+  check-in is idempotent via a partial-unique index; RRULE materialization anchors COUNT/INTERVAL to the
+  schedule's immutable creation date (bounded series terminate; biweekly parity is stable).
+- **Billing:** the seller legal/VAT identity is snapshotted onto invoices at issue (issued invoices are
+  immutable); partial payments no longer close an invoice; deleting an in-use VAT rate is blocked; the
+  billing-sweep gains a covering index; the billing-profile upsert is duplicate-safe.
+- **Rank engine:** close/notYet bucketing uses the real blockers (anyOf-aware); the snapshot orders by
+  code point (locale-independent); dead `passedGradingEvent.sinceStepId` config removed; cross-track
+  prerequisites are rejected at config time; the purity guard walks the transitive dependency closure.
+- **Architecture:** the import-boundaries gate now actually enforces (was inert — `@obikai/*` resolved to
+  dist) with a `billing` element added; CORS is parsed through `@obikai/config`; `turbo typecheck`
+  caches `dist`.
+- **Docs:** SECURITY.md matches the code (scrypt, precise webhook wording); the ADR index is current
+  (0026–0034); the README package list is accurate; an AGPL §13 "source available" footer is now on all
+  three SPAs.
+
+### Added — Design system (`@obikai/ui`, ADR-0033)
+
+- **A shared design-system package.** The Claude Design handoff (tokens, the Zen Kaku Gothic New
+  display font (OFL), the brand mark, and 11 React component primitives — Button, TextField, Select,
+  Badge, StatCard, Avatar, BeltChip, CriteriaMeter, CriterionTag, ClassCard, InvoiceDocument) is now a
+  single source of truth in **`packages/ui`**, consumed as source by the three frontends. Components are
+  strict TypeScript, styled purely with the design tokens; it depends only on `react` (a framework-light
+  leaf in the boundaries graph). `<BrandMark>` / `<BrandLockup>` inline the obi-knot mark.
+- **The three frontends now wear the real visual language** (visual-only reskin; routing, data flow,
+  i18n, and all tests unchanged). Each app imports `@obikai/ui/styles.css` for the tokens, font, and
+  base element styling, then layers its own shell:
+  - **web-admin** — a brand-locked top-nav console (active-tab accent underline), token-based tables,
+    stat cards, grading/criteria, forms and auth; member rows gain an initials `Avatar` + lifecycle
+    `Badge`.
+  - **web-member** — re-cast as a **phone-first app**: a slim brand header, a scrollable main, and a
+    bottom tab bar (text-only tabs, ≥44px targets); booking/invoice status render as `Badge`s; tables
+    tighten under 700px.
+  - **web-platform** — inherits the foundation and swaps the accent to the brand **violet** to set the
+    operator console apart; the amber focus ring is unchanged.
+- **Dark-only, sentence case, no emoji, borders define cards, no gradients (except the functional belt
+  bands)** — the design invariants hold; paper invoices remain the one light surface
+  (`InvoiceDocument variant="paper"`). "Belt is a presentation type, not an assumption."
+
 ### Added — Parents & guardians (§4.10, ADR-0032)
 
 - **Guardianship: a parent can manage their children — including a parent who is not a member.** A new

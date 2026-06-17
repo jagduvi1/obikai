@@ -22,10 +22,14 @@ configure (your SMTP server, S3 provider, PSP), and self-host deployments you ha
 
 ## Hardening baseline (already in the foundation)
 
-- Secrets via env only; none in the repo. Webhook-driven payment state, never trusted from the
-  client; signature verification + idempotency keys.
+- Secrets via env only; none in the repo. Payment state is webhook-driven and never trusted from the
+  client: webhook signatures are verified at the ingestion boundary and events are deduplicated by
+  provider event id (ADR-0006).
 - Multi-tenant isolation enforced structurally (tenant context + query guard), not by
   convention. See [docs/decisions/0004-tenancy-auth-rbac.md](docs/decisions/0004-tenancy-auth-rbac.md).
-- Argon2id password hashing; short-lived access tokens + rotating refresh with reuse detection.
+- **scrypt** password hashing (memory-hard, N=32768; argon2id is the documented target — ADR-0004/0027);
+  short-lived access tokens + rotating refresh with reuse detection; a coarse per-IP rate limit on the
+  unauthenticated auth/invite endpoints. (Per-account lockout is intentionally NOT used — it would let
+  an attacker lock a victim out by failing logins; scrypt cost + the IP limiter throttle online guessing.)
 - Dependency + license + vulnerability scanning in CI; non-root, minimal container images.
 - GDPR primitives (consent, audit log, export, erasure) as first-class building blocks.

@@ -1,4 +1,5 @@
 import type { Booking, ClassOccurrence } from '@obikai/domain';
+import { Badge, type BadgeTone } from '@obikai/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,6 +20,14 @@ const CHECK_IN_GRACE_MS = 60 * 60 * 1000;
 /** A member's live (non-cancelled) booking for an occurrence, if any. */
 function liveBookingFor(bookings: Booking[], occurrenceId: string): Booking | undefined {
   return bookings.find((b) => b.occurrenceId === occurrenceId && b.status !== 'cancelled');
+}
+
+/** Map a booking status to a Badge tone (color + word, never color alone). */
+function bookingTone(status: string): BadgeTone {
+  if (status === 'waitlisted') return 'close';
+  if (status === 'attended') return 'ready';
+  if (status === 'cancelled') return 'cancelled';
+  return 'active'; // booked
 }
 
 /** True when now is inside the occurrence's check-in window (start − lead … end + grace). */
@@ -122,7 +131,15 @@ export function SchedulePage() {
                 <tr key={o.id}>
                   <td>{programName(o.programId)}</td>
                   <td>{formatWhen(o.startsAt)}</td>
-                  <td>{booking ? t(`schedule.bookingStatus.${booking.status}`) : '—'}</td>
+                  <td>
+                    {booking ? (
+                      <Badge tone={bookingTone(booking.status)}>
+                        {t(`schedule.bookingStatus.${booking.status}`)}
+                      </Badge>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="action-cell">
                     {canCheckIn && (
                       <button type="button" disabled={pending} onClick={() => checkIn.mutate(o.id)}>

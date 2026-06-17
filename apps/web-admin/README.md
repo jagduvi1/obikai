@@ -21,6 +21,14 @@ behind the same origin as the api, or set `VITE_API_URL`.
 - `test` — Vitest + Testing Library (jsdom)
 - `typecheck` — types only
 
+## Design
+
+Wears the Obikai design system (`@obikai/ui`, ADR-0033): `main.tsx` imports
+`@obikai/ui/styles.css` for the tokens, the Zen Kaku Gothic New display font, and
+base element styling; `src/styles.css` layers the admin shell (brand-locked
+top-nav with an active-tab accent underline, token-based tables/cards/forms).
+Author against the CSS custom properties — never hard-code hex.
+
 ## Conventions
 
 - Access token in memory; refresh via the api's httpOnly cookie (see `src/api/client.ts`).
