@@ -58,7 +58,6 @@ const leafSchema: z.ZodType<CriterionLeaf> = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('passedGradingEvent'),
     enforcement: enforcementSchema,
-    sinceStepId: idSchema().optional(),
   }),
   z.object({
     type: z.literal('manualInstructorSignOff'),
@@ -223,7 +222,17 @@ function structuralIssues(draft: ValidatedSystemDraft): ValidationIssue[] {
             path: `ladder.${step.id}.criteria`,
             messageKey: 'validation.criteria.unknownPrerequisite',
           });
-        } else if (pre.trackId === step.trackId && pre.order >= step.order) {
+        } else if (pre.trackId !== step.trackId) {
+          // The evaluator only satisfies a prerequisite WITHIN the student's current track (it compares
+          // order on the same track; a cross-track id never matches once the student has moved tracks).
+          // A cross-track prerequisite is therefore unsatisfiable — reject it at config time rather than
+          // mint an un-promotable dead-end step (audit rank-prereq).
+          issues.push({
+            code: 'BAD_PREREQ',
+            path: `ladder.${step.id}.criteria`,
+            messageKey: 'validation.criteria.crossTrackPrerequisite',
+          });
+        } else if (pre.order >= step.order) {
           issues.push({
             code: 'PREREQ_NOT_EARLIER',
             path: `ladder.${step.id}.criteria`,
