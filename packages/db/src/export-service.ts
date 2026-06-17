@@ -108,9 +108,7 @@ export async function buildExportBundle(
   // here rather than in the member-keyed registry loop. Tenant-scoped to the request tenant.
   const guardianOr: Record<string, unknown>[] = [{ guardianUserId: String(userId) }];
   if (memberId) guardianOr.push({ minorMemberId: String(memberId) });
-  const guardianEdges = await GuardianshipModel.find({ $or: guardianOr })
-    .lean()
-    .exec();
+  const guardianEdges = await GuardianshipModel.find({ $or: guardianOr }).lean().exec();
   if (guardianEdges.length > 0) {
     sections.push({
       model: 'guardianship',

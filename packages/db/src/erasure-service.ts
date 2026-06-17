@@ -81,7 +81,10 @@ const HARD_DELETE_MODELS: ReadonlyArray<readonly [string, DeletableModel]> = [
  * tenant-global identity, many per-tenant memberships) must NOT have their shared account/credentials
  * destroyed when a single dojo erases its membership — that would lock them out of the other dojos.
  */
-async function countOtherTenantMemberships(userId: string, currentTenantId: string): Promise<number> {
+async function countOtherTenantMemberships(
+  userId: string,
+  currentTenantId: string,
+): Promise<number> {
   return MembershipModel.collection.countDocuments({
     userId: String(userId),
     tenantId: { $ne: String(currentTenantId) },

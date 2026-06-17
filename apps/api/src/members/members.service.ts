@@ -145,7 +145,10 @@ export class MembersService {
       if (attempted.length > 0) {
         // Reject (don't silently drop) so the caller learns the field was refused; self-service should
         // use PATCH /me/profile (the narrow MemberProfileUpdateInput schema) instead.
-        throw new ForbiddenError(`update staff-managed field(s): ${attempted.join(', ')}`, 'member');
+        throw new ForbiddenError(
+          `update staff-managed field(s): ${attempted.join(', ')}`,
+          'member',
+        );
       }
     }
     const updated = await this.store.update(id, patch);

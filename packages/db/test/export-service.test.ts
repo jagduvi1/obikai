@@ -133,7 +133,12 @@ describe('buildExportBundle', () => {
     const user = await UserModel.create({ email: 'p@example.com', emailLower: 'p@example.com' });
     const userId = user._id.toString();
     const memberId = await runInTenantContext(ctx('t1'), async () => {
-      const m = await MemberModel.create({ firstName: 'Pat', lastName: 'P', status: 'active', userId });
+      const m = await MemberModel.create({
+        firstName: 'Pat',
+        lastName: 'P',
+        status: 'active',
+        userId,
+      });
       const id = m._id.toString();
       await MessageLogModel.create({
         broadcastId: 'b1',

@@ -90,7 +90,10 @@ describe('ROPA coverage (GDPR export/erasure completeness)', () => {
     expect(registered).toEqual([...ROPA_REGISTERED_MODELS].sort());
     for (const id of registered) {
       const mongooseName = ROPA_MODEL_TO_MONGOOSE[id];
-      expect(mongooseName, `ROPA model '${id}' has no Mongoose mapping in this guard`).toBeDefined();
+      expect(
+        mongooseName,
+        `ROPA model '${id}' has no Mongoose mapping in this guard`,
+      ).toBeDefined();
       expect(
         mongoose.models[mongooseName as string],
         `ROPA-mapped model '${mongooseName}' is not registered on mongoose`,

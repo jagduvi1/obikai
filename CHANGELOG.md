@@ -7,6 +7,37 @@ independently via [Changesets](https://github.com/changesets/changesets).
 
 ## [Unreleased]
 
+### Fixed / Security — whole-repo audit remediation
+
+A multi-agent audit (14 risk dimensions, adversarially verified) drove this fix sweep. Every confirmed
+DEFECT — security, GDPR-completeness, concurrency, billing-correctness, rank-engine, architecture, docs —
+is addressed; the remaining items are net-new Phase-1 features tracked separately.
+
+- **Security/authz:** members can no longer self-escalate staff-managed fields (`status`/`tags`/`notes`/
+  `householdId`) via `PATCH /members/:id` — self/guardian access is limited to the profile-safe subset.
+  `/invites` is rate-limited; a malformed `:id` returns 404 (not a leaky 500); `STRIPE_WEBHOOK_SECRET`
+  is required when the Stripe provider is selected.
+- **GDPR:** data-subject export + erasure now reach MessageLog, Guardianship and Household; a real ROPA
+  CI guard fails the build if any persisted model is unregistered/unclassified; erasure no longer
+  destroys a cross-training student's shared login, wraps blob deletes safely, and locks the account
+  before anonymizing; consent current-state ordering is deterministic. ADR-0034 records the shipped
+  member-anonymization mechanism (supersedes ADR-0007's).
+- **Concurrency:** booking capacity is race-safe via an atomic seat-claim CAS (no overfill); attendance
+  check-in is idempotent via a partial-unique index; RRULE materialization anchors COUNT/INTERVAL to the
+  schedule's immutable creation date (bounded series terminate; biweekly parity is stable).
+- **Billing:** the seller legal/VAT identity is snapshotted onto invoices at issue (issued invoices are
+  immutable); partial payments no longer close an invoice; deleting an in-use VAT rate is blocked; the
+  billing-sweep gains a covering index; the billing-profile upsert is duplicate-safe.
+- **Rank engine:** close/notYet bucketing uses the real blockers (anyOf-aware); the snapshot orders by
+  code point (locale-independent); dead `passedGradingEvent.sinceStepId` config removed; cross-track
+  prerequisites are rejected at config time; the purity guard walks the transitive dependency closure.
+- **Architecture:** the import-boundaries gate now actually enforces (was inert — `@obikai/*` resolved to
+  dist) with a `billing` element added; CORS is parsed through `@obikai/config`; `turbo typecheck`
+  caches `dist`.
+- **Docs:** SECURITY.md matches the code (scrypt, precise webhook wording); the ADR index is current
+  (0026–0034); the README package list is accurate; an AGPL §13 "source available" footer is now on all
+  three SPAs.
+
 ### Added — Design system (`@obikai/ui`, ADR-0033)
 
 - **A shared design-system package.** The Claude Design handoff (tokens, the Zen Kaku Gothic New

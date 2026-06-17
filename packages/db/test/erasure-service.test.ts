@@ -232,7 +232,13 @@ describe('eraseMemberSubject', () => {
     });
 
     await runInTenantContext(ctx('t1'), () =>
-      eraseMemberSubject({ tenantId: 't1', memberId, userId, storageDelete: async () => {}, now: 1 }),
+      eraseMemberSubject({
+        tenantId: 't1',
+        memberId,
+        userId,
+        storageDelete: async () => {},
+        now: 1,
+      }),
     );
 
     expect(await mongoose.connection.collection('messagelogs').countDocuments({})).toBe(0);
@@ -259,13 +265,21 @@ describe('eraseMemberSubject', () => {
     });
 
     const result = await runInTenantContext(ctx('t1'), () =>
-      eraseMemberSubject({ tenantId: 't1', memberId, userId, storageDelete: async () => {}, now: 1 }),
+      eraseMemberSubject({
+        tenantId: 't1',
+        memberId,
+        userId,
+        storageDelete: async () => {},
+        now: 1,
+      }),
     );
 
     // The t1 member is still anonymized and its footprint gone…
     const member = await mongoose.connection.collection('members').findOne({});
     expect(member?.firstName).toBe('[erased]');
-    expect(await mongoose.connection.collection('memberships').countDocuments({ tenantId: 't1' })).toBe(0);
+    expect(
+      await mongoose.connection.collection('memberships').countDocuments({ tenantId: 't1' }),
+    ).toBe(0);
     // …but the SHARED login survives so t2 isn't locked out: email intact, credentials + sessions kept.
     const account = await mongoose.connection.collection('users').findOne({});
     expect(account?.email).toBe('aiko@example.com');

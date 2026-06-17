@@ -431,10 +431,9 @@ export class BillingService {
       // covers it. A partial confirmation (the manual adapter's `paidAmount` override, or a PSP
       // partial capture) must NOT close the invoice and drop it from dunning — that would silently
       // under-collect (audit B-partial). Currency already matched above, so compare minor units.
-      const paidSoFar =
-        [...prior, attempt]
-          .filter((p) => p.status === 'succeeded')
-          .reduce((sum, p) => sum + p.amount.amountMinor, 0);
+      const paidSoFar = [...prior, attempt]
+        .filter((p) => p.status === 'succeeded')
+        .reduce((sum, p) => sum + p.amount.amountMinor, 0);
       if (paidSoFar >= invoice.total.amountMinor) {
         await this.stores.invoices.update(result.invoiceId, {
           status: 'paid',
