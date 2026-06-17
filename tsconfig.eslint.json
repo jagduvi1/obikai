@@ -1,0 +1,16 @@
+{
+  "//": "ESLint-only tsconfig. Maps every @obikai/* workspace import to its SOURCE entry so the",
+  "//2": "eslint-plugin-boundaries import resolver classifies cross-package targets (which otherwise",
+  "//3": "resolve to dist, outside boundaries/include, as 'unknown' → the layering rules never fire).",
+  "//4": "Not used for compilation; the apps/packages still build against dist via their own tsconfigs.",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@obikai/adapter-contracts": ["packages/adapter-contracts/src/index.ts"],
+      "@obikai/adapter-*": ["adapters/*/src/index.ts"],
+      "@obikai/*": ["packages/*/src/index.ts"]
+    }
+  },
+  "include": ["packages/*/src", "adapters/*/src", "apps/*/src"]
+}

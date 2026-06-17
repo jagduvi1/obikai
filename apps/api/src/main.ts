@@ -53,15 +53,11 @@ async function bootstrap(): Promise<void> {
   app.use(helmet());
 
   // CORS: the SPAs are a DIFFERENT origin in dev (localhost:5173 → :3000) and in any split deploy.
-  // Explicit allow-list (credentials:true forbids `*`); empty = same-origin only. Bootstrap-only env,
-  // read here like PORT. Comma-separated, e.g. CORS_ORIGINS="https://app.dojo.se,http://localhost:5173".
-  const corsOrigins = (process.env.CORS_ORIGINS ?? '')
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean);
-  if (corsOrigins.length > 0) {
-    app.enableCors({ origin: corsOrigins, credentials: true });
-    logger.log(`CORS enabled for ${corsOrigins.length} origin(s)`);
+  // Explicit allow-list (credentials:true forbids `*`); empty = same-origin only. Parsed + validated
+  // in @obikai/config (ADR-0009), not read raw from process.env here.
+  if (config.corsOrigins.length > 0) {
+    app.enableCors({ origin: [...config.corsOrigins], credentials: true });
+    logger.log(`CORS enabled for ${config.corsOrigins.length} origin(s)`);
   }
 
   // Coarse brute-force + scrypt-CPU-amplification guard on the UNAUTHENTICATED, scrypt-running,
