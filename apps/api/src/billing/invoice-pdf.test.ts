@@ -48,6 +48,7 @@ const invoice = {
   vatTotal: money(20000),
   total: money(100000),
   reverseCharge: false,
+  seller: null,
   sellerVatId: 'SE556677889901',
   buyerVatId: null,
   issuedAt: '2026-06-01T08:00:00.000Z',

@@ -4,10 +4,12 @@ import {
   type Enrollment,
   type Invoice,
   type InvoiceLine,
+  type InvoiceSeller,
   type Money,
   type PaymentAttempt,
   type PaymentAttemptStatus,
   type Plan,
+  type TenantBillingProfile,
   type VatRate,
   buildInvoiceLine,
   computeBillingPeriod,
@@ -101,7 +103,7 @@ export interface BillingInvoiceStore {
    */
   claimForIssueWithNumber(
     id: string,
-    opts: { issuedAt: string; dueAt: string; number: string },
+    opts: { issuedAt: string; dueAt: string; number: string; seller?: InvoiceSeller | null },
   ): Promise<Invoice | null>;
   /**
    * Atomically apply a dunning step ONLY if the invoice is still open at `fromStage`. Returns the
@@ -141,6 +143,10 @@ export interface BillingPaymentStore {
 export interface BillingCounterStore {
   allocateInvoiceNumber(tenantId: string, year: number): Promise<string>;
 }
+export interface BillingProfileStore {
+  /** The current tenant's seller billing/legal profile, or null if not configured yet. */
+  get(): Promise<TenantBillingProfile | null>;
+}
 
 export interface BillingStores {
   plans: BillingPlanStore;
@@ -149,6 +155,7 @@ export interface BillingStores {
   invoices: BillingInvoiceStore;
   payments: BillingPaymentStore;
   counters: BillingCounterStore;
+  billingProfiles: BillingProfileStore;
 }
 
 /** Outcome reported by the payment adapter (or a PSP webhook, ADR-0006). */
@@ -247,12 +254,31 @@ export class BillingService {
     const dueAt = addDays(issuedAt, DEFAULT_DUE_DAYS);
     const year = now.getUTCFullYear();
 
-    // Allocate first, then commit status+dates+number in one write (see method doc for crash-safety).
+    // Snapshot the seller's legal/VAT identity AT ISSUE TIME so editing the tenant billing profile
+    // later never rewrites this legally-retained invoice (ADR-0013/0018). Payment instructions/footer
+    // are NOT snapshotted — those render from the live profile (current instructions).
+    const profile = await this.stores.billingProfiles.get();
+    const seller: InvoiceSeller | null = profile
+      ? {
+          legalName: profile.legalName,
+          vatId: profile.vatId,
+          registrationNumber: profile.registrationNumber,
+          addressLine1: profile.addressLine1,
+          addressLine2: profile.addressLine2,
+          postalCode: profile.postalCode,
+          city: profile.city,
+          country: profile.country,
+          email: profile.email,
+        }
+      : null;
+
+    // Allocate first, then commit status+dates+number+seller in one write (see method doc for crash-safety).
     const number = await this.stores.counters.allocateInvoiceNumber(draft.tenantId, year);
     const issued = await this.stores.invoices.claimForIssueWithNumber(invoiceId, {
       issuedAt,
       dueAt,
       number,
+      seller,
     });
     if (issued) return issued;
 

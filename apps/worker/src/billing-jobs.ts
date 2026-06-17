@@ -1,6 +1,7 @@
 import { type AuthzActor, systemActor } from '@obikai/authz';
 import { BillingService } from '@obikai/billing';
 import {
+  BillingProfileRepository,
   EnrollmentRepository,
   InvoiceCounterRepository,
   InvoiceRepository,
@@ -149,6 +150,7 @@ export function makeBillingDeps(now: () => Date = () => new Date()): {
       invoices,
       payments: new PaymentAttemptRepository(),
       counters: new InvoiceCounterRepository(),
+      billingProfiles: new BillingProfileRepository(),
     },
     now,
   );

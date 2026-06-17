@@ -5,6 +5,7 @@ import type {
   EnrollmentStatus,
   Invoice,
   InvoiceLine,
+  InvoiceSeller,
   InvoiceStatus,
   Money,
   PaymentAttempt,
@@ -416,6 +417,17 @@ export interface InvoiceDoc extends TenantScoped {
   vatTotal: { amountMinor: number; currency: string };
   total: { amountMinor: number; currency: string };
   reverseCharge: boolean;
+  seller: {
+    legalName: string;
+    vatId: string | null;
+    registrationNumber: string | null;
+    addressLine1: string | null;
+    addressLine2: string | null;
+    postalCode: string | null;
+    city: string | null;
+    country: string | null;
+    email: string | null;
+  } | null;
   sellerVatId: string | null;
   buyerVatId: string | null;
   issuedAt: string | null;
@@ -442,6 +454,23 @@ const invoiceSchema = new Schema<InvoiceDoc>(
     vatTotal: { type: moneySchema, required: true },
     total: { type: moneySchema, required: true },
     reverseCharge: { type: Boolean, required: true, default: false },
+    seller: {
+      type: new Schema(
+        {
+          legalName: { type: String, required: true },
+          vatId: { type: String, default: null },
+          registrationNumber: { type: String, default: null },
+          addressLine1: { type: String, default: null },
+          addressLine2: { type: String, default: null },
+          postalCode: { type: String, default: null },
+          city: { type: String, default: null },
+          country: { type: String, default: null },
+          email: { type: String, default: null },
+        },
+        { _id: false },
+      ),
+      default: null,
+    },
     sellerVatId: { type: String, default: null },
     buyerVatId: { type: String, default: null },
     issuedAt: { type: String, default: null },
@@ -504,6 +533,19 @@ export function toInvoice(doc: InvoiceDoc): Invoice {
     vatTotal: toMoney(doc.vatTotal),
     total: toMoney(doc.total),
     reverseCharge: doc.reverseCharge,
+    seller: doc.seller
+      ? {
+          legalName: doc.seller.legalName,
+          vatId: doc.seller.vatId ?? null,
+          registrationNumber: doc.seller.registrationNumber ?? null,
+          addressLine1: doc.seller.addressLine1 ?? null,
+          addressLine2: doc.seller.addressLine2 ?? null,
+          postalCode: doc.seller.postalCode ?? null,
+          city: doc.seller.city ?? null,
+          country: doc.seller.country ?? null,
+          email: doc.seller.email ?? null,
+        }
+      : null,
     sellerVatId: doc.sellerVatId,
     buyerVatId: doc.buyerVatId,
     issuedAt: doc.issuedAt,
@@ -656,13 +698,23 @@ export class InvoiceRepository {
    */
   async claimForIssueWithNumber(
     id: string,
-    opts: { issuedAt: string; dueAt: string; number: string },
+    opts: { issuedAt: string; dueAt: string; number: string; seller?: InvoiceSeller | null },
   ): Promise<Invoice | null> {
     const doc = await this.model
       .findOneAndUpdate(
         { _id: String(id), status: 'draft' },
         {
-          $set: { status: 'open', issuedAt: opts.issuedAt, dueAt: opts.dueAt, number: opts.number },
+          $set: {
+            status: 'open',
+            issuedAt: opts.issuedAt,
+            dueAt: opts.dueAt,
+            number: opts.number,
+            // Snapshot the seller legal/VAT identity AT ISSUE so a later profile edit never rewrites a
+            // legally-retained invoice (ADR-0013/0018). sellerVatId kept in sync for back-compat readers.
+            ...(opts.seller !== undefined
+              ? { seller: opts.seller, sellerVatId: opts.seller?.vatId ?? null }
+              : {}),
+          },
         },
         { returnDocument: 'after' },
       )

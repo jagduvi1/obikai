@@ -4,10 +4,12 @@ import {
   type Enrollment,
   type Invoice,
   type InvoiceLine,
+  type InvoiceSeller,
   type Money,
   type PaymentAttempt,
   type PaymentAttemptStatus,
   type Plan,
+  type TenantBillingProfile,
   type VatRate,
   buildInvoiceLine,
   invoiceTotals,
@@ -20,11 +22,38 @@ import {
   type BillingInvoiceStore,
   type BillingPaymentStore,
   type BillingPlanStore,
+  type BillingProfileStore,
   BillingService,
   type BillingVatRateStore,
   ForbiddenError,
   NotFoundError,
 } from '../src/billing.service.js';
+
+/** Fake seller billing profile — drives the issue-time seller snapshot. */
+class FakeBillingProfileStore implements BillingProfileStore {
+  constructor(private readonly profile: TenantBillingProfile | null) {}
+  async get(): Promise<TenantBillingProfile | null> {
+    return this.profile;
+  }
+}
+
+const sellerProfile: TenantBillingProfile = {
+  id: 'bp1' as TenantBillingProfile['id'],
+  tenantId: 't1' as TenantBillingProfile['tenantId'],
+  legalName: 'Stockholm BJJ AB',
+  vatId: 'SE556677889901',
+  registrationNumber: '556677-8899',
+  addressLine1: 'Mataregatan 1',
+  addressLine2: null,
+  postalCode: '11122',
+  city: 'Stockholm',
+  country: 'SE',
+  email: 'billing@stockholmbjj.se',
+  paymentDetails: 'Bankgiro 123-4567',
+  footerNote: 'Thank you',
+  createdAt: '2026-06-06T00:00:00.000Z',
+  updatedAt: '2026-06-06T00:00:00.000Z',
+};
 
 /** In-memory fakes — unit-test RBAC + money composition + idempotency without Nest or Mongo. */
 class FakePlanStore implements BillingPlanStore {
@@ -111,6 +140,7 @@ class FakeInvoiceStore implements BillingInvoiceStore {
       vatTotal: input.vatTotal,
       total: input.total,
       reverseCharge: input.reverseCharge ?? false,
+      seller: null,
       sellerVatId: null,
       buyerVatId: null,
       issuedAt: null,
@@ -144,7 +174,7 @@ class FakeInvoiceStore implements BillingInvoiceStore {
   }
   async claimForIssueWithNumber(
     id: string,
-    opts: { issuedAt: string; dueAt: string; number: string },
+    opts: { issuedAt: string; dueAt: string; number: string; seller?: InvoiceSeller | null },
   ): Promise<Invoice | null> {
     const cur = this.byId.get(id);
     if (!cur || cur.status !== 'draft') return null; // atomic {status:'draft'} guard
@@ -160,6 +190,9 @@ class FakeInvoiceStore implements BillingInvoiceStore {
       issuedAt: opts.issuedAt,
       dueAt: opts.dueAt,
       number: opts.number,
+      ...(opts.seller !== undefined
+        ? { seller: opts.seller, sellerVatId: opts.seller?.vatId ?? null }
+        : {}),
     } as Invoice;
     this.byId.set(id, next);
     return next;
@@ -293,6 +326,7 @@ function makeService(over: { plans?: Plan[]; enrollments?: Enrollment[] } = {}):
       invoices,
       payments: new FakePaymentStore(),
       counters: new FakeCounterStore(),
+      billingProfiles: new FakeBillingProfileStore(sellerProfile),
     },
     CLOCK,
   );
@@ -309,6 +343,24 @@ describe('BillingService.issueInvoiceForEnrollment', () => {
     expect(issued.total).toEqual(expected.total);
     expect(issued.status).toBe('open');
     expect(issued.number).toBe('OBK-2026-000001');
+  });
+  it('snapshots the seller legal/VAT identity onto the invoice at issue (ADR-0013/0018)', async () => {
+    const { svc } = makeService();
+    const issued = await svc.issueInvoiceForEnrollment(owner, 'enr1');
+    // The issued invoice carries its OWN copy of the seller block — editing the live profile afterward
+    // cannot rewrite it.
+    expect(issued.seller).toEqual({
+      legalName: 'Stockholm BJJ AB',
+      vatId: 'SE556677889901',
+      registrationNumber: '556677-8899',
+      addressLine1: 'Mataregatan 1',
+      addressLine2: null,
+      postalCode: '11122',
+      city: 'Stockholm',
+      country: 'SE',
+      email: 'billing@stockholmbjj.se',
+    });
+    expect(issued.sellerVatId).toBe('SE556677889901'); // kept in sync for back-compat readers
   });
   it('denies a bare member', async () => {
     const { svc } = makeService();
