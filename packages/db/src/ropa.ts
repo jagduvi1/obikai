@@ -299,8 +299,10 @@ export function buildRopaRegistry(): RopaRegistry {
     lawfulBasis: 'legitimate_interests',
     role: 'controller',
     retention: WAIVER_RETENTION,
-    // Crypto-shred the encrypted document blob (G6) AND anonymize the denormalized PII columns; the
-    // legal FACT (member signed template vN at time T) is retained.
+    // Erasure anonymizes the denormalized PII columns AND deletes the live document blob; the legal
+    // FACT (member signed template vN at time T) is retained. True key-destruction crypto-shred of
+    // already-written BACKUPS is deferred until backups exist (ADR-0034); the 'crypto_shred' label
+    // tracks that target strategy.
     erasure: 'crypto_shred',
     findBySubject: byMember<WaiverSignature>(
       WaiverSignatureModel as never,

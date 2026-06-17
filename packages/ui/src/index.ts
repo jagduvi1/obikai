@@ -12,6 +12,9 @@
 export { BrandMark, BrandLockup } from './BrandMark';
 export type { BrandMarkProps, BrandLockupProps } from './BrandMark';
 
+export { SourceFooter } from './SourceFooter';
+export type { SourceFooterProps } from './SourceFooter';
+
 export { Button } from './Button';
 export type { ButtonProps, ButtonVariant, ButtonSize } from './Button';
 

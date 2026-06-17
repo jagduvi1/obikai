@@ -1,5 +1,14 @@
 # Obikai Launch-Readiness Assessment — 2026-06
 
+> **Update 2026-06-17 — audit remediation in progress.** A whole-repo adversarial audit drove a fix
+> sweep on branch `fix/audit-remediation`. Several items called out below have since been RESOLVED —
+> e.g. the member self-escalation authz hole, GDPR export/erasure completeness + a real ROPA CI guard,
+> booking-capacity & attendance concurrency races, RRULE COUNT/INTERVAL anchoring, partial-payment
+> reconciliation, the VAT-rate delete guard, the inert import-boundaries gate, the rank-engine
+> close/notYet + cross-track-prereq + dead-config fixes, and the purity-guard transitive closure. Treat
+> the per-item statuses below as of the assessment date; cross-check the remediation commits + CHANGELOG
+> before assuming an item is still open.
+
 Honest "how far are we / what's left to go live" map, produced by a multi-agent assessment (11
 read-only dimension assessors → synthesis) against `docs/scope.md` and the CLAUDE.md invariants. No
 time pressure assumed — this is a complete map of remaining work, not a green light.

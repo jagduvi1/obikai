@@ -38,9 +38,10 @@ fitness-class framing.
 A TypeScript monorepo (pnpm + Turborepo). See [docs/decisions/](docs/decisions/) for the ADRs.
 
 ```
-apps/        api (NestJS), worker (BullMQ), web-admin, web-member (PWA), mobile (later)
-packages/    domain, config, adapter-contracts, rank-engine (pure), db, i18n, ui, sdk, gdpr, test-utils
-adapters/    email-smtp, storage-{s3,fs}, payments-{manual,stub,stripe,…}, auth-{local,oidc}, ai-{none,ollama,…}, sms-{disabled,…}
+apps/        api (NestJS), worker (BullMQ), web-admin, web-member (PWA), web-platform
+packages/    domain, config, adapter-contracts, rank-engine (pure), authz, db, gdpr, i18n,
+             notifications, billing, api-client, ui, test-utils
+adapters/    email-smtp, storage-{s3,fs}, payments-{manual,stub}, auth-local, ai-none, sms-disabled, vat
 ```
 
 **The crown jewel:** [`packages/rank-engine`](packages/rank-engine) is a pure, deterministic,

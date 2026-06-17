@@ -1,4 +1,4 @@
-import { BrandLockup } from '@obikai/ui';
+import { BrandLockup, SourceFooter } from '@obikai/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
@@ -31,6 +31,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
       <main id="main" className="member-main" tabIndex={-1}>
         {children}
+        <SourceFooter style={{ marginTop: 'var(--space-5)' }} />
       </main>
       <nav aria-label={t('app.title')} className="member-tabs">
         <NavLink to="/progress">{t('nav.progress')}</NavLink>
