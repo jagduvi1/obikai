@@ -20,7 +20,7 @@
   "dependencies": {
     "@obikai/adapter-contracts": "workspace:*",
     "@obikai/domain": "workspace:*",
-    "nodemailer": "^8.0.10",
+    "nodemailer": "^9.0.1",
     "zod": "catalog:"
   },
   "devDependencies": {
