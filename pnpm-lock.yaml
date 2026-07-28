@@ -718,8 +718,8 @@ importers:
         specifier: workspace:*
         version: link:../gdpr
       mongoose:
-        specifier: ^9.6.3
-        version: 9.6.3
+        specifier: ^9.7.2
+        version: 9.7.2
     devDependencies:
       '@types/node':
         specifier: ^22.10.5
@@ -3180,8 +3180,8 @@ packages:
       socks:
         optional: true
 
-  mongoose@9.6.3:
-    resolution: {integrity: sha512-vI6dTTlQnfMCyyQ5TrvhG0bCRs4dq5e1uFNPtOOWsOhn0fSg8AoIHjfyyCYr8aybyvPs845dRHGxsC3w/fHcBA==}
+  mongoose@9.7.2:
+    resolution: {integrity: sha512-VxxS3tjOGRIvhBMd84RR7L1WbDdm08Qq6V88VMq6jP6aE1Q+NlbTZDBtye2NAyO48i5kBFxM2oxfX0CPKNwCMg==}
     engines: {node: '>=20.19.0'}
 
   mpath@0.9.0:
@@ -6227,7 +6227,7 @@ snapshots:
       bson: 7.2.0
       mongodb-connection-string-url: 7.0.1
 
-  mongoose@9.6.3:
+  mongoose@9.7.2:
     dependencies:
       kareem: 3.3.0
       mongodb: 7.2.0
